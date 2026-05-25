@@ -1,11 +1,13 @@
 
-        <div class="plate" id="plate-container" style="grid-template-columns: repeat({{ plate_columns }}, {{ vw }}vw);grid-template-rows: repeat({{ plate_rows }}, {{ vw }}vw);">
+        <div class="plate" id="plate-container" style="grid-template-rows: repeat({{ plate_rows }}, 1fr); 
+            aspect-ratio: {{ plate_columns }} / {{ plate_rows }};">
+        <!-- style="grid-template-columns: repeat({{ plate_columns }}, {{ vw }}vw);grid-template-rows: repeat({{ plate_rows }}, {{ vw }}vw);"> -->
             {% for sample in samples %}
-                <div class="well {{ sample['sample_type'] }}" draggable="true" id="{{ sample['sample_id'] }}" style="background-color: {{ sample['background_color'] }};">
+                <div class="well{% if sample['control_type'] %} {{ sample['control_type'] }}{% endif %}" draggable="true" {% if sample['sample_id'] %}id="{{ sample['sample_id'] }}"{% endif %}>
                   {% if creation %}
                     <p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}</p>
                   {% else %}
-                    <a class="data-link sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
+                    <a class="data-link proceduresampleassociation" id="{{ sample['name'] }}">{{ sample['sample_id']}}</a><br>
                   {% endif %}
                 </div>
             {% endfor %}

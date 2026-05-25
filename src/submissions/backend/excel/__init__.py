@@ -5,14 +5,13 @@ Contains pandas and openpyxl convenience functions for interacting with excel wo
 from .parsers import (
     DefaultParser, DefaultKEYVALUEParser, DefaultTABLEParser,
     ProcedureInfoParser, ProcedureSampleParser, ProcedureReagentParser, ProcedureEquipmentParser,
-    DefaultResultsInfoParser, DefaultResultsSampleParser, PCRSampleParser, PCRInfoParser,
+    DefaultResultsInfoParser, DefaultResultsSampleParser, DiomniPCRInfoParser, DiomniPCRSampleParser,
     ClientSubmissionSampleParser, ClientSubmissionInfoParser,
-    PCRInfoParser, PCRSampleParser
 )
 from .writers import (
     DefaultWriter, DefaultKEYVALUEWriter, DefaultTABLEWriter,
     ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter,
-    PCRInfoWriter, PCRSampleWriter,
+    DiomniPCRInfoWriter, DiomniPCRSampleWriter,
     ClientSubmissionInfoWriter, ClientSubmissionSampleWriter
 )
 from .reports import ReportArchetype, ReportMaker, TurnaroundMaker, ConcentrationMaker, ChartReportMaker

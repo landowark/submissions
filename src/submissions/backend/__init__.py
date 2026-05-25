@@ -5,7 +5,6 @@ from .db import (
     set_sqlite_pragma,
     LogMixin, ConfigItem,
     AuditLog,
-    # ControlType, Control,
     ClientLab, Contact,
     ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
     ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,
@@ -17,11 +16,10 @@ from .db import (
 from .excel import (
     DefaultParser, DefaultKEYVALUEParser, DefaultTABLEParser, ProcedureInfoParser, ProcedureSampleParser,
     ProcedureReagentParser, ProcedureEquipmentParser, DefaultResultsInfoParser, DefaultResultsSampleParser,
-    PCRSampleParser, PCRInfoParser, ClientSubmissionSampleParser, ClientSubmissionInfoParser, PCRInfoParser,
-    PCRSampleParser,
+    DiomniPCRSampleParser, DiomniPCRInfoParser, ClientSubmissionSampleParser, ClientSubmissionInfoParser, 
     DefaultWriter, DefaultKEYVALUEWriter, DefaultTABLEWriter,
     ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter,
-    PCRInfoWriter, PCRSampleWriter,
+    DiomniPCRInfoWriter, DiomniPCRSampleWriter,
     ClientSubmissionInfoWriter, ClientSubmissionSampleWriter,
     ReportArchetype, ReportMaker, TurnaroundMaker, ConcentrationMaker, ChartReportMaker
 )

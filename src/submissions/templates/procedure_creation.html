@@ -30,33 +30,63 @@
                     {% endfor %}
                   </select><br><br>
 
-                  {% if procedure['reagentrole'] %}
+                  {% if proceduretype['reagentrole'] %}
                     <br>
                     <h1><u>Reagents</u></h1>
                     <hr>
-                    {% for key, value in procedure['reagentrole'].items() %}
-                    <input type="checkbox" class="procedure_checkbox" checked id="{{ key }}_check" name="{{ key }}"><label for="{{ key }}">{{ key }}:</label><br>
-                    <select class="reagentrole dropdown" id="{{ key }}" name="{{ key }}"><br>
-                        {% for reagent in value %}
-                        <option value="{{ reagent.name }} {% if reagent.lot %}- {{ reagent.lot }} - {{ reagent.expiry.date() }}{% endif %}">{{ reagent.name }} {% if reagent.lot %}- {{ reagent.lot }} - {{ reagent.expiry.date() }}{% endif %}</option>
+                    {% for reagentrole in proceduretype['reagentrole'] %}
+                    <input type="checkbox" class="procedure_checkbox" checked id="{{ reagentrole['name'] }}_check" name="{{ reagentrole['name'] }}"><label for="{{ reagentrole['name'] }}">{{ reagentrole['name'] }}:</label><br>
+                    <select class="reagentrole dropdown" id="{{ reagentrole['name'] }}" name="{{ reagentrole['name'] }}"><br>
+                        {% for reagent in reagentrole['reagent'] %}
+                        {% for reagentlot in reagent['reagentlot'] %}
+                        {% if reagentlot['active'] %}
+                        <option value="{{ reagentlot['name'] }}">{{ reagentlot['name'] }}</option>
+                        {% endif %}
+                        {% endfor %}
                         {% endfor %}
                     </select>
-                    <div class="new_reagent" id="new_{{ key }}"></div>
+                    <div class="new_reagent" id="new_{{ reagentrole['name'] }}"></div>
                     <br>
                     {% endfor %}
                   {% endif %}
                 </form>
             </div>
             <div class="right">
-                {% if plate_map %}
+                {% if platemap %}
                 <h1>Plate map:</h1>
-                {{ plate_map }}
+                {{ platemap }}
                 {% endif %}
             </div>
         </div>
-        {% with equipmentroles=proceduretype['equipment'], child=True %}
+        <!-- {% with equipmentroles=proceduretype['equipmentrole'], child=True %}
             {% include 'support/equipment_usage.html' %}
-        {% endwith %}
+        {% endwith %} -->
+        <h1><u>Equipment</u></h1>
+        <br><hr><br>
+        {% for equipmentrole in proceduretype['equipmentrole'] %}
+            <div class="grid-container">
+                <div>
+                    <input type="checkbox" class="procedure_checkbox" checked id="{{ equipmentrole['name'] }}_check" name="{{ equipmentrole['name'] }}"><label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
+                    <select class="equipmentrole dropdown" id="{{ equipmentrole['name'] }}" name="{{ equipmentrole['name'] }}">
+                    </select>
+                </div>
+                <div>
+                    <label for="{{ equipmentrole['name'] }}_process">Process:</label><br>
+                    <select class="process dropdown" id="{{ equipmentrole['name'] }}_process" name="{{ equipmentrole['name'] }}_process">
+                    </select>
+                </div>
+                <div>
+                    <label for="{{ equipmentrole['name'] }}_tips">Tips:</label><br>
+                    <select multiple class="tips dropdown" id="{{ equipmentrole['name'] }}_tips" name="{{ equipmentrole['name'] }}_tips">
+                    </select>
+                </div>
+
+            </div>
+            <br>
+        {% endfor %}
+        {% for button in preprocessing_buttons %}
+            <button onclick="runPreprocessFunction(this)">{{ button }}</button>
+        {% endfor %}
 
         {% include 'support/context_menu.html' %}
         {% endblock %}
@@ -64,8 +94,11 @@
     </body>
 
     {% block script %}
+    <script>const equipment_json = {{ proceduretype['equipmentrole'] | sanitize }};</script>
+    
     <script>
         var rsl_plate_num = "{{ run['plate_number'] }}";
+        var procedure_name = "{{ procedure['name']['value'] }}"
         function rearrange_plate() {
             output = [];
             fullGrid = [...gridContainer.children];

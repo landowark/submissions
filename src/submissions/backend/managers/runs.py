@@ -11,15 +11,21 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultRunManager(DefaultManager):
 
-    def write(self) -> Workbook:
+    def write(self, workbook: Workbook | None = None) -> Workbook:
         from backend.managers import DefaultClientSubmissionManager, DefaultProcedureManager
         logger.info(f"Initializing write")
-        self.clientsubmission = DefaultClientSubmissionManager(parent=self.parent, input_object=self.pyd.clientsubmission, submissiontype=self.pyd.clientsubmission.submissiontype)
-        workbook = Workbook()
+        clientsubmission = self.pyd.sql_instance.clientsubmission
+        # Question: what the hell is this even for?
+        # Answer: It's to write all the client submission info apparently
+        self.clientsubmission = DefaultClientSubmissionManager(parent=self.parent, 
+                                                               input_object=clientsubmission, 
+                                                               submissiontype=clientsubmission.submissiontype.name)
+        if not workbook:
+            workbook = Workbook()
         workbook = self.clientsubmission.write(workbook=workbook)
         self.procedures = []
-        for procedure in self.pyd.procedure:
-            procedure = DefaultProcedureManager(proceduretype=procedure.proceduretype, parent=self.parent, input_object=procedure)
+        for procedure in self.pyd.sql_instance.procedure:
+            procedure = DefaultProcedureManager(parent=self.parent, input_object=procedure)
             workbook: Workbook = procedure.write(workbook=workbook)
             self.procedures.append(procedure)
         return workbook

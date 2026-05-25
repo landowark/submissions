@@ -3,7 +3,7 @@ Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
 import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd, \
-    itertools, openpyxl
+    itertools, openpyxl, string, html
 from copy import copy
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
@@ -12,22 +12,23 @@ from pprint import pformat
 from threading import Thread
 from inspect import getmembers, isfunction, stack
 from dateutil.easter import easter
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, Template
 from logging import handlers, Logger
 from pathlib import Path
-from sqlalchemy.orm import Session, InstrumentedAttribute
+from sqlalchemy.orm import Session, InstrumentedAttribute, scoped_session, sessionmaker
+from contextlib import contextmanager
 from sqlalchemy import create_engine, text, MetaData
-from pydantic import field_validator, BaseModel, Field
+from pydantic import ValidationError, field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
 from typing import Any, Tuple, Literal, List, Generator
-from sqlalchemy.orm.relationships import _RelationshipDeclared
 from __init__ import project_path
 from configparser import ConfigParser
-from tkinter import Tk  # NOTE: This is for choosing database path before app is created.
-from tkinter.filedialog import askdirectory
+from tkinter import Tk  # NOTE: This is for potentially choosing database path before app is created.
 from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 from pytz import timezone as tz
 from functools import wraps
+
+
 
 timezone = tz("America/Winnipeg")
 
@@ -47,7 +48,15 @@ main_aux_dir = Path.home().joinpath(f"{os_config_dir}/procedure")
 CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
-row_map = {1: "A", 2: "B", 3: "C", 4: "D", 5: "E", 6: "F", 7: "G", 8: "H"}
+# 1. Generate single letters: ['A', 'B', ..., 'Z']
+single = list(string.ascii_uppercase)
+
+# 2. Generate double letters: ['AA', 'AB', ..., 'ZZ']
+double = [''.join(p) for p in itertools.product(string.ascii_uppercase, repeat=2)]
+
+# 3. Combine and enumerate starting from index 1
+row_map = dict(enumerate(single + double, start=1))
+# 4. Reverse lookup. 
 row_keys = {v: k for k, v in row_map.items()}
 
 # NOTE: Sets background for uneditable comboboxes and date edits.
@@ -87,62 +96,6 @@ def get_unique_values_in_df_column(df: pd.DataFrame, column_name: str) -> list:
         list: sorted list of unique values
     """
     return sorted(df[column_name].unique())
-
-
-def check_key_or_attr(key: str, interest: dict | object, check_none: bool = False) -> bool:
-    """
-    Checks if key exists in dict or object has attribute.
-
-    Args:
-        key (str): key or attribute name
-        interest (dict | object): Dictionary or object to be checked.
-        check_none (bool, optional): Return false if value exists, but is None. Defaults to False.
-
-    Returns:
-        bool: True if exists, else False
-    """
-    match interest:
-        case dict():
-            if key in interest.keys():
-                if check_none:
-                    match interest[key]:
-                        case dict():
-                            if 'value' in interest[key].keys():
-                                try:
-                                    check = interest[key]['value'] is None
-                                except KeyError:
-                                    check = True
-                                if check:
-                                    return False
-                                else:
-                                    return True
-                            else:
-                                try:
-                                    check = interest[key] is None
-                                except KeyError:
-                                    check = True
-                                if check:
-                                    return False
-                                else:
-                                    return True
-                        case _:
-                            if interest[key] is None:
-                                return False
-                            else:
-                                return True
-                else:
-                    return True
-            return False
-        case object():
-            if hasattr(interest, key):
-                if check_none:
-                    if interest.__getattribute__(key) is None:
-                        return False
-                    else:
-                        return True
-                else:
-                    return True
-            return False
 
 
 def check_not_nan(cell_contents) -> bool:
@@ -196,39 +149,6 @@ def convert_nans_to_nones(input_str: str) -> str | None:
     return None
 
 
-def is_missing(value: Any) -> Tuple[Any, bool]:
-    """
-    Checks if a parsed value is missing.
-
-    Args:
-        value (Any): Incoming value
-
-    Returns:
-        Tuple[Any, bool]: Value, True if nan, else False
-    """
-    if check_not_nan(value):
-        return value, False
-    else:
-        return convert_nans_to_nones(value), True
-
-
-def check_regex_match(pattern: str, check: str) -> bool:
-    """
-    Determines if a pattern matches a str
-
-    Args:
-        pattern (str): regex pattern string
-        check (str): string to be checked
-
-    Returns:
-        bool: match found?
-    """
-    try:
-        return bool(re.match(fr"{pattern}", check))
-    except TypeError:
-        return False
-
-
 def get_first_blank_df_row(df: pd.DataFrame) -> int:
     """
     For some reason I need a whole function for this.
@@ -275,6 +195,15 @@ def check_if_app() -> bool:
     else:
         return False
 
+
+def clean_string(text):
+    """
+    Strips out whitespace and all non-alphanumeric symbols.
+    """
+    if not isinstance(text, str):
+        return text
+    # Replaces any non-letter and non-number character with an empty string
+    return re.sub(r'[^a-zA-Z0-9]', '', text)
 
 # Logging formatters
 
@@ -348,6 +277,7 @@ class CustomLogger(Logger):
     def __init__(self, name: str = "procedure", level=logging.DEBUG):
         super().__init__(name, level)
         self.extra_info = None
+        self.propagate = False
         ch = logging.StreamHandler(stream=sys.stdout)
         ch.name = "Stream"
         ch.setLevel(self.level)
@@ -379,53 +309,6 @@ class CustomLogger(Logger):
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
 
-def setup_logger(verbosity: int = 3):
-    """
-    Set logger levels using settings.
-
-    Args:
-        verbosity (int, optional): Level of verbosity desired 3 is highest. Defaults to 3.
-
-    Returns:
-        logger: logger object
-    """
-
-    def handle_exception(exc_type, exc_value, exc_traceback):
-        if issubclass(exc_type, KeyboardInterrupt):
-            sys.__excepthook__(exc_type, exc_value, exc_traceback)
-            return
-        logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-
-    logger = logging.getLogger("procedure")
-    logger.setLevel(logging.DEBUG)
-    # NOTE: create file handler which logs even debug messages
-    try:
-        Path(LOGDIR).mkdir(parents=True)
-    except FileExistsError:
-        logger.warning(f"Logging directory {LOGDIR} already exists.")
-    # NOTE: logging to file turned off due to repeated permission errors
-    # NOTE: create console handler with a higher log level
-    # NOTE: create custom logger with STERR -> log
-    ch = logging.StreamHandler(stream=sys.stdout)
-    # NOTE: set logging level based on verbosity
-    match verbosity:
-        case 3:
-            ch.setLevel(logging.DEBUG)
-        case 2:
-            ch.setLevel(logging.INFO)
-        case 1:
-            ch.setLevel(logging.WARNING)
-    ch.name = "Stream"
-    # NOTE: create formatter and add it to the handlers
-    formatter = CustomFormatter()
-    ch.setFormatter(formatter)
-    # NOTE: add the handlers to the logger
-    logger.addHandler(ch)
-    # NOTE: Output exception and traceback to logger
-    sys.excepthook = handle_exception
-    return logger
-
-
 def jinja_template_loading() -> Environment:
     """
     Returns jinja2 template environment.
@@ -433,19 +316,30 @@ def jinja_template_loading() -> Environment:
     Returns:
         Environment: jinja2 environment object
     """
+    # NOTE: allows retrieval of an object's Python type directly within a template
+    # Usage: The type of this variable is: {{ my_variable | get_type }}
+    def get_type(obj_):
+        return type(obj_).__name__
+    def get_value(obj_):
+        return obj_.get('value') if isinstance(obj_, dict) else obj_
     # NOTE: determine if pyinstaller launcher is being used
     if check_if_app():
         loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
     else:
-        loader_path = Path(__file__).parents[1].joinpath('templates').absolute()  # .__str__()
+        loader_path = Path(__file__).parents[1].joinpath('templates').absolute()
     # NOTE: jinja template loading
     loader = FileSystemLoader(loader_path)
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
+    env.filters['get_type'] = get_type
+    env.filters['extract_value'] = get_value
+    env.filters['sanitize'] = sanitize_object_for_json
+    env.filters['handle_key'] = handle_keys
+    env.filters['handle_results'] = handle_results
     return env
 
 
-def render_details_template(template_name: str, css_in: List[str] | str = [], js_in: List[str] | str = [],
+def render_details_template(template: str | Template, css_in: List[str] | str = [], js_in: List[str] | str = [],
                             **kwargs) -> str:
     if isinstance(css_in, str):
         css_in = [css_in]
@@ -457,7 +351,9 @@ def render_details_template(template_name: str, css_in: List[str] | str = [], js
         js_in = [js_in]
     js_in = ["details"] + js_in
     js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
-    template = env.get_template(f"{template_name}.html")
+    if isinstance(template, str):
+        template = f"{template}.html"
+    template = env.get_template(template)
     css_out = []
     for css in css_in:
         with open(css, "r") as f:
@@ -488,17 +384,26 @@ def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
     return row, column
 
 
-# Copy a sheet with style, format, layout, ect. from one Excel file to another Excel file
-# Please add the ..path\\+\\file..  and  ..sheet_name.. according to your desire.
-
-
-
 def copy_xl_sheet(source_sheet, target_sheet):
-    copy_cells(source_sheet, target_sheet)  # copy all the cel values and styles
+    """
+    Copy a sheet's values with style, format, layout, etc. from one Excel sheet to another
+
+    Args:
+        source_sheet (Worksheet): Input sheet
+        target_sheet (Worksheet): Output sheet
+    """
+    copy_cells(source_sheet, target_sheet)  # copy all the cell values and styles
     copy_sheet_attributes(source_sheet, target_sheet)
 
 
 def copy_sheet_attributes(source_sheet, target_sheet):
+    """
+    Copy a sheet's style, format, layout, etc. from one Excel sheet to another
+
+    Args:
+        source_sheet (Worksheet): Input sheet
+        target_sheet (Worksheet): Output sheet
+    """
     if isinstance(source_sheet, openpyxl.worksheet._read_only.ReadOnlyWorksheet):
         return
     target_sheet.sheet_format = copy(source_sheet.sheet_format)
@@ -513,13 +418,13 @@ def copy_sheet_attributes(source_sheet, target_sheet):
         target_sheet.row_dimensions[rn] = copy(source_sheet.row_dimensions[rn])
 
     if source_sheet.sheet_format.defaultColWidth is None:
-        print('Unable to copy default column wide')
+        logger.error('Unable to copy default column wide')
     else:
         target_sheet.sheet_format.defaultColWidth = copy(source_sheet.sheet_format.defaultColWidth)
 
     # NOTE: set specific column width and hidden property
     # NOTE: we cannot copy the entire column_dimensions attribute so we copy selected attributes
-    for key, value in source_sheet.column_dimensions.items():
+    for key, _ in source_sheet.column_dimensions.items():
         target_sheet.column_dimensions[key].min = copy(source_sheet.column_dimensions[
                                                            key].min)  # Excel actually groups multiple columns under 1 key. Use the min max attribute to also group the columns in the targetSheet
         target_sheet.column_dimensions[key].max = copy(source_sheet.column_dimensions[
@@ -530,6 +435,13 @@ def copy_sheet_attributes(source_sheet, target_sheet):
 
 
 def copy_cells(source_sheet, target_sheet):
+    """
+    Copy a sheet's values from one Excel sheet to another
+
+    Args:
+        source_sheet (Worksheet): Input sheet
+        target_sheet (Worksheet): Output sheet
+    """
     for r, row in enumerate(source_sheet.iter_rows()):
         for c, cell in enumerate(row):
             source_cell = cell
@@ -551,18 +463,81 @@ def copy_cells(source_sheet, target_sheet):
                 target_cell.comment = copy(source_cell.comment)
 
 
-def list_str_comparator(input_str: str, listy: List[str], mode: Literal["starts_with", "contains"]) -> bool:
+def list_str_comparator(target_str: str, list_: List[str], mode: Literal["starts_with", "contains"] = "starts_with") -> bool:
+    """
+    If target string starts with/contains any string in a list, return true.
+
+    Args: 
+        target_str (str): String to be tested against list.
+        list_ (str): List of the tests to be run.
+        mode (Literal["starts_with", "contains"]): comparisons to be run. Defaults to "starts_with".
+
+    Returns:
+        bool: whether target string starts with/contains any string in the list.
+    
+    """
     match mode:
         case "starts_with":
-            if any([input_str.startswith(item) for item in listy]):
+            if any([target_str.startswith(item) for item in list_]):
                 return True
             else:
                 return False
-        case "contains":
-            if any([item in input_str for item in listy]):
+        case _:
+            if any([item in target_str for item in list_]):
                 return True
             else:
                 return False
+
+
+def find_paths_to_value(target_key, data: dict) -> Generator[Tuple[dict, list], None, None]:
+        
+    """Iterates through a nested dictionary.
+    
+    Once a match is found, the function locks into that top-level key
+    and yields the entire dictionary container that holds the target_key,
+    along with the path leading to that container.
+    """
+    for top_key, top_value in data.items():
+        # Inner helper to perform standard recursive search
+        def _search(current_data, current_path):
+            if isinstance(current_data, dict):
+                for k, v in current_data.items():
+                    # If target is found, yield the current parent dictionary
+                    if k == target_key:
+                        yield current_data, current_path
+                    
+                    next_path = current_path + [k]
+                    yield from _search(v, next_path)
+
+        # Initialize the generator for the current top-level branch
+        branch_generator = _search(top_value, [top_key])
+        
+        try:
+            # Check if the branch contains at least one match
+            first_match = next(branch_generator)
+            yield first_match
+            # Yield all remaining containers matching the target in this branch
+            yield from branch_generator
+            # Stop searching any other top-level keys
+            break 
+        except StopIteration:
+            # No match in this branch, move to the next top-level key
+            continue
+
+
+def convert_strings(data):
+    if isinstance(data, dict):
+        return {k: convert_strings(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_strings(item) for item in data]
+    elif isinstance(data, str):
+        try:
+            if "." in data:
+                return float(data)
+            return int(data)
+        except ValueError:
+            return data
+    return data
 
 
 def sort_dict_by_list(dictionary: dict, order_list: list) -> dict:
@@ -589,45 +564,29 @@ def setup_lookup(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
+        from backend.validators import SourcedField
         sanitized_kwargs = {}
         for k, v in locals()['kwargs'].items():
-            if isinstance(v, dict):
-                try:
-                    sanitized_kwargs[k] = v['value']
-                except KeyError:
+            match v:
+                case dict():
+            # if isinstance(v, dict):
+                    if not v:
+                        continue
+                    try:
+                        sanitized_kwargs[k] = v['value']
+                    except KeyError:
+                        raise ValueError(f"Could not sanitize dictionary {v} in query. Make sure you parse it first.")
+                case SourcedField():
+                    try: 
+                        sanitized_kwargs[k] = v.value
+                    except AttributeError:
+                        raise AttributeError(f"Could not sanitize SourcedField {v} in query. Make sure you parse it first.")
 
-                    raise ValueError(f"Could not sanitize dictionary {v} in query. Make sure you parse it first.")
-            elif v is not None:
-                sanitized_kwargs[k] = v
+            # elif v is not None:
+                case _:
+                    sanitized_kwargs[k] = v
         return func(*args, **sanitized_kwargs)
     return wrapper
-
-
-def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bool]:
-    if manager is None:
-        return None, False
-    if object_name in manager.aliases:
-        return manager, True
-    relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
-                     if isinstance(getattr(manager.__class__, item), InstrumentedAttribute)]
-    relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
-    for relationship in relationships:
-        if relationship.key == object_name and "association" not in relationship.key:
-            try:
-                rel_obj = getattr(manager, relationship.key)
-                if rel_obj is not None:
-                    return rel_obj, False
-            except AttributeError:
-                pass
-        if "association" in relationship.key:
-            try:
-                rel_obj = next((getattr(item, object_name) for item in getattr(manager, relationship.key)
-                                if getattr(item, object_name) is not None), None)
-                if rel_obj is not None:
-                    return rel_obj, False
-            except AttributeError:
-                pass
-    return None, None
 
 
 def get_application_from_parent(widget):
@@ -691,7 +650,7 @@ class Alert(BaseModel, arbitrary_types_allowed=True):
         return value
 
     def __repr__(self) -> str:
-        return f"Result({self.owner})"
+        return f"Alert({self.owner})"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -711,7 +670,7 @@ class Report(BaseModel):
     def __str__(self):
         return f"<Report(result_count:{len(self.results)})>"
 
-    def add_result(self, result: Result | Report | None):
+    def add_result(self, result: Alert | Report | None):
         """
         Takes a result object or all results in another report and adds them to this one.
 
@@ -730,79 +689,7 @@ class Report(BaseModel):
                     logger.info(f"Adding {res} from {result} to results.")
                     self.results.append(res)
             case _:
-                logger.error(f"Unknown variable type: {type(result)} for <Result> entry into <Report>")
-
-
-def rreplace(s: str, old: str, new: str) -> str:
-    """
-    Removes rightmost occurrence of a substring
-
-    Args:
-        s (str): input string
-        old (str): original substring
-        new (str): new substring
-
-    Returns:
-        str: updated string
-    """
-    return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
-
-
-def list_sort_dict(input_dict: dict, sort_list: list) -> dict:
-    sort_list = reversed(sort_list)
-    for item in sort_list:
-        try:
-            input_dict = {item: input_dict.pop(item), **input_dict}
-        except KeyError:
-            continue
-    return input_dict
-
-
-def remove_key_from_list_of_dicts(input_list: list, key: str) -> list:
-    """
-    Removes a key from all dictionaries in a list of dictionaries
-
-    Args:
-        input_list (list): Input list of dicts
-        key (str): Name of key to remove.
-
-    Returns:
-        list: List of updated dictionaries
-    """
-    for item in input_list:
-        try:
-            del item[key]
-        except KeyError:
-            continue
-    return input_list
-
-
-def yaml_regex_creator(loader, node):
-    # Note: Add to import from json, NOT export yaml in app.
-    nodes = loader.construct_sequence(node)
-    name = nodes[0].replace(" ", "_")
-    abbr = nodes[1]
-    # return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
-    return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)?\\d?([^_0123456789\\sA-QS-Z]|$)?R?\\d?)?)"
-
-
-def super_splitter(ins_str: str, substring: str, idx: int) -> str:
-    """
-    Splits string on substring at index
-
-    Args:
-        ins_str (str): input string
-        substring (str): substring to split on
-        idx (int): the occurrence of the substring to return
-
-    Returns:
-
-    """
-    try:
-        return ins_str.split(substring)[idx]
-    except IndexError:
-        logger.error(f"Index of split {idx} not found.")
-        return ins_str
+                logger.error(f"Unknown variable type: {type(result)} for <Alert> entry into <Report>")
 
 
 def is_developer() -> bool:
@@ -910,7 +797,7 @@ def report_result(func):
         except AttributeError:
             logger.error("No results available")
             results = []
-        for iii, result in enumerate(results):
+        for result in results:
             try:
                 dlg = result.report()
                 if "testing" in args:
@@ -945,7 +832,7 @@ def is_list_etc(object):
             return False
         case _:
             try:
-                check = iter(object)
+                check = bool(iter(object))
             except TypeError:
                 check = False
             return check
@@ -1006,27 +893,6 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
     return sorted(holidays)
 
 
-def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -> bool:
-    """
-    Determines if a dictionary is in a list of dictionaries (possible ordering issue with just using dict in list)
-
-    Args:
-        listo (List[dict): List of dictionaries to compare to.
-        dicto (dict): Dictionary to compare.
-
-    Returns:
-        bool: True if dicto is equal to any dictionary in the list.
-    """
-    if isinstance(dicto, list) and isinstance(listo, list):
-        return listo == dicto
-    elif isinstance(dicto, dict) and isinstance(listo, dict):
-        return listo == dicto
-    elif isinstance(dicto, dict) and isinstance(listo, list):
-        return any([dicto == d for d in listo])
-    else:
-        raise TypeError(f"Unsupported variable: {type(listo)}")
-
-
 def flatten_list(input_list: list) -> list:
     """
     Takes nested lists and returns a single flat list.
@@ -1040,80 +906,157 @@ def flatten_list(input_list: list) -> list:
     return list(itertools.chain.from_iterable(input_list))
 
 
-def sanitize_object_for_json(input_dict: dict) -> dict | str:
-    """
-    Takes an object and makes sure its components can be converted to JSON
+def handle_keys(key:str) -> str:
+    key = key.replace("type", " type").strip()
+    key = key.replace("role", " role").strip()
+    key = key.replace("version", " version").strip()
+    key = key.replace("lot", " lot").strip()
+    key = key.replace("lab", " lab").strip()
+    key = key.replace("_", " ")
+    key = key.title()
+    key = key.replace(" Id", " ID")
+    key = key.replace("Ww", "WW")
+    key = key.replace(" Id", " ID")
+    key = key.replace("Rsl", "RSL")
+    key = " ".join(key.split())
+    return key
 
-    Args:
-        input_dict (dict): Dictionary of interest
 
-    Returns:
-        dict:
-    """
-    if not isinstance(input_dict, dict):
-        match input_dict:
-            case int() | float() | bool():
-                pass
-            case _:
-                try:
-                    input_dict = json.dumps(input_dict)
-                except TypeError:
-                    match input_dict:
-                        case str():
-                            pass
-                        case _:
-                            input_dict = str(input_dict)
-        return input_dict.strip('\"')
-    output = {}
-    for key, value in input_dict.items():
-        match value:
-            case list():
-                value = [sanitize_object_for_json(object) for object in value]
-            case dict():
-                value = sanitize_object_for_json(value)
-            case _:
-                try:
-                    value = json.dumps(value)
-                except TypeError:
-                    match value:
-                        case str():
-                            pass
-                        case _:
-                            value = str(value)
-        if isinstance(value, str):
-            value = value.strip('\"')
-        output[key] = value
+def handle_results(input_value:dict|str) -> str:
+    if isinstance(input_value, str):
+        output = f"{html.escape(input_value)}"
+    else:
+        output = f"<pre>{html.escape(json.dumps(input_value, indent=4))}</pre>"
+    output = re.sub(r'[{}]|&quot;|,', '', output)
     return output
+    
+
+def sanitize_object_for_json(input_obj):
+
+    from backend.db.models import BaseClass
+    match input_obj:
+        case datetime() | date():
+            return input_obj.isoformat()
+        case list():
+            return [sanitize_object_for_json(item) for item in input_obj]
+        case dict():
+            return {k: sanitize_object_for_json(v) for k, v in input_obj.items()}
+        case _ if issubclass(input_obj.__class__, BaseClass):
+            return sanitize_object_for_json(input_obj.name)
+        case _:
+            return input_obj
 
 
-def create_plate_grid(rows: int, columns: int) -> dict:
+def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["pop", "return", "index"] = "pop") -> dict | Tuple[int, dict]:
     """
-    Makes an x by y array to represent a plate.
+    Removes and returns the first dictionary in the list where
+    the specified key's value matches the value_to_match.
 
     Args:
-        rows (int): Number of rows.
-        columns (int): Number of columns
+        list_of_dicts: The list of dictionaries to search.
+        key: The dictionary key to check the value against.
+        value_to_match: The value to match for the given key.
 
     Returns:
-        dict: cell number : (row, column)
+        The popped dictionary, or None if no match is found.
     """
-    # NOTE: columns/rows
-    # matrix = np.array([[0 for yyy in range(1, columns + 1)] for xxx in range(1, rows + 1)])
-    # NOTE: rows/columns
-    matrix = np.array([[0 for xxx in range(1, rows + 1)] for yyy in range(1, columns + 1)])
-    return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
+    from backend.validators.pydant import PydBaseClass
+    from backend.db.models import BaseClass
+    for index, d in enumerate(list_of_dicts):
+        match d:
+            case dict():
+                d_value = d.get(key)
+            case _ if issubclass(d.__class__, PydBaseClass):
+                d_value = getattr(d, key)
+            case _ if issubclass(d.__class__, BaseClass):
+                d_value = getattr(d, key)
+            case _ if hasattr(d, "__dict__") or hasattr(d, key): # <--- Set for test purposes
+                d_value = getattr(d, key)
+            case str() | int() | float() | bool():
+                d_value = d
+            case _:
+                raise ValueError(f"Unmatched value {type(d)}")
+        if d_value == value_to_match:
+            if mode == "pop":
+                # Pop and return the dictionary at the found index
+                return list_of_dicts.pop(index)
+            elif mode == "return":
+                return d
+            elif mode == "index":
+                return index, d
+    # Return None if no matching dictionary is found
+    raise StopIteration(f"Could not find {key} value")
+
+
+def get_well_index(cell_id:str, grid_height:int=8, grid_width:int=12, direction:Literal['col', 'row'] = 'col'):
+    """
+    Finds the 1-based index of a cell.
+    direction='col': Top-to-bottom, then left-to-right (A1, B1, C1...)
+    direction='row': Left-to-right, then top-to-bottom (A1, A2, A3...)
+    """
+    match = re.match(r"([A-Z]+)([0-9]+)", cell_id, re.I)
+    if not match:
+        raise ValueError("Invalid cell ID format.")
+    
+    row_str, col_str = match.groups()
+    
+    # Convert Row Letter to 0-based index
+    row_idx = 0
+    for char in row_str.upper():
+        row_idx = row_idx * 26 + (ord(char) - ord('A') + 1)
+    row_idx -= 1 
+    
+    # Convert Column to 0-based index
+    col_idx = int(col_str) - 1
+    
+    # Validation
+    if row_idx >= grid_height or col_idx >= grid_width:
+        raise IndexError(f"Cell {cell_id} is outside the {grid_height}x{grid_width} grid.")
+
+    if direction.lower() == 'col':
+        # Vertical: (Columns passed * rows per column) + current row
+        return (col_idx * grid_height) + (row_idx + 1)
+    else:
+        # Horizontal: (Rows passed * columns per row) + current column
+        return (row_idx * grid_width) + (col_idx + 1)
 
 
 class classproperty(property):
     """
     Allows for properties on classes as well as objects.
     """
-    def __get__(self, owner_self, owner_cls):
-        return self.fget(owner_cls)
+    def __init__(self, f):
+        self.f = f
+    def __get__(self, obj, cls=None):
+        if cls is None:
+            cls = type(obj)
+        return self.f(cls)
 
 
 # NOTE: Monkey patching... hooray!
 builtins.classproperty = classproperty
+
+class DotDict(dict):
+    """A helper to allow dot notation on dictionaries while supporting standard dict syntax."""
+    
+    def __getattr__(self, name: str) -> Any:
+        try:
+            value = self[name]
+            # Recursively wrap nested dicts so they also support dot notation
+            return DotDict(value) if isinstance(value, dict) else value
+        except KeyError:
+            raise AttributeError(f"No attribute named '{name}'")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Allows setting values via dot notation: d.key = value
+        self[name] = value
+
+    def __delattr__(self, name: str) -> None:
+        # Allows deleting values via dot notation: del d.key
+        try:
+            del self[name]
+        except KeyError:
+            raise AttributeError(f"No attribute named '{name}'")
 
 
 class Settings(BaseSettings, extra="allow"):
@@ -1124,27 +1067,32 @@ class Settings(BaseSettings, extra="allow"):
         FileNotFoundError: Error if database not found.
 
     """
-    database_schema: str | None = None
-    directory_path: Path | None = None
-    database_user: str | None = None
-    database_password: str | None = None
-    database_name: str | None = None
-    database_path: Path | str | None = None
-    backup_path: Path | str | None = None
-    submission_types: dict | None = None
-    database_session: Session | None = None
+    database: DotDict = Field(default_factory=DotDict)
+    
+    directories: DotDict = Field(default_factory=DotDict)
+    # directory_path: Path | None = None
+    # backup_path: Path | str | None = None
     package: Any | None = None
     logging_enabled: bool = Field(default=False)
+    
+
+    def __getattr__(self, name: str) -> Any:
+        # Use the public model_extra API
+        extra = self.model_extra
+        if extra and name in extra:
+            value = extra[name]
+            # Wrap dictionaries so something like user_data.email works
+            return DotDict(value) if isinstance(value, dict) else value
+        
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     @classproperty
     def main_aux_dir(cls):
         if platform.system() == "Windows":
             os_config_dir = "AppData/local"
-            # logger.info(f"Got platform Windows, config_dir: {os_config_dir}")
         else:
             os_config_dir = ".config"
-            # logger.info(f"Got platform {platform.system()}, config_dir: {os_config_dir}")
-        return Path.home().joinpath(f"{os_config_dir}/procedure")
+        return Path.home().joinpath(f"{os_config_dir}/submissions_tng")
 
     @classproperty
     def configdir(cls):
@@ -1155,19 +1103,18 @@ class Settings(BaseSettings, extra="allow"):
         return cls.main_aux_dir.joinpath("logs")
 
     def __new__(cls, *args, **kwargs):
-        if "settings_path" in kwargs.keys():
-            settings_path = kwargs['settings_path']
-            if isinstance(settings_path, str):
+        
+        settings_path = kwargs.get("settings_path", None)
+        if isinstance(settings_path, str):
                 settings_path = Path(settings_path)
-        else:
-            settings_path = None
+
         if settings_path is None:
             # NOTE: Check user .config/procedure directory
             if cls.configdir.joinpath("config.yml").exists():
                 settings_path = cls.configdir.joinpath("config.yml")
             # NOTE: Check user .procedure directory
-            elif Path.home().joinpath(".procedure", "config.yml").exists():
-                settings_path = Path.home().joinpath(".procedure", "config.yml")
+            elif Path.home().joinpath(".submissions_tng", "config.yml").exists():
+                settings_path = Path.home().joinpath(".submissions_tng", "config.yml")
             # NOTE: finally look in the local config
             else:
                 if check_if_app():
@@ -1186,7 +1133,7 @@ class Settings(BaseSettings, extra="allow"):
         # NOTE: how to load default settings into this?
         print(f"Loading settings from {settings_path}")
         cls.model_config = SettingsConfigDict(yaml_file=settings_path, yaml_file_encoding='utf-8', extra="allow")
-        return super().__new__(cls)
+        return super().__new__(cls, **kwargs)
 
     @classmethod
     def settings_customise_sources(
@@ -1204,146 +1151,59 @@ class Settings(BaseSettings, extra="allow"):
             dotenv_settings,
             file_secret_settings,
         )
-
-    @field_validator('database_schema', mode="before")
+    
+    @field_validator("directories", mode="before")
     @classmethod
-    def set_schema(cls, value):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='schema')
-        if value is None:
-            value = "sqlite"
-        return value
-
-    @field_validator('backup_path', mode="before")
-    @classmethod
-    def set_backup_path(cls, value, values):
-        match value:
-            case str():
-                value = Path(value)
-            case None:
-                value = values.data['directory_path'].joinpath("Database backups")
-        if not value.exists():
-            try:
-                value.mkdir(parents=True)
-            except OSError:
-                value = Path(askdirectory(title="Directory for backups."))
-        return value
-
-    @field_validator('directory_path', mode="before")
-    @classmethod
-    def ensure_directory_exists(cls, value, values):
-        if value is None:
-            match values.data['database_schema']:
-                case "sqlite":
-                    if check_if_app():
-                        alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-                    else:
-                        alembic_path = project_path.joinpath("alembic.ini")
-                    value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').parent
-                case _:
-                    Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
-                    value = Path(askdirectory(
-                        title="Select directory for DB storage"))  # show an "Open" dialog box and return the path to the selected file
-        if isinstance(value, str):
-            value = Path(value)
-        try:
-            check = value.exists()
-        except AttributeError:
-            check = False
-        if not check:
-            value.mkdir(exist_ok=True)
-        return value
-
-    @field_validator('database_path', mode="before")
-    @classmethod
-    def ensure_database_exists(cls, value, values):
-        match values.data['database_schema']:
-            case "sqlite":
-                if value is None:
-                    value = values.data['directory_path']
-                if isinstance(value, str):
-                    value = Path(value)
-            case _:
-                if value is None:
-                    if check_if_app():
-                        alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-                    else:
-                        alembic_path = project_path.joinpath("alembic.ini")
-                    value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').parent
-        return value
-
-    @field_validator('database_name', mode='before')
-    @classmethod
-    def get_database_name(cls, value):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').stem
-        return value
-
-    @field_validator("database_user", mode='before')
-    @classmethod
-    def get_user(cls, value):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='user')
-        return value
-
-    @field_validator("database_password", mode='before')
-    @classmethod
-    def get_pass(cls, value):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='pass')
-        return value
-
-    @field_validator('database_session', mode="before")
-    @classmethod
-    def create_database_session(cls, value, values):
-        if value is not None:
-            return value
+    def enforce_directory_settings(cls, value):
+        if isinstance(value, dict):
+            directories = DotDict(value)
+        elif isinstance(value, DotDict):
+            directories = value
         else:
-            match values.data['database_schema']:
-                case "sqlite":
-                    value = f"/{values.data['database_path']}"
-                    db_name = f"{values.data['database_name']}.db"
-                    template = jinja_template_loading().from_string(
-                        "{{ values['database_schema'] }}://{{ value }}/{{ db_name }}")
-                case "mssql+pyodbc":
-                    value = values.data['database_path']
-                    db_name = values.data['database_name']
-                    template = jinja_template_loading().from_string(
-                        "{{ values['database_schema'] }}://{{ value }}/{{ db_name }}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Trusted_Connection=yes"
-                    )
-                case _:
-                    tmp = jinja_template_loading().from_string(
-                        "{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}@{{ values['database_path'] }}")
-                    value = tmp.render(values=values.data)
-                    db_name = values.data['database_name']
-            database_path = template.render(values=values.data, value=value, db_name=db_name)
-            print(f"Using {database_path} for database path")
-            engine = create_engine(database_path)
-            session = Session(engine)
-            return session
+            raise ValidationError(f"Unsupported database model: {value}")
+        return directories
 
+    @field_validator("database", mode="before")
+    @classmethod
+    def enforce_database_settings(cls, value):
+        if isinstance(value, dict):
+            database = DotDict(value)
+        elif isinstance(value, DotDict):
+            database = value
+        else:
+            raise ValidationError(f"Unsupported database model: {value}")
+        match database.schema:
+            case "sqlite":
+                value = f"/{database.path}"
+                db_name = f"{database.name}.db"
+                template = jinja_template_loading().from_string(
+                    "{{ database.schema }}://{{ value }}/{{ db_name }}")
+            case "mssql+pyodbc":
+                value = database.path
+                db_name = database.name
+                template = jinja_template_loading().from_string(
+                    "{{ database.schema }}://{{ value }}/{{ db_name }}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Trusted_Connection=yes"
+                )
+            case _:
+                tmp = jinja_template_loading().from_string(
+                    "{% if database.user %}{{ database.user }}{% if database.password %}:{{ database.password }}{% endif %}{% endif %}@{{ database.path }}")
+                value = tmp.render(values=values.data)
+                db_name = database.name
+        database_path = template.render(database=database, value=value, db_name=db_name)
+        print(f"Using {database_path} for database path")
+        engine = create_engine(database_path)
+        database.engine = engine
+        database.session = scoped_session(sessionmaker(bind=engine))
+        return database
+        
+    
     @field_validator('package', mode="before")
     @classmethod
     def import_package(cls, value):
         import __init__ as package
         if value is None:
             return package
+        return value
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1355,17 +1215,53 @@ class Settings(BaseSettings, extra="allow"):
         self.set_scripts()
         self.save()
 
+    @contextmanager
+    def db_session(self):
+        session = self.database.session()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            self.database.session.remove()
+
+    def close_database(self):
+        """Close the active database session and dispose the engine."""
+        engine = self.database.engine
+        if engine is None and self.database.session is not None:
+            try:
+                engine = self.database.session.get_bind()
+            except Exception:
+                engine = None
+        if self.database.session is not None:
+            try:
+                self.database.session.close()
+            except Exception as e:
+                logger.error(f"Error closing database session: {e}")
+            finally:
+                self.database.session = None
+        if engine is not None:
+            try:
+                engine.dispose()
+            except Exception as e:
+                logger.error(f"Error disposing database engine: {e}")
+            finally:
+                self.database.engine = None
+
     def set_from_db(self):
         if 'pytest' in sys.modules:
             output = dict(power_users=['lwark', 'styson', 'ruwang'],
+                          super_users=['lwark'],
                           startup_scripts=dict(hello=None),
                           teardown_scripts=dict(goodbye=None)
                           )
         else:
-            session = self.database_session
+            session = self.database.session
             metadata = MetaData()
             try:
-                metadata.reflect(bind=session.get_bind())
+                metadata.reflect(bind=self.database.engine)
             except AttributeError as e:
                 print(f"Error getting tables: {e}")
                 return
@@ -1387,6 +1283,7 @@ class Settings(BaseSettings, extra="allow"):
         """
         Imports all functions from "scripts" folder, adding them to ctx scripts
         """
+        
         if check_if_app():
             p = Path(sys._MEIPASS).joinpath("files", "scripts")
         else:
@@ -1396,7 +1293,11 @@ class Settings(BaseSettings, extra="allow"):
         # NOTE: Get all .py files that don't have __ in them.
         modules = p.glob("[!__]*.py")
         for module in modules:
-            mod = importlib.import_module(module.stem)
+            try:
+                mod = importlib.import_module(module.stem)
+            except ImportError as e:
+                logger.error(f"Error loading module: {e}")
+                continue
             for function in getmembers(mod, isfunction):
                 name = function[0]
                 func = function[1]
@@ -1404,14 +1305,25 @@ class Settings(BaseSettings, extra="allow"):
                 # NOTE: scripts must be registered using {name: Null} in the database
                 try:
                     if name in self.startup_scripts.keys():
-                        self.startup_scripts[name] = func
-                except AttributeError:
+                        self.model_extra['startup_scripts'][name] = func
+                except AttributeError as e:
+                    print(f"Couldn't set startup function due to {e}")
                     pass
                 try:
                     if name in self.teardown_scripts.keys():
-                        self.teardown_scripts[name] = func
-                except AttributeError:
+                        self.model_extra['teardown_scripts'][name] = func
+                except AttributeError as e:
+                    print(f"Couldn't set teardown function due to {e}")
                     pass
+        # NOTE: because Pydantic's model_extra is designed to be read-only by default during the serialization process. When you mutate the contents of model_extra 
+        # (or a DotDict inside it), you are changing the values inside the dictionary, but you aren't changing the reference that Pydantic's internal state tracker is watching.
+        # Since you didn't explicitly define d in the model, Pydantic doesn't "know" it needs to re-scan that object for changes when you call model_dump()
+        # Update the values in the internal storage directly
+        # if self.model_extra:
+        #     if 'startup_scripts' in self.model_extra:
+        #         self.model_extra['startup_scripts'] = self.startup_scripts
+        #     if 'teardown_scripts' in self.model_extra:
+        #         self.model_extra['teardown_scripts'] = self.teardown_scripts
 
     @timer
     def run_startup(self):
@@ -1444,6 +1356,9 @@ class Settings(BaseSettings, extra="allow"):
                     logger.error(f"Couldn't run teardown script: {script}")
         except AttributeError:
             pass
+        finally:
+            self.close_database()
+            
 
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:
@@ -1492,7 +1407,7 @@ class Settings(BaseSettings, extra="allow"):
                 logger.warning(f"Logging directory {self.configdir} already exists.")
             dicto = {}
             for k, v in self.__dict__.items():
-                if k in ['package', 'database_session', 'proceduretype']:
+                if k in ['package']:
                     continue
                 match v:
                     case Path():

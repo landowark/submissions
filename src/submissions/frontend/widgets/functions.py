@@ -7,6 +7,7 @@ from PyQt6.QtCore import QMarginsF
 from PyQt6.QtGui import QPageLayout, QPageSize
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QMainWindow, QFileDialog
+from tools import get_application_from_parent
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -27,9 +28,12 @@ def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Pat
     except FileNotFoundError:
         home_dir = Path.home().resolve().__str__()
     except AttributeError:
-        if obj:
-            home_dir = obj.app.last_dir.resolve().__str__()
-        else:
+        try:
+            if obj:
+                home_dir = obj.app.last_dir.resolve().__str__()
+            else:
+                home_dir = Path.home().resolve().__str__()
+        except AttributeError:
             home_dir = Path.home().resolve().__str__()
     if file_extension is None:
         fname = Path(QFileDialog.getExistingDirectory(obj, "Open Folder", home_dir))
@@ -41,7 +45,8 @@ def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Pat
         if fname.__str__() == ".":
             logger.warning(f"No file selected, cancelling.")
             return
-    obj.last_dir = fname.parent
+    if obj:
+        obj.last_dir = fname.parent
     logger.info(f"File selected: {fname}")
     return fname
 
@@ -58,14 +63,18 @@ def select_save_file(obj: QMainWindow, default_name: str, extension: str) -> Pat
     Returns:
         Path: Path of file to be opened
     """
+    app = get_application_from_parent(obj)
     try:
-        home_dir = obj.last_dir.joinpath(default_name).resolve().__str__()
+        home_dir = app.last_dir.joinpath(default_name).resolve().__str__()
     except FileNotFoundError:
         home_dir = Path.home().joinpath(default_name).resolve().__str__()
-    except AttributeError:
-        home_dir = obj.app.last_dir.joinpath(default_name).resolve().__str__()
+    except AttributeError as e:
+        logger.warning(f"Could not get last directory from {app.last_dir}: {e}")
+        p = Path(app.last_dir) if app and app.last_dir else Path.home()
+        home_dir = p.joinpath(default_name).resolve().__str__()
     fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{extension}(*.{extension})")[0])
-    obj.last_dir = fname.parent
+    if app:
+        app.last_dir = fname.parent
     return fname
 
 

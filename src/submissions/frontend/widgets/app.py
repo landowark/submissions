@@ -1,22 +1,22 @@
 """
 Constructs main application.
 """
-import getpass, logging, webbrowser, sys
+import logging, webbrowser, sys
 from pprint import pformat
-from PyQt6.QtCore import qInstallMessageHandler
+from PyQt6.QtCore import QEvent, QTimer, qInstallMessageHandler
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QHBoxLayout, QScrollArea, QMainWindow,
-    QToolBar
+    QToolBar, QApplication
 )
 from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-# from backend.db.models import ReagentLot
+from backend.validators.pydant import PydAbstract, PydConcrete
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
-    under_development
+    under_development, ctx
 )
 from .date_type_picker import DateTypePicker
 from .functions import select_save_file
@@ -26,8 +26,10 @@ from .submission_table import SubmissionsTree, ClientSubmissionRunModel
 from .submission_widget import SubmissionFormContainer
 from .summary import Summary
 from .turnaround import TurnaroundTime
-from .concentrations import Concentrations
+from .concentration_viewer import ConcentrationViewer
 from .omni_search import SearchBox
+from .kraken_viewer import KrakenViewer
+from .pcr_viewer import PCRViewer
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -38,11 +40,11 @@ class App(QMainWindow):
         super().__init__()
         qInstallMessageHandler(lambda x, y, z: None)
         self.ctx = ctx
-        self.last_dir = ctx.directory_path
+        self.last_dir = ctx.directories.main
         self.report = Report()
         # NOTE: indicate version and connected database in title bar
         try:
-            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_path}/{ctx.database_name}"
+            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database.path}/{ctx.database.name}"
         except (AttributeError, KeyError):
             self.title = f"Submissions App"
         # NOTE: set initial app position and size
@@ -63,6 +65,34 @@ class App(QMainWindow):
         self._connectActions()
         self.show()
         self.statusBar().showMessage('Ready', 5000)
+        # 1. Define the timeout in milliseconds (e.g., 5 minutes)
+        self.timeout_limit = 5 * 60 * 1000 
+        
+        # 2. Setup the idle timer
+        self.idle_timer = QTimer(self)
+        self.idle_timer.setInterval(self.timeout_limit)
+        self.idle_timer.setSingleShot(True)  # Only fire once per cycle
+        self.idle_timer.timeout.connect(self.handle_timeout)
+        self.idle_timer.start()
+
+        # 3. Monitor global events by installing a filter on the app instance
+        QApplication.instance().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        # Define events that count as "activity"
+        activity_events = {QEvent.Type.MouseMove, QEvent.Type.MouseButtonPress, 
+                           QEvent.Type.KeyPress, QEvent.Type.Wheel}
+        if event.type() in activity_events:
+            self.reset_timer()
+        return super().eventFilter(obj, event)
+
+    def reset_timer(self):
+        # Restarting the timer resets the countdown
+        self.idle_timer.start()
+
+    def handle_timeout(self):
+        sys.exit(ctx.run_teardown()) # Standard way to exit a PyQt6 application
+
 
     def _createMenuBar(self):
         """
@@ -70,10 +100,10 @@ class App(QMainWindow):
         """
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
-        editMenu = menuBar.addMenu("&Edit")
         # NOTE: Creating menus using a title
         methodsMenu = menuBar.addMenu("&Search")
-        maintenanceMenu = menuBar.addMenu("&Monthly")
+        manageabstractsMenu = menuBar.addMenu("&Manage Abstracts")
+        managedconcreteMenu = menuBar.addMenu("&Manage Concrete")
         helpMenu = menuBar.addMenu("&Help")
         helpMenu.addAction(self.helpAction)
         helpMenu.addAction(self.docsAction)
@@ -81,15 +111,13 @@ class App(QMainWindow):
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.archiveSubmissionsAction)
         methodsMenu.addAction(self.searchSample)
-        maintenanceMenu.addAction(self.joinExtractionAction)
-        maintenanceMenu.addAction(self.joinPCRAction)
-        editMenu.addAction(self.editReagentAction)
-        editMenu.addAction(self.manageOrgsAction)
-        if getpass.getuser() == "lwark":
-            editMenu.addAction(self.manageKitsAction)
-        if not is_power_user():
-            editMenu.setEnabled(False)
-
+        for action in self.abstractActions:
+            manageabstractsMenu.addAction(action)
+            if not is_power_user():
+                action.setEnabled(False)
+        for action in self.concreateActions:
+            managedconcreteMenu.addAction(action)
+            
     def _createToolBar(self):
         """
         adds items to toolbar
@@ -111,27 +139,29 @@ class App(QMainWindow):
         self.searchSample = QAction("Search Sample", self)
         self.githubAction = QAction("Github", self)
         self.archiveSubmissionsAction = QAction("Submissions to Excel", self)
-        self.editReagentAction = QAction("Edit Reagent", self)
-        self.manageOrgsAction = QAction("Manage Clients", self)
-        self.manageKitsAction = QAction("Manage Kits", self)
+        self.abstractActions = [QAction(f"Manage {subcls.__name__.replace("Pyd", "")}", self) for subcls in PydAbstract.get_managables()]
+        self.concreateActions = [QAction(f"Manage {subcls.__name__.replace("Pyd", "")}", self) for subcls in PydConcrete.get_managables()]
+                
 
     def _connectActions(self):
         """
         connect menu and tool bar item to functions
         """
         self.importAction.triggered.connect(lambda fname: self.table_widget.formwidget.import_submission_function(fname=fname))
-        self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
-        # self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
-        # self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
         self.searchSample.triggered.connect(self.runSampleSearch)
         self.githubAction.triggered.connect(self.openGithub)
         self.archiveSubmissionsAction.triggered.connect(self.submissions_to_excel)
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
-        self.editReagentAction.triggered.connect(self.edit_reagent)
-        self.manageOrgsAction.triggered.connect(self.manage_orgs)
-        # self.manageKitsAction.triggered.connect(self.manage_kits)
+        for action in self.abstractActions:
+            class_ = next((subcls for subcls in PydAbstract.get_managables() if f"Manage {subcls.__name__.replace('Pyd', '')}" == action.text()), None)
+            if class_:
+                action.triggered.connect(lambda checked, parent=self, obj_type=class_: obj_type.manage(parent=parent))
+        for action in self.concreateActions:
+            class_ = next((subcls for subcls in PydConcrete.get_managables() if f"Manage {subcls.__name__.replace('Pyd', '')}" == action.text()), None)
+            if class_:
+                action.triggered.connect(lambda checked, parent=self, obj_type=class_: obj_type.manage(parent=parent))
 
     def showAbout(self):
         """
@@ -195,15 +225,6 @@ class App(QMainWindow):
             new_org = dlg.parse_form()
             new_org.save()
 
-    # def manage_kits(self, *args, **kwargs):
-    #     from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
-    #     dlg = ManagerWindowPyd(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
-    #     if dlg.exec():
-    #         output = dlg.parse_form()
-    #         sql = output.to_sql()
-    #         assert isinstance(sql, KitType)
-    #         sql.save()
-
     @under_development
     def submissions_to_excel(self, *args, **kwargs):
         from backend.db.models import Run
@@ -263,11 +284,11 @@ class AddSubForm(QWidget):
         self.tab1.layout.addWidget(self.interior)
         self.tab1.layout.addWidget(self.sheetwidget)
         self.tab2.layout = QVBoxLayout(self)
-        self.irida_viewer = None
+        self.irida_viewer = KrakenViewer(self)
         self.tab2.layout.addWidget(self.irida_viewer)
         self.tab2.setLayout(self.tab2.layout)
         self.tab3.layout = QVBoxLayout(self)
-        self.pcr_viewer = None
+        self.pcr_viewer = PCRViewer(self)
         self.tab3.layout.addWidget(self.pcr_viewer)
         self.tab3.setLayout(self.tab3.layout)
         summary_report = Summary(self)
@@ -278,7 +299,7 @@ class AddSubForm(QWidget):
         self.tab5.layout = QVBoxLayout(self)
         self.tab5.layout.addWidget(turnaround)
         self.tab5.setLayout(self.tab5.layout)
-        concentration = Concentrations(self)
+        concentration = ConcentrationViewer(self)
         self.tab6.layout = QVBoxLayout(self)
         self.tab6.layout.addWidget(concentration)
         self.tab6.setLayout(self.tab6.layout)

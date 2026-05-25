@@ -87,7 +87,7 @@ def lookup_sample(ctx: Settings, session: Session, submitter_id: str):
 
 def check_folders_against_database(ctx: Settings, session: Session, mode: str, ):
     db_samples = get_all_control_sample_names_if_mode_not_empty(ctx=ctx, session=session, mode=mode)
-    project_dir = Path(ctx.directory_path).joinpath("submissions_parser_output",
+    project_dir = Path(ctx.directories.main).joinpath("submissions_parser_output",
                                                     "Robotics Support Laboratory Extraction Controls")
     db_samples = [project_dir.joinpath(sample).__str__() for sample in db_samples]
     # logger.debug(db_samples)
@@ -213,7 +213,7 @@ def import_irida2(ctx: Settings):
     # Note: Does not seem to work.
     from backend.db import IridaControl, ControlType
     # new_session = Session(ctx.database_session.get_bind())
-    new_session = ctx.database_session
+    new_session = ctx.database.session
     folders = check_folders_against_database(ctx=ctx, session=new_session, mode="kraken")
     for folder in folders:
         # logger.debug(folder)

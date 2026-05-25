@@ -4,19 +4,28 @@
     <head>
         {% block head %}
         {{ super() }}
-        <title>Sample Details for {{ sample['submitter_id'] }}</title>
+        <title>Sample Details for {{ sample['sample_id'] }}</title>
         {% endblock %}
     </head>
     <body>
         {% block body %}
-        <h2><u>Sample Details for {{ sample['submitter_id'] }}</u></h2>
+        <h2><u>Sample Details for {{ sample['name'] }}</u></h2>
         {{ super() }}
         <p>{% for key, value in sample.items() if key not in sample['excluded'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}: </b>{% if key == "sample_type" %}{{ value | replace("control", " control") | title }} {% else %}{{ value }}{% endif %}<br>
         {% endfor %}</p>
         {% if sample['submissions'] %}<h2>Submissions:</h2>
             {% for submission in sample['submissions'] %}
             <p><b><a class="data-link" id="{{ submission['plate_name'] }}">{{ submission['plate_name'] }}:</a></b> {{ submission['well'] }}</p>
+            {% endfor %}
+        {% endif %}
+        {% if sample['results'] %}<h2>Results:</h2>
+            {% for result in sample['results'] %}
+            <p>{% for key, value in result['result'].items() %}
+                {% if key not in sample.keys() and key not in sample['excluded'] %}
+                    &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {{ value | handle_results }}<br>
+                {% endif %}
+            {% endfor %}</p>
             {% endfor %}
         {% endif %}
         {% endblock %}

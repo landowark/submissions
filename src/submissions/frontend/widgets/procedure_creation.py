@@ -2,104 +2,92 @@
 Main module to construct the procedure form
 """
 from __future__ import annotations
-import sys, logging, re, datetime
+import sys, logging, datetime
 from pprint import pformat
-from PyQt6.QtCore import pyqtSlot, Qt
-from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
+from PyQt6.QtCore import pyqtSlot, QVariant
 from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
-    from backend.validators import PydProcedure, PydEquipment
-from tools import get_application_from_parent, render_details_template, sanitize_object_for_json
+    from backend.validators import PydProcedure
+from . import DefaultWebDialog
+from tools import render_details_template, find_first_matching_dict
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class ProcedureCreation(QDialog):
+class ProcedureCreation(DefaultWebDialog):
 
     def __init__(self, parent, procedure: PydProcedure, edit: bool = False):
+        from backend.validators.pydant import PydProcedureType
         super().__init__(parent)
         self.edit = edit
         self.run = procedure.run
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
-        self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
-
-        self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
-        self.procedure.update_samples(sample_list=[dict(sample_id=sample.sample_id, index=iii) for iii, sample in
-                                                   enumerate(self.procedure.sample, start=1)])
-        self.app = get_application_from_parent(parent)
-        self.webview = QWebEngineView(parent=self)
-        self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-        self.webview.setMinimumSize(1200, 800)
-        # self.webview.setMaximumWidth(1200)
-        # NOTE: Decide if exporting should be allowed.
-        self.layout = QGridLayout()
-        # NOTE: button to export a pdf version
-        self.layout.addWidget(self.webview, 1, 0, 10, 10)
-        self.setLayout(self.layout)
-        # self.setFixedWidth(self.webview.width() + 20)
-        # NOTE: setup channel
-        self.channel = QWebChannel()
-        self.channel.registerObject('backend', self)
+        self.preprocessing_functions = {i[0]: {"function": i[1], "resultstype": i[2]} for i in self.proceduretype.preprocessing_methods}
+        try:
+            assert isinstance(self.proceduretype, PydProcedureType)
+        except AssertionError:
+            logger.error(str(self.proceduretype))
+            return
+        self.proceduretype_dict = self.procedure.reorder_proceduretype_by_procedure()
+        if isinstance(self.run.rsl_plate_number, dict):
+            title = self.run.rsl_plate_number.get("value", "Unknown Run")
+        else:
+            title = self.run.rsl_plate_number
+        self.setWindowTitle(f"New {self.proceduretype.name} for {title}")
+        self.platemap = self.proceduretype_dict['platemap']
+        self.procedure.update_samples(sample_list=[sample for sample in self.constructed_sample_list])
         self.set_html()
-        self.webview.page().setWebChannel(self.channel)
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        self.layout.addWidget(self.buttonBox, 11, 1, 1, 1)
-        self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
-        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
 
-
+    @property
+    def constructed_sample_list(self):
+        from backend.validators.pydant import PydSample, PydProcedureSampleAssociation
+        for iii, sample in enumerate(self.procedure.sample, start=1):
+            match sample:
+                case PydSample():
+                    sample_id = sample.sample_id
+                    row = getattr(sample, "row", 0)
+                    column = getattr(sample, "column", 0)
+                    is_control = getattr(sample, "is_control", 0)
+                case PydProcedureSampleAssociation():
+                    sample_id = sample.sample
+                    row = getattr(sample, "row", 0)
+                    column = getattr(sample, "column", 0)
+                    is_control = getattr(sample, "is_control", 0)
+                case str():
+                    sample_id = sample
+                    row = 0
+                    column = 0
+                    is_control = 0
+                case dict():
+                    sample_id = sample.get("sample_id", f"Unknown Sample {iii}")
+                    row = sample.get("row", 0)
+                    column = sample.get("column", 0)
+                    is_control = sample.get("is_control", 0)
+                case _:
+                    sample_id = f"Unknown Sample {iii}"
+                    row = 0
+                    column = 0
+                    is_control = 0
+            output = dict(sample_id=sample_id, index=iii, row=row, column=column, is_control=is_control)
+            yield output
 
     def set_html(self):
-        proceduretype_dict = self.proceduretype.details_dict()
-        # NOTE: Add --New-- as an option for reagents.
-        for key, value in self.procedure.reagentrole.items():
-            try:
-                check = "--New--" in [v['name'] for v in value]
-            except TypeError:
-                try:
-                    check = "--New--" in [v.name for v in value]
-                except (TypeError, AttributeError):
-                    check = True
-            if not check:
-                value.append(dict(name="--New--"))
-        if self.procedure.equipment:
-            for equipmentrole in proceduretype_dict['equipment']:
-                # NOTE: Check if procedure equipment is present and move to head of the list if so.
-                try:
-                    relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if
-                                                    equipment.equipmentrole == equipmentrole['name']))
-                except StopIteration:
-                    continue
-                item_in_er_list = next((equipment for equipment in equipmentrole['equipment'] if
-                                        equipment['name'] == relevant_procedure_item.name))
-                equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
-                    equipmentrole['equipment'].index(item_in_er_list)))
-        proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
-        regex = re.compile(r".*R\d$")
-        proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
         html = render_details_template(
-            template_name="procedure_creation",
+            template="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
-            proceduretype=proceduretype_dict,
-            run=self.run.details_dict(),
+            proceduretype=self.proceduretype_dict,
+            run=self.run.improved_dict,
             procedure=self.procedure,
-            plate_map=self.plate_map,
-            edit=self.edit
+            platemap=self.platemap,
+            now = datetime.datetime.now(),
+            preprocessing_buttons = [item for item in self.preprocessing_functions.keys()]
         )
-        # with open("platemap.html", "w") as f:
-        #     f.write(html)
         self.webview.setHtml(html)
-
-    @pyqtSlot(str, str, str, str)
-    @pyqtSlot(str, str, str, str, bool)
+        
+    @pyqtSlot(str, str, str, QVariant)
+    @pyqtSlot(str, str, str, QVariant, bool)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
-        logger.debug(f"update_equipment: {equipmentrole}, {equipment}, {checked}")
         self.procedure.update_equipment(equipmentrole=equipmentrole, equipment=equipment, processversion=processversion, tips=tips, checked=checked)
 
     @pyqtSlot(str, str)
@@ -123,14 +111,8 @@ class ProcedureCreation(QDialog):
     def check_toggle(self, key: str, ischecked: bool):
         setattr(self.procedure, key, ischecked)
 
-    @pyqtSlot(str)
-    def update_kit(self, kittype):
-        self.procedure.update_kittype_reagentroles(kittype=kittype)
-        self.set_html()
-
     @pyqtSlot(list)
     def rearrange_plate(self, sample_list: List[dict]):
-        logger.debug(f"Start updating samples: {pformat(sample_list)}")
         self.procedure.update_samples(sample_list=sample_list)
 
     @pyqtSlot(str)
@@ -138,37 +120,59 @@ class ProcedureCreation(QDialog):
         logger.debug(logtext)
 
     @pyqtSlot(str, str, str, str)
-    def add_new_reagent(self, reagentrole: str, name: str, lot: str, expiry: str):
+    def add_new_reagent(self, reagentrole: str, reagent: str, lot: str, expiry: str):
         from backend.validators.pydant import PydReagentLot
+        from backend.db.models import ReagentLot
+        logger.debug(f"Adding new reagent with role {reagentrole}, reagent {reagent}, lot {lot}, expiry {expiry}")
         expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
-        logger.debug(f"{reagentrole}, {name}, {lot}, {expiry}")
-        pyd = PydReagentLot(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
-        self.procedure.reagentrole[reagentrole].insert(0, pyd)
+        expiry = datetime.datetime.combine(expiry, datetime.datetime.max.time())
+
+        pyd = PydReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
+
+        # If the underlying SQL instance has not been saved yet, ensure a DB row exists.
+        if getattr(pyd.sql_instance, "id", None) is None:
+            existing_lot = ReagentLot.query(reagent=reagent, lot=lot, limit=1)
+            if existing_lot:
+                pyd.sql_instance = existing_lot
+            else:
+                new_lot = ReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
+                new_lot.save()
+                pyd.sql_instance = new_lot
+
+        reagentrole_idx, rr_dummy = find_first_matching_dict(key="name", value_to_match=reagentrole, list_of_dicts=self.proceduretype_dict['reagentrole'], mode="index")
+        reagent_idx, _ = find_first_matching_dict(key="name", value_to_match=reagent, list_of_dicts=rr_dummy['reagent'], mode="index")
+        self.proceduretype_dict['reagentrole'][reagentrole_idx]['reagent'][reagent_idx]['reagentlot'].insert(0, pyd)
         self.set_html()
 
     @pyqtSlot(str, str)
     @pyqtSlot(str, str, bool)
     def update_reagent(self, reagentrole: str, name_lot_expiry: str, checked:bool=True):
-        logger.debug(f"Updating reagent {reagentrole}, {name_lot_expiry}, {checked}")
+        logger.debug(f"Updating reagent with role {reagentrole}, name_lot_expiry {name_lot_expiry}, checked {checked}")
         try:
-            name, lot, expiry = name_lot_expiry.split(" - ")
+            name, lot = name_lot_expiry.split(" - ", 1)
         except ValueError as e:
+            logger.error(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
             return
-        self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry, checked=checked)
+        self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, checked=checked)
 
     @pyqtSlot(str, result=list)
     def get_reagent_names(self, reagentrole_name: str):
         from backend.db.models import ReagentRole
         reagentrole = ReagentRole.query(name=reagentrole_name)
         return [item.name for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
-
-
+    
     @pyqtSlot(str)
-    def remove_element(self, element: str):
-        logger.debug(f"Removing element: {element}")
-        logger.debug(f"Removing element: {pformat(self)}")
-
+    def run_preprocess_function(self, function_name):
+        over = self.preprocessing_functions.get(function_name, None)
+        if over:
+            func = over['function']
+            resultstype = over['resultstype']
+        else:
+            raise ValueError(f"Function group for {function_name} not found.")
+        self.dlg = func(parent=self.app, resultstype=resultstype, procedure=self.procedure)
 
     def return_sql(self, new: bool = False):
-        output = self.procedure.to_sql(new=new)
+        output = self.procedure.to_sql()
+        if isinstance(output, tuple):
+            output = output[0]
         return output

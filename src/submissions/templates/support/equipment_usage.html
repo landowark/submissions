@@ -33,7 +33,7 @@
         </div>
         <div>
             <label for="{{ equipmentrole['name'] }}_tips">Tips:</label><br>
-            <select class="tips dropdown" id="{{ equipmentrole['name'] }}_tips" name="{{ equipmentrole['name'] }}_tips">
+            <select multiple class="tips dropdown" id="{{ equipmentrole['name'] }}_tips" name="{{ equipmentrole['name'] }}_tips">
             </select>
         </div>
 
@@ -52,8 +52,23 @@
     const equipment_json = {{ equipmentroles }};
 
     window.addEventListener('load', function () {
-        equipment_json.forEach(startup);
-    })
+        if (typeof QWebChannel !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function (channel) {
+                // This callback runs *after* the connection is established
+                backend = channel.objects.backend;
+
+                if (backend) {
+                    console.log("Backend channel established successfully.");
+                    // NOW it is safe to run your startup logic
+                    equipment_json.forEach(startup);
+                } else {
+                    console.error("Backend object not found in channel objects.");
+                }
+            });
+        } else {
+            console.error("qwebchannel.js is not loaded.");
+        }
+    });
 
     function startup(equipmentrole) {
         updateEquipmentChoices(equipmentrole);
@@ -83,8 +98,8 @@
         dropdown_oi.json = equipmentrole;
         for (let iii = 0; iii < equipmentrole.equipment.length; iii++) {
             var opt = document.createElement('option');
-            opt.value = equipmentrole.equipment[iii].name;
-            opt.innerHTML = equipmentrole.equipment[iii].name;
+            opt.value = equipmentrole.equipment[iii];
+            opt.innerHTML = equipmentrole.equipment[iii];
             dropdown_oi.appendChild(opt);
         }
         updateProcessChoices(equipmentrole);
@@ -98,12 +113,22 @@
         }
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
-        var equipment = equipmentrole.equipment.filter(function(x){ return x.name == equipment_name })[0];
-        for (let iii = 0; iii < equipment.process.length; iii++) {
-            var opt = document.createElement('option');
-            opt.value = equipment.process[iii].name;
-            opt.innerHTML = equipment.process[iii].name;
-            dropdown_oi.appendChild(opt);
+        var assoc_name = equipmentrole.name + "->" + equipment_name;
+        // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+        // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+        if (!assoc) { return }
+        var processes = assoc.process;
+        for (let iii = 0; iii < processes.length; iii++) {
+            for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
+                var output = processes[iii].processversion[jjj];
+                if (Boolean(output.active)) {
+                    var opt = document.createElement('option');
+                    opt.value = output.name;
+                    opt.innerHTML = output.name;
+                    dropdown_oi.appendChild(opt);
+                }
+            }
         }
         updateTipChoices(equipmentrole);
     }
@@ -111,21 +136,43 @@
     function updateTipChoices(equipmentrole) {
         console.log("Updating tip choices.");
         var dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
-        dropdown_oi.innerHTML = "";
+        while (dropdown_oi.options.length > 0) {
+            dropdown_oi.remove(0);
+        }
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
-        var process_name = document.getElementById(equipmentrole.name + "_process").value;
-        console.log(process_name);
-        var equipment = equipmentrole.equipment.filter(function(x){ return x.name == equipment_name })[0];
-        console.log(equipment);
-        var process = equipment.process.filter(function(x){ return x.name == process_name })[0];
-        console.log(process);
-        for (let iii = 0; iii < process.tips.length; iii++) {
-            var opt = document.createElement('option');
-            opt.value = process.tips[iii];
-            opt.innerHTML = process.tips[iii];
-            dropdown_oi.appendChild(opt);
+        var assoc_name = equipmentrole.name + "->" + equipment_name;
+        // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+        // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+        if (!assoc) { return }
+        var processes = assoc.process;
+        for (let iii = 0; iii < processes.length; iii++) {
+            for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
+                var output = processes[iii].tips[jjj];
+                if (Boolean(output.active)) {
+                    var opt = document.createElement('option');
+                    opt.value = output.name;
+                    opt.innerHTML = output.name;
+                    dropdown_oi.appendChild(opt);
+                }
+            }
         }
+    }
+
+    function getSelectValues(select) {
+        var result = [];
+        var options = select && select.options;
+        var opt;
+
+        for (var i=0, iLen=options.length; i<iLen; i++) {
+            opt = options[i];
+
+            if (opt.selected) {
+            result.push(opt.value || opt.text);
+            }
+        }
+        return result;
     }
 
     function updateBackend(equipmentrole) {
@@ -135,8 +182,10 @@
         dropdown_oi = document.getElementById(equipmentrole.name + "_process");
         var process_name = dropdown_oi.value;
         dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
-        var tips_name = dropdown_oi.value;
-        backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_name)
+        var tips_names = getSelectValues(dropdown_oi);;
+
+        console.log("Updating backend with:", equipmentrole_name, equipment_name, process_name, tips_names);
+        backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_names)
     }
 
 </script>

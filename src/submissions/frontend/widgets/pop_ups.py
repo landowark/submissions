@@ -8,8 +8,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from tools import jinja_template_loading
 import logging
-
-from typing import Literal, Any
+from typing import Literal, Any, TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.db.models import BaseClass
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -73,6 +74,7 @@ class ObjectSelector(QDialog):
     def __init__(self, title: str, message: str, obj_type: str | Any, values: list | None = None):
         from backend.db import models
         super().__init__()
+        self.obj_type = obj_type
         self.setWindowTitle(title)
         self.widget = QComboBox()
         if values:
@@ -96,11 +98,11 @@ class ObjectSelector(QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
-    def parse_form(self) -> str:
+    def parse_form(self):
         """
         Get KitType(str) from widget
 
         Returns:
             str: KitType as str
         """
-        return self.widget.currentText()
+        return self.obj_type.query(name=self.widget.currentText())

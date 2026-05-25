@@ -3,7 +3,7 @@ Test script for teardown_scripts
 """
 
 
-def goodbye(ctx):
+def goodbye(ctx) -> None:
     """
     Args:
         ctx (Settings): All scripts must take ctx as an argument to maintain interoperability.

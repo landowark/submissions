@@ -4,15 +4,14 @@ Constructs main application.
 from .widgets import (
     pandasModel,
     App,
-    Concentrations,
+    ConcentrationViewer,
     ControlsViewer,
     DateTypePicker,
-    EquipmentUsage, RoleComboBox,
+    # EquipmentUsage, RoleComboBox,
     select_open_file, select_save_file, save_pdf,
     GelBox, ControlsForm,
     InfoPane,
     StartEndDatePicker, CheckableComboBox, Pagifier,
-    AddEdit, EditProperty,
     SearchBox, SearchResults, FieldSearch,
     QuestionAsker, AlertPop, HTMLPop, ObjectSelector,
     ProcedureCreation,
@@ -25,7 +24,7 @@ from .widgets import (
 )
 from .visualizations import (
     CustomFigure,
-    IridaFigure,
+    KrakenFigure,
     PCRFigure,
     ConcentrationsChart,
     TurnaroundChart

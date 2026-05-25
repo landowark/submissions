@@ -4,8 +4,9 @@ Module for ClientSubmission writing
 from __future__ import annotations
 import logging, sys
 from pprint import pformat
+from openpyxl.cell import MergedCell
 from openpyxl.workbook import Workbook
-from openpyxl.styles import Alignment
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 from typing import TYPE_CHECKING
 from . import DefaultKEYVALUEWriter, DefaultTABLEWriter
@@ -16,7 +17,10 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
-    exclude = ["name", "id", "clientlab", "filepath"]
+
+    exclude = ["name", "id", "clientlab", "filepath", "comments", "sample", 
+               "excluded", "run", "clientsubmissionsampleassociation", "expanded", "full_batch_size",
+               "endrow", "startrow", "abbreviation", "submitter_info"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
@@ -24,13 +28,18 @@ class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
     def prewrite(self, worksheet: Worksheet, start_row: int) -> Worksheet:
         worksheet.cell(row=start_row, column=1, value="Submitter Info")
         worksheet.cell(row=start_row, column=1).alignment = Alignment(horizontal="center")
+        worksheet.cell(row=start_row, column=1).font = Font(bold=True, color="FFFFFF")
+        worksheet.cell(row=start_row, column=1).fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
+        worksheet.cell(row=start_row, column=2).fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
         return worksheet
 
 
 class ClientSubmissionSampleWriter(DefaultTABLEWriter):
 
 
-    exclude = ['id', 'enabled', 'procedure_rank', "name"]
+    exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank", "sample",
+               "excluded", "procedure", "run", "sampleclientsubmissionassociation", "sampleprocedureassociation",
+               "samplerunassociation", "results"]
     header_order = ["submission_rank", "sample_id"]
 
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
@@ -38,16 +47,32 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
-        self.pydant_obj = self.pad_samples_to_length(row_count=self.pydant_obj.max_sample_rank)
+        self.pydant_obj = self.pad_submission_samples_to_length()
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
-        self.worksheet = self.postwrite(self.worksheet)
+        # self.worksheet = self.postwrite(self.worksheet, start_row)
         return workbook
 
-    def postwrite(self, worksheet: Worksheet) -> Worksheet:
-        worksheet = super().postwrite(worksheet)
+    def postwrite(self, worksheet: Worksheet, **kwargs) -> Worksheet:
+        worksheet = super().postwrite(worksheet, **kwargs)
         for row in worksheet.iter_rows(min_row=self.start_row, max_row=self.end_row):
             for cell in row:
                 if cell.value in [0, "0", "None"]:
-                    cell.value = ""
+                    if isinstance(cell, MergedCell):
+                        continue
+                    else:
+                        cell.value = ""
                 cell.alignment = Alignment(horizontal="center")
         return worksheet
+    
+    def pad_submission_samples_to_length(self):
+        from backend.validators.pydant import PydClientSubmissionSampleAssociation
+        output_samples = []
+        rng = self.pydant_obj.max_sample_rank + 1
+        for iii in range(1, rng):
+            iterator = self.pydant_obj.sql_instance.clientsubmissionsampleassociation
+            try:
+                sample = next(item.to_pydantic() for item in iterator if item.submission_rank == iii)
+            except StopIteration:
+                sample = PydClientSubmissionSampleAssociation(sample="", clientsubmission=self.pydant_obj.name, submission_rank=iii)
+            output_samples.append(sample)
+        return sorted(output_samples, key=lambda x: x.submission_rank)

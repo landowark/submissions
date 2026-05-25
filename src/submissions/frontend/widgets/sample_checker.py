@@ -23,7 +23,8 @@ class SampleChecker(QDialog):
     def __init__(self, parent, title: str, samples: List[PydSample], clientsubmission: ClientSubmission|None=None):
         super().__init__(parent)
         if clientsubmission:
-            self.rsl_plate_number = RSLNamer.construct_new_plate_name(clientsubmission.to_dict())
+            data = clientsubmission.details_dict
+            self.rsl_plate_number = RSLNamer.construct_new_plate_name(data=data)
         else:
             self.rsl_plate_number = clientsubmission
         self.samples = samples
@@ -38,12 +39,8 @@ class SampleChecker(QDialog):
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
-        try:
-            samples = self.formatted_list
-        except AttributeError as e:
-            logger.error(f"Problem getting sample list: {e}")
-            samples = []
-        html = render_details_template(template_name="sample_checker", samples=samples, rsl_plate_number=self.rsl_plate_number)
+        samples = self.format_sample_list()
+        html = render_details_template(template="sample_checker", samples=samples, rsl_plate_number=self.rsl_plate_number)
         self.webview.setHtml(html)
         self.webview.page().setWebChannel(self.channel)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -74,12 +71,11 @@ class SampleChecker(QDialog):
     @pyqtSlot(str)
     def set_rsl_plate_number(self, rsl_plate_number: str):
         self.rsl_plate_number = rsl_plate_number
-
-    @property
-    def formatted_list(self) -> List[dict]:
+    
+    def format_sample_list(self) -> List[dict]:
         output = []
         for sample in self.samples:
-            s = sample.improved_dict(dictionaries=False)
+            s = sample.improved_dict
             if s['sample_id'] in [item['sample_id'] for item in output]:
                 s['color'] = "red"
             else:

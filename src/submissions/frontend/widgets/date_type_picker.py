@@ -1,5 +1,5 @@
 """
-
+A dialog for picking a date range and submission types to filter by.
 """
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QDialogButtonBox

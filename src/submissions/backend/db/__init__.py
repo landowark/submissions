@@ -23,9 +23,8 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         connection_record (_type_): _description_
     """
     cursor = dbapi_connection.cursor()
-    if ctx.database_schema == "sqlite":
+    if ctx.database.schema == "sqlite":
         execution_phrase = "PRAGMA foreign_keys=ON"
-        print(f"Executing '{execution_phrase}' in sql.")
     else:
         cursor.close()
         return
@@ -85,7 +84,8 @@ def update_log(mapper, connection, target):
         table = AuditLog.__table__
         connection.execute(table.insert().values(**update))
     else:
-        logger.info(f"No changes detected, not updating logs.")
+        # logger.info(f"No changes detected, not updating logs.")
+        pass
 
 event.listen(LogMixin, 'after_update', update_log, propagate=True)
 event.listen(LogMixin, 'after_insert', update_log, propagate=True)

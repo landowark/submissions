@@ -37,6 +37,7 @@
             }
             var enabled = this.checked;
             var sample = holders[i].getElementsByClassName("selecter")[0].value;
+            console.log(holders[i].getElementsByClassName("variable")[0].dataset);
             var result = holders[i].getElementsByClassName("variable")[0].dataset.value;
             var result_text = holders[i].getElementsByClassName("variable")[0].textContent
             backend.set_match(enabled, sample, result_text, result);
