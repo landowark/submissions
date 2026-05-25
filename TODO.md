@@ -1,3 +1,8 @@
+- [ ] Do results writing.
+- [ ] Allow use of multiple tips per process.
+- [x] Add in database objects for rsl_run (submission -> run), procedure (run -> procedure), many more things will likely be associated with procedure.
+- [x] Add in database object for client submission.
+- [ ] Add arbitrary pipette addition to equipment UI.
 - [ ] transfer details template rendering fully into sql objects
 - [x] Add in connecting links for tips.
 - [x] Add in connecting links for equipment/processes. 

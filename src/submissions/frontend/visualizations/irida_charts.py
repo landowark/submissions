@@ -1,13 +1,9 @@
 """
-Functions for constructing irida controls graphs using plotly.
+Functions for constructing irida control graphs using plotly.
 """
-from datetime import date
 from pprint import pformat
-import plotly.express as px
-import pandas as pd
-from PyQt6.QtWidgets import QWidget
+import logging, plotly.express as px, pandas as pd
 from . import CustomFigure
-import logging
 from tools import get_unique_values_in_df_column
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -15,20 +11,20 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class IridaFigure(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, ytitle: str | None = None, parent: QWidget | None = None):
+    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, **kwargs):
 
-        super().__init__(df=df, modes=modes, settings=settings)
+        super().__init__(df=df, modes=modes, settings=settings, **kwargs)
         self.df = df
         self.construct_chart(df=df, modes=modes, start_date=settings['start_date'], end_date=settings['end_date'])
 
-    def construct_chart(self, df: pd.DataFrame, modes: list, start_date: date, end_date:date):
+    def construct_chart(self, df: pd.DataFrame, modes: list, **kwargs):
         """
-        Creates a plotly chart for controls from a pandas dataframe
+        Creates a plotly chart for control from a pandas dataframe
 
         Args:
             end_date ():
             start_date ():
-            df (pd.DataFrame): input dataframe of controls
+            df (pd.DataFrame): input dataframe of control
             modes (list): analysis modes to construct charts for
             ytitle (str | None, optional): title on the y-axis. Defaults to None.
 

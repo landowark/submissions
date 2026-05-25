@@ -1,0 +1,55 @@
+{% extends "details.html" %}
+
+{% block head %}
+{{ super() }}
+<title>Matching results</title>
+{% endblock %}
+
+{% block body %}
+{% for result in results %}
+<div class="resultholder" style="border-style: solid; border-width: 2px" data="{{ result }}">
+
+    <input type="checkbox" id="{{ loop.index }}_check" class="checker">&nbsp;&nbsp;
+    <span id="{{ loop.index }}_var", class="variable" data-value="{{ result }}">{{ result[results_var_name] }}</span>&nbsp;&nbsp;
+    <select id="{{ loop.index }}_select" class="selecter" disabled>
+        {% for sample in samples %}
+        {% if sample.well %}
+            <option value="{{ sample.sample.sample_id }}:{{ sample.well }}">{{ sample.sample.sample_id }}:{{ sample.well }}</option>
+        {% else %}
+            <option value="{{ sample.sample.sample_id }}">{{ sample.sample.sample_id }}</option>
+        {% endif %}
+        {% endfor %}
+    </select>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block script %}
+<script>
+    var holders = document.getElementsByClassName("resultholder");
+    for(let i = 0; i < holders.length; i++) {
+        console.log(i);
+        holders[i].getElementsByClassName("checker")[0].addEventListener("change", function(){
+            if ( this.checked ) {
+                holders[i].getElementsByClassName("selecter")[0].disabled = false;
+            } else {
+                holders[i].getElementsByClassName("selecter")[0].disabled = true;
+            }
+            var enabled = this.checked;
+            var sample = holders[i].getElementsByClassName("selecter")[0].value;
+            console.log(holders[i].getElementsByClassName("variable")[0].dataset);
+            var result = holders[i].getElementsByClassName("variable")[0].dataset.value;
+            var result_text = holders[i].getElementsByClassName("variable")[0].textContent
+            backend.set_match(enabled, sample, result_text, result);
+        });
+        holders[i].getElementsByClassName("selecter")[0].addEventListener("change", function(){
+            var sample = this.value;
+            var result_text = holders[i].getElementsByClassName("variable")[0].textContent
+            backend.update_match(sample, result_text);
+        });
+    }
+</script>
+{{ super() }}
+{% endblock %}
+
+

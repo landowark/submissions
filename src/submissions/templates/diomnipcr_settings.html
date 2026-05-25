@@ -1,0 +1,180 @@
+{% extends "details.html" %}
+<head>
+    {% block head %}
+    {{ super() }}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diomni PCR Settings</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; color: #333; }
+        .form-row { 
+            display: flex; 
+            gap: 15px; 
+            align-items: flex-end; 
+            margin-bottom: 15px; 
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+        .field-group { display: flex; flex-direction: column; }
+        label { font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="color"] { width: 50px; height: 38px; padding: 2px; }
+        
+        button {
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            border: none;
+            font-weight: bold;
+        }
+        .add-btn { background-color: #28a745; color: white; height: 38px; }
+        .remove-btn { background-color: #dc3545; color: white; height: 38px; }
+        .submit-btn { background-color: #007bff; color: white; margin-top: 10px; }
+    </style>
+    {% endblock %}
+</head>
+<body>
+   
+
+{% block body %}
+    <form id="dynamicForm">
+        <div id="rowContainer">
+            <!-- JavaScript will inject rows here -->
+        </div>
+    </form>
+{% endblock %}
+
+{% block script %}
+    {{ super() }}
+    <script>
+    // 1. Data (ensure you use |tojson in your jinja render call)
+    const settings = {{ settings|tojson if settings else '[]' }};
+
+    // 2. Global Helpers (Must be global for onclick attributes to work)
+    function hexToRgb(hex) {
+        if (!hex || hex.indexOf('#') !== 0) return hex;
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `RGB(${r},${g},${b})`;
+    }
+
+    function addRow(values = {}) {
+        const container = document.getElementById('rowContainer');
+        if (!container) return;
+
+        // Normalize the color value from settings
+        const colorValue = ensureHex(values["Target Color"]);
+
+        const isFirstRow = container.children.length === 0;
+        const newRow = document.createElement('div');
+        newRow.className = 'form-row';
+        
+        newRow.innerHTML = `
+            <div class="field-group">
+                <label>Target Name</label>
+                <input type="text" name="targetName[]" value="${values["Target Name"] || ''}" required>
+            </div>
+            <div class="field-group">
+                <label>Reporter</label>
+                <select name="reporter[]">
+                    <option value="aby" ${values["Reporter"] === 'aby' ? 'selected' : ''}>ABY</option>
+                        <option value="cy5" ${values["Reporter"] === 'cy5' ? 'selected' : ''}>CY5</option>
+                        <option value="fam" ${values["Reporter"] === 'fam' ? 'selected' : ''}>FAM</option>
+                        <option value="jun" ${values["Reporter"] === 'jun' ? 'selected' : ''}>JUN</option>
+                        <option value="mustang_purple" ${values["Reporter"] === 'mustang_purple' ? 'selected' : ''}>Mustang Purple</option>
+                        <option value="ned" ${values["Reporter"] === 'ned' ? 'selected' : ''}>NED</option>
+                        <option value="rox" ${values["Reporter"] === 'rox' ? 'selected' : ''}>ROX</option>
+                        <option value="sybr" ${values["Reporter"] === 'sybr' ? 'selected' : ''}>SYBR</option>
+                        <option value="tamra" ${values["Reporter"] === 'tamra' ? 'selected' : ''}>TAMRA</option>
+                        <option value="vic" ${values["Reporter"] === 'vic' ? 'selected' : ''}>VIC</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label>Target Color</label>
+                <input type="color" name="targetColor[]" value="${colorValue}">
+            </div>
+            ${isFirstRow 
+                ? '<button type="button" class="add-btn" onclick="addRow()">+</button>' 
+                : '<button type="button" class="remove-btn" onclick="this.parentElement.remove(); sendDataToBackend();">-</button>'
+            }
+        `;
+        container.appendChild(newRow);
+    }
+
+    // Call this to show native browser validation bubbles
+    function validateForm() {
+        const form = document.getElementById('dynamicForm');
+        // reportValidity() returns true if all 'required' fields are filled
+        return form.reportValidity(); 
+    }
+
+    /**
+     * Normalizes a color string to Hex.
+     * If input is 'RGB(0,123,255)', returns '#007bff'.
+     * If input is already '#007bff', returns it as-is.
+     */
+    function ensureHex(color) {
+        if (!color) return '#007bff'; // Default fallback
+        
+        // Check if the string starts with 'RGB' (case-insensitive)
+        const rgbMatch = color.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+        
+        if (rgbMatch) {
+            // Extract R, G, B from the regex groups and convert to numbers
+            const r = parseInt(rgbMatch[1], 10);
+            const g = parseInt(rgbMatch[2], 10);
+            const b = parseInt(rgbMatch[3], 10);
+
+            // Convert to hex and pad with leading zeros if necessary
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+        
+        return color; // Return as-is if it's already Hex
+    }
+
+
+    function sendDataToBackend() {
+        if (!document.getElementById('dynamicForm').checkValidity()) {
+            console.warn("Form is invalid; some required fields are blank.");
+            // You can still sync, or return early to prevent syncing empty names
+        }
+        const rows = document.querySelectorAll('.form-row');
+        const data = Array.from(rows).map(row => {
+            const rowObj = {};
+            row.querySelectorAll('input, select').forEach(field => {
+                const label = field.closest('.field-group').querySelector('label').innerText;
+                let value = field.value;
+                if (label === "Target Color") value = hexToRgb(value);
+                rowObj[label] = value;
+            });
+            return rowObj;
+        });
+
+        // Use the window.backend object registered in your QWebChannel
+        if (window.backend && window.backend.update_settings) {
+            window.backend.update_settings(data);
+        }
+    }
+
+    // 3. Initialization (Wait for DOM)
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('dynamicForm');
+        
+        // Populate initial rows
+        if (settings && settings.length > 0) {
+            settings.forEach(item => addRow(item));
+        } else {
+            addRow(); // Default blank row
+        }
+
+        // Add auto-save listener
+        if (form) {
+            form.addEventListener('change', sendDataToBackend);
+        }
+    });
+    </script>
+    
+
+{% endblock %}
+

@@ -1,9 +1,14 @@
 """
 All database related operations.
 """
+from datetime import datetime
+from getpass import getuser
 from sqlalchemy import event, inspect
 from sqlalchemy.engine import Engine
 from tools import ctx
+import logging
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 @event.listens_for(Engine, "connect")
@@ -18,18 +23,26 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         connection_record (_type_): _description_
     """
     cursor = dbapi_connection.cursor()
-    if ctx.database_schema == "sqlite":
+    if ctx.database.schema == "sqlite":
         execution_phrase = "PRAGMA foreign_keys=ON"
-        print(f"Executing '{execution_phrase}' in sql.")
     else:
-        # print("Nothing to execute, returning")
         cursor.close()
         return
     cursor.execute(execution_phrase)
     cursor.close()
 
 
-from .models import *
+from .models import (
+    LogMixin, ConfigItem,
+    AuditLog,
+    ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
+    ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,
+    Tips, TipsLot, ProcedureEquipmentAssociation,
+    ProcedureTypeEquipmentRoleAssociation, Results,
+    ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation,
+    # ControlType, Control,
+    ClientLab, Contact
+)
 
 
 def update_log(mapper, connection, target):
@@ -55,9 +68,6 @@ def update_log(mapper, connection, target):
             continue
         added = [str(item) for item in hist.added]
         # NOTE: Attributes left out to save space
-        # if attr.key in ['artic_technician', 'submission_sample_associations', 'submission_reagent_associations',
-        #                 'submission_equipment_associations', 'submission_tips_associations', 'contact_id', 'gel_info',
-        #                 'gel_controls', 'source_plates']:
         if attr.key in LogMixin.tracking_exclusion:
             continue
         deleted = [str(item) for item in hist.deleted]
@@ -74,7 +84,8 @@ def update_log(mapper, connection, target):
         table = AuditLog.__table__
         connection.execute(table.insert().values(**update))
     else:
-        logger.info(f"No changes detected, not updating logs.")
+        # logger.info(f"No changes detected, not updating logs.")
+        pass
 
 event.listen(LogMixin, 'after_update', update_log, propagate=True)
 event.listen(LogMixin, 'after_insert', update_log, propagate=True)

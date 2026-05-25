@@ -4,7 +4,7 @@ Pane showing turnaround time summary.
 from PyQt6.QtWidgets import QWidget, QPushButton, QComboBox, QLabel
 from .info_tab import InfoPane
 from backend.excel.reports import TurnaroundMaker
-from backend.db import SubmissionType
+
 from frontend.visualizations.turnaround_chart import TurnaroundChart
 import logging
 
@@ -15,6 +15,7 @@ class TurnaroundTime(InfoPane):
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)
+        from backend.db.models import SubmissionType
         self.save_button = QPushButton("Save Chart", parent=self)
         self.save_button.pressed.connect(self.save_png)
         self.layout.addWidget(self.save_button, 0, 2, 1, 1)
@@ -39,6 +40,7 @@ class TurnaroundTime(InfoPane):
             None
         """
         super().update_data()
+        from backend.db.models import SubmissionType
         months = self.diff_month(self.start_date, self.end_date)
         chart_settings = dict(start_date=self.start_date, end_date=self.end_date)
         if self.submission_typer.currentText() == "All":
@@ -47,9 +49,9 @@ class TurnaroundTime(InfoPane):
         else:
             submission_type = self.submission_typer.currentText()
             subtype_obj = SubmissionType.query(name = submission_type)
-        self.report_obj = TurnaroundMaker(start_date=self.start_date, end_date=self.end_date, submission_type=submission_type)
+        self.report_obj = TurnaroundMaker(start_date=self.start_date, end_date=self.end_date, submission_types=submission_type)
         if subtype_obj:
-            threshold = subtype_obj.defaults['turnaround_time'] + 0.5
+            threshold = subtype_obj.turnaround_time.days + 0.5
         else:
             threshold = None
         self.fig = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[], threshold=threshold, months=months)

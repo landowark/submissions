@@ -1,0 +1,48 @@
+{% extends "details.html" %}
+
+<html>
+    <head>
+        {% block head %}
+        {{ super() }}
+        <title>Sample Details for {{ sample['sample_id'] }}</title>
+        {% endblock %}
+    </head>
+    <body>
+        {% block body %}
+        <h2><u>Sample Details for {{ sample['name'] }}</u></h2>
+        {{ super() }}
+        <p>{% for key, value in sample.items() if key not in sample['excluded'] %}
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}: </b>{% if key == "sample_type" %}{{ value | replace("control", " control") | title }} {% else %}{{ value }}{% endif %}<br>
+        {% endfor %}</p>
+        {% if sample['submissions'] %}<h2>Submissions:</h2>
+            {% for submission in sample['submissions'] %}
+            <p><b><a class="data-link" id="{{ submission['plate_name'] }}">{{ submission['plate_name'] }}:</a></b> {{ submission['well'] }}</p>
+            {% endfor %}
+        {% endif %}
+        {% if sample['results'] %}<h2>Results:</h2>
+            {% for result in sample['results'] %}
+            <p>{% for key, value in result['result'].items() %}
+                {% if key not in sample.keys() and key not in sample['excluded'] %}
+                    &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {{ value | handle_results }}<br>
+                {% endif %}
+            {% endfor %}</p>
+            {% endfor %}
+        {% endif %}
+        {% endblock %}
+    </body>
+
+      {% block script %}
+      {{ super() }}
+      <script>
+      {% for submission in sample['submissions'] %}
+      document.getElementById("{{ submission['plate_name'] }}").addEventListener("click", function(){
+          backend.submission_details("{{ submission['plate_name'] }}");
+      });
+      {% endfor %}
+      document.addEventListener('DOMContentLoaded', function() {
+          backend.activate_export(false);
+      }, false);
+      </script>
+      {% endblock %}
+
+</html>

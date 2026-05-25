@@ -13,12 +13,12 @@ def backup_database(ctx: Settings):
     Copies the database into the backup directory the first time it is opened every month.
     """
     month = date.today().strftime("%Y-%m")
-    current_month_bak = Path(ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve()
-    logger.info(f"Here is the db directory: {ctx.database_path}")
-    logger.info(f"Here is the backup directory: {ctx.backup_path}")
-    match ctx.database_schema:
+    current_month_bak = Path(ctx.directories.backup).joinpath(f"submissions_backup-{month}").resolve()
+    logger.info(f"Here is the db directory: {ctx.database.path}")
+    logger.info(f"Here is the backup directory: {ctx.backup.path}")
+    match ctx.database.schema:
         case "sqlite":
-            db_path = ctx.database_path.joinpath(ctx.database_name).with_suffix(".db")
+            db_path = ctx.database.path.joinpath(ctx.database.name).with_suffix(".db")
             current_month_bak = current_month_bak.with_suffix(".db")
             if not current_month_bak.exists() and "Archives" not in db_path.__str__():
                 logger.info("No backup found for this month, backing up database.")
@@ -30,7 +30,7 @@ def backup_database(ctx: Settings):
             logger.warning(f"Backup function not yet implemented for psql")
             current_month_bak = current_month_bak.with_suffix(".psql")
         case "mssql+pyodbc":
-            logger.warning(f"{ctx.database_schema} backup is currently experiencing permission issues")
+            logger.warning(f"{ctx.database.schema} backup is currently experiencing permission issues")
             current_month_bak = current_month_bak.with_suffix(".bak")
             return
             if not current_month_bak.exists():

@@ -1,16 +1,15 @@
 """
 Contains miscellaneous widgets for frontend functions
 """
-import math
+import math, logging
 from PyQt6.QtGui import QStandardItem, QIcon
 from PyQt6.QtWidgets import (
-    QLabel, QLineEdit, QComboBox, QDateEdit, QPushButton, QWidget,
+    QLabel, QLineEdit, QComboBox, QDateEdit, QListView, QPushButton, QWidget,
     QHBoxLayout, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QDate, QSize
 from tools import jinja_template_loading
 from backend.db.models import *
-import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -19,7 +18,7 @@ env = jinja_template_loading()
 
 class StartEndDatePicker(QWidget):
     """
-    custom widget to pick start and end dates for controls graphs
+    custom widget to pick start and end dates for control graphs
     """
 
     def __init__(self, default_start: int) -> None:
@@ -41,30 +40,38 @@ class StartEndDatePicker(QWidget):
     def sizeHint(self) -> QSize:
         return QSize(80, 20)
 
-
 class CheckableComboBox(QComboBox):
     # once there is a checkState set, it is rendered
     # here we assume default checked
-
+    
     def addItem(self, item, header: bool = False, start_checked: bool = True):
-        super(CheckableComboBox, self).addItem(item)
-        item: QStandardItem = self.model().item(self.count() - 1, 0)
+        # super(CheckableComboBox, self).addItem(item)
+        super().addItem(item)
+        item_obj: QStandardItem = self.model().item(self.count() - 1, 0)
         if not header:
-            item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            item_obj.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
             if start_checked:
-                item.setCheckState(Qt.CheckState.Checked)
+                item_obj.setCheckState(Qt.CheckState.Checked)
             else:
-                item.setCheckState(Qt.CheckState.Unchecked)
+                item_obj.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            # Headers should not be checkable or selectable
+            item_obj.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
     def itemChecked(self, index):
-        item = self.model().item(index, 0)
-        return item.checkState() == Qt.CheckState.Checked
+        item_obj = self.model().item(index, 0)
+        # return item.checkState() == Qt.CheckState.Checked
+         # Check if the item actually has check state flags allocated
+        if item_obj and item_obj.flags() & Qt.ItemFlag.ItemIsUserCheckable:
+            return item_obj.checkState() == Qt.CheckState.Checked
+        return False
 
     def changed(self):
         self.updated.emit()
 
     def get_checked(self):
         return [self.itemText(i) for i in range(self.count()) if self.itemChecked(i)]
+        # return [self.itemText(i) for i in range(self.count()) if self.itemChecked(i) and self.itemText(i) != "Select"]
 
 
 class Pagifier(QWidget):

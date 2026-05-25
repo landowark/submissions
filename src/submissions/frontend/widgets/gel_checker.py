@@ -1,18 +1,19 @@
 """
 Gel box for artic quality control
 """
+from __future__ import annotations
 from operator import itemgetter
 from PyQt6.QtWidgets import (
     QWidget, QDialog, QGridLayout, QLabel, QLineEdit, QDialogButtonBox, QTextEdit, QComboBox
 )
-import pyqtgraph as pg
 from PyQt6.QtGui import QIcon
 from PIL import Image
-import logging, numpy as np
+import logging, numpy as np, pyqtgraph as pg
 from pprint import pformat
-from typing import Tuple, List
+from typing import Tuple, List, TYPE_CHECKING
 from pathlib import Path
-from backend.db.models import WastewaterArtic
+if TYPE_CHECKING:
+    from backend.db.models import Run
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 # Main window class
 class GelBox(QDialog):
 
-    def __init__(self, parent, img_path: str | Path, submission: WastewaterArtic):
+    def __init__(self, parent, img_path: str | Path, submission: Run):
         super().__init__(parent)
         # NOTE: setting title
         self.setWindowTitle(f"Gel - {img_path}")
@@ -135,7 +136,7 @@ class ControlsForm(QWidget):
 
     def parse_form(self) -> Tuple[List[dict], str]:
         """
-        Pulls the controls statuses from the form.
+        Pulls the control statuses from the form.
 
         Returns:
             List[dict]: output of values

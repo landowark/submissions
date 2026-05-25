@@ -1,0 +1,10 @@
+<tr>
+    <td style="border: 1px solid black;">{{ equipment['equipmentrole'] }}</td>
+    <td style="border: 1px solid black;">{{ equipment['equipment'] }}</td>
+    <td style="border: 1px solid black;">{{ equipment['processversion'] }}</td>
+    {% if equipment['tipslot'] %}
+        <td style="border: 1px solid black;">{% for tipslot in equipment['tipslot'] %}{{ tipslot }}{% endfor %}</td>
+    {% else %}
+        <td style="border: 1px solid black;"></td>
+    {% endif %}
+</tr>

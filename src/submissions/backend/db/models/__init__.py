@@ -2,17 +2,24 @@
 Contains all models for sqlalchemy
 """
 from __future__ import annotations
-import sys, logging
-from pandas import DataFrame
-from pydantic import BaseModel
-from sqlalchemy import Column, INTEGER, String, JSON
-from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
+import re, sys, logging, json, inspect
+from datetime import datetime, date, timedelta
+from dateutil.parser import parse
+from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
+from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
+from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.exc import ArgumentError
-from typing import Any, List, ClassVar
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.exc import ArgumentError, IntegrityError, OperationalError
+from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
-from sqlalchemy.orm.relationships import _RelationshipDeclared
-from tools import report_result, list_sort_dict
+from tools import report_result, Report, Alert, ctx
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+    from backend.validators import PydSample
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -24,165 +31,502 @@ Base: DeclarativeMeta = declarative_base()
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class LogMixin(Base):
+class SafeMiscInfo(MutableDict, dict):
+    """
+    Dictionary wrapper for misc_info to ensure values are sanitized for JSON storage.
+    
+    This class wraps a dictionary to ensure values are automatically sanitized for JSON 
+    storage and to prevent key conflicts with actual model fields. Keys that conflict with 
+    SQLAlchemy-mapped field names are ignored to prevent issues with attribute access and querying.
+    
+    Values set on this dict will be automatically sanitized using the parent model's 
+    :meth:`sanitize_obj_for_json` method if available.
+    
+    :ivar _owner: The parent model instance that owns this dict.
+    :vartype _owner: :class:`BaseClass` or None
+    """
 
-    tracking_exclusion: ClassVar = ['artic_technician', 'submission_sample_associations',
-                                    'submission_reagent_associations', 'submission_equipment_associations',
-                                    'submission_tips_associations', 'contact_id', 'gel_info', 'gel_controls',
-                                    'source_plates']
+    def __init__(self, *args, owner: BaseClass | None = None, **kwargs):
+        """
+        Initialize SafeMiscInfo dictionary.
+        
+        :param args: Positional arguments passed to dict constructor.
+        :param owner: The parent model instance.
+        :type owner: :class:`BaseClass` or None
+        :param kwargs: Keyword arguments passed to dict constructor.
+        """
+        dict.__init__(self, *args, **kwargs)
+        self._owner = owner
 
-    __abstract__ = True
+    def _set_safe_item(self, key: str, value):
+        """
+        Set a key-value pair with sanitization and conflict checking.
+        
+        Checks if the key conflicts with existing SQLAlchemy field names and sanitizes 
+        the value for JSON storage using the owner model's sanitization method if available.
+        
+        :param key: Dictionary key to set.
+        :type key: str
+        :param value: Value to store, will be sanitized if owner is present.
+        """
+        if self._owner and key.replace("_", "").lower() in self._owner.sqlalchemy_fields:
+            logger.warning(f"Key {key} in misc_info conflicts with existing field name. Skipping.")
+            return
+        safe_value = self._owner.sanitize_obj_for_json(value) if self._owner else value
+        dict.__setitem__(self, key, safe_value)
 
-    @property
-    def truncated_name(self):
-        name = str(self)
-        if len(name) > 64:
-            name = name.replace("<", "").replace(">", "")
-        if len(name) > 64:
-            # NOTE: As if re'agent'
-            name = name.replace("agent", "")
-        if len(name) > 64:
-            name = f"...{name[-61:]}"
-        return name
+    def __setitem__(self, key: str, value):
+        """
+        Set item with automatic sanitization and tracking of changes.
+        
+        :param key: Dictionary key to set.
+        :type key: str
+        :param value: Value to store.
+        """
+        self._set_safe_item(key, value)
+        self.changed()
+
+    def update(self, *args, **kwargs):
+        """
+        Update dictionary with multiple items with automatic sanitization.
+        
+        :param args: Positional arguments passed to dict constructor.
+        :param kwargs: Keyword arguments to update.
+        """
+        merged = dict(*args, **kwargs)
+        for key, value in merged.items():
+            self._set_safe_item(key, value)
+        self.changed()
 
 
 class BaseClass(Base):
     """
-    Abstract class to pass ctx values to all SQLAlchemy objects.
+    Abstract base class for all SQLAlchemy models with context and utility methods.
+    
+    This class provides a foundation for all database models with features including:
+    
+    - Context management through :attr:`ctx` for database sessions and file paths
+    - Miscellaneous info storage via :attr:`misc_info` for arbitrary key-value pairs
+    - Query functionality via :meth:`query` and :meth:`execute_query`
+    - Serialization support for JSON storage via :meth:`sanitize_obj_for_json`
+    - Conversion to Pydantic models via :meth:`to_pydantic`
+    - Details dictionary generation via :meth:`details_dict`
+    
+    This is an abstract class and should not be instantiated directly.
+    
+    :ivar singles: List of field names that should be limited to a single result in queries.
+    :vartype singles: list
+    :ivar _misc_info: Mutable dictionary for storing arbitrary data.
+    :vartype _misc_info: dict
     """
     __abstract__ = True  #: NOTE: Will not be added to DB as a table
 
     __table_args__ = {'extend_existing': True}  #: NOTE Will only add new columns
 
     singles = ['id']
-    omni_removes = ["id", 'submissions', "omnigui_class_dict", "omnigui_instance_dict"]
-    omni_sort = ["name"]
-    omni_inheritable = []
-    searchables = []
+
+    _misc_info = Column(MutableDict.as_mutable(JSON))
 
     def __repr__(self) -> str:
+        """
+        Return string representation of this object.
+        
+        Uses the object's name attribute if available, otherwise returns a generic representation.
+        
+        :return: String representation in the format ``<ClassName(name)>``.
+        :rtype: str
+        """
         try:
             return f"<{self.__class__.__name__}({self.name})>"
         except AttributeError:
             return f"<{self.__class__.__name__}(Name Unavailable)>"
 
+    def _wrap_misc_info(self):
+        """
+        Wrap or initialize the _misc_info attribute as a SafeMiscInfo instance.
+        
+        Ensures that _misc_info is properly initialized as a SafeMiscInfo dictionary 
+        with this object set as the owner. Called during object initialization and 
+        reconstruction from the database.
+        """
+        try:
+            raw_misc = object.__getattribute__(self, "_misc_info")
+        except AttributeError:
+            raw_misc = None
+        if raw_misc is None or isinstance(raw_misc, Column):
+            self._misc_info = SafeMiscInfo(owner=self)
+        elif isinstance(raw_misc, SafeMiscInfo):
+            raw_misc._owner = self
+        else:
+            self._misc_info = SafeMiscInfo(raw_misc, owner=self)
+
+    @reconstructor
+    def init_on_load(self):
+        """
+        Called when an instance is loaded from the database.
+        
+        Ensures that the misc_info attribute is properly wrapped after database reconstruction.
+        """
+        self._wrap_misc_info()
+
+    @hybrid_property
+    def misc_info(self) -> dict:
+        """
+        Get the miscellaneous info dictionary for this object.
+        
+        :return: Dictionary containing arbitrary key-value pairs stored as misc info.
+        :rtype: dict
+        """
+        return self._misc_info
+    
+    @misc_info.setter
+    def misc_info(self, value):
+        """
+        Set the miscellaneous info dictionary for this object.
+        
+        :param value: Dictionary to store as misc info. Must be a dict type.
+        :type value: dict
+        
+        .. note::
+           If a non-dict value is provided, it will be ignored with a warning logged.
+        """
+        if not isinstance(value, dict):
+            logger.warning(f"Attempted to set misc_info to non-dict value: {value}. Ignoring.")
+            return
+        if not isinstance(self._misc_info, SafeMiscInfo):
+            self._misc_info = SafeMiscInfo(owner=self)
+        self._misc_info.update(value)
+
     @classproperty
     def aliases(cls) -> List[str]:
         """
-        List of other names this class might be known by.
+        Get list of other names this class might be known by.
+        
+        Returns the list of aliases used for querying this class type. Useful for 
+        providing alternative names for the model.
 
-        Returns:
-            List[str]: List of names
+        :return: List of alias names, including at minimum the query_alias.
+        :rtype: list[str]
         """
         return [cls.query_alias]
 
     @classproperty
     def query_alias(cls) -> str:
         """
-        What to query this class as.
+        Get the primary alias or name used for querying this class.
+        
+        Returns the lowercase version of the class name, used as the primary 
+        identifier for database queries.
 
-        Returns:
-            str: query name
+        :return: Lowercase class name to use in queries.
+        :rtype: str
         """
         return cls.__name__.lower()
 
-    @classmethod
     @declared_attr
+    @classmethod
     def __tablename__(cls) -> str:
         """
-        Sets table name to lower case class name.
+        Get the database table name for this model.
+        
+        Automatically sets the table name to an underscore-prefixed lowercase 
+        version of the class name.
 
-        Returns:
-            str: lower case class name
+        :return: Table name in format ``_<query_alias>``.
+        :rtype: str
         """
-        return f"_{cls.__name__.lower()}"
+        return f"_{cls.query_alias}"
 
-    @classmethod
-    @declared_attr
+    @classproperty
     def __database_session__(cls) -> Session:
         """
-        Pull db session from ctx to be used in operations
+        Get the current database session for this model.
+        
+        Retrieves the active SQLAlchemy database session from the application context.
+        Used internally for all database operations.
 
-        Returns:
-            Session: DB session from ctx settings.
+        :return: Active SQLAlchemy database session from application settings.
+        :rtype: :class:`sqlalchemy.orm.Session`
         """
-        if 'pytest' not in sys.modules:
-            from tools import ctx
-        else:
-            from test_settings import ctx
-        return ctx.database_session
+        return ctx.database.session
 
-    @classmethod
-    @declared_attr
+    @classproperty
     def __directory_path__(cls) -> Path:
         """
-        Pull directory path from ctx to be used in operations.
+        Get the main submissions directory path from application context.
+        
+        Retrieves the configuration setting for the primary data directory.
 
-        Returns:
-            Path: Location of the Submissions directory in Settings object
+        :return: Location of the main Submissions directory from Settings object.
+        :rtype: :class:`pathlib.Path`
         """
-        if 'pytest' not in sys.modules:
-            from tools import ctx
-        else:
-            from test_settings import ctx
-        return ctx.directory_path
+        return Path(ctx.directories.main)
 
-    @classmethod
-    @declared_attr
+    @classproperty
     def __backup_path__(cls) -> Path:
         """
-        Pull backup directory path from ctx to be used in operations.
+        Get the backup directory path from application context.
+        
+        Retrieves the configuration setting for the backup data directory.
 
-        Returns:
-            Path: Location of the Submissions backup directory in Settings object
+        :return: Location of the Submissions backup directory from Settings object.
+        :rtype: :class:`pathlib.Path`
         """
-        if 'pytest' not in sys.modules:
-            from tools import ctx
-        else:
-            from test_settings import ctx
-        return ctx.backup_path
+        return Path(ctx.directories.backup)
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize a BaseClass instance.
+        
+        Separates known SQLAlchemy-mapped attributes from arbitrary keyword arguments.
+        Known attributes are passed to the parent class, while unknown kwargs are stored 
+        in the misc_info dictionary.
+        
+        :param args: Positional arguments (unused).
+        :param kwargs: Keyword arguments. Known attributes are used for model initialization,
+                       while unknown attributes are stored in misc_info.
+        """
+        # Filter kwargs into those that map to SQLAlchemy-mapped attributes
+        # (InstrumentedAttribute) or hybrid properties and those that don't.
+        # Unknown kwargs will be stored in self._misc_info so callers can
+        # pass arbitrary data without raising TypeError from the Declarative
+        # base __init__.
+        allowed = set()
+        for name in dir(self.__class__):
+            try:
+                attr = getattr(self.__class__, name)
+            except Exception:
+                continue
+            # InstrumentedAttribute covers mapped columns/relationships
+            if isinstance(attr, InstrumentedAttribute) or isinstance(attr, hybrid_property):
+                allowed.add(name)
+        # Keep internal allowed names
+        allowed.update({'_misc_info'})
+        valid_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
+        misc_kwargs = {k: v for k, v in kwargs.items() if k not in valid_kwargs}
+        # Call SQLAlchemy / Declarative __init__ only with valid kwargs
+        super().__init__(**valid_kwargs)
+        # Ensure _misc_info exists and is wrapped in the safe dict type
+        self._wrap_misc_info()
+        if misc_kwargs:
+            self._misc_info.update(misc_kwargs)
+
+    @classproperty
+    def jsons(cls) -> List[str]:
+        """
+        Get list of JSON database columns for this model.
+
+        Inspects the table schema and returns all columns with JSON type.
+
+        :return: List of JSON column names. Empty list if table doesn't exist.
+        :rtype: list[str]
+        """
+        try:
+            return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
+        except AttributeError as e:
+            if not cls.__qualname__ == "BaseClass":
+                logger.error(f"Could not get timestamps due to {e}")
+            return []
+        
+    @classproperty
+    def timestamps(cls) -> List[str]:
+        """
+        Get list of TIMESTAMP columns for this model.
+
+        Inspects the table schema and returns all columns with TIMESTAMP type,
+        stripping leading underscores from column names.
+
+        :return: List of timestamp column names. Empty list if table doesn't exist.
+        :rtype: list[str]
+        """
+        try:
+            return [item.name.strip("_") for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
+        except AttributeError as e:
+            if not cls.__qualname__ == "BaseClass":
+                logger.error(f"Could not get timestamps due to {e}")
+            return []
+
+    @classproperty
+    def sqlalchemy_fields(cls) -> List[str]:
+        """
+        Get list of all SQLAlchemy mapped field names for this model.
+        
+        Returns all column names, relationship names, and hybrid property names
+        that are defined for this model class.
+
+        :return: Sorted list of unique field names (with prefixes removed).
+        :rtype: list[str]
+        """
+        try:
+            mapper = sql_inspect(cls)
+            column_names = [attr.key for attr in mapper.column_attrs]
+            relationship_names = [rel.key for rel in mapper.relationships]
+            hybrid_names = []
+            for base in cls.__mro__:
+                for name, attr in base.__dict__.items():
+                    if name == 'sqlalchemy_fields' or name.startswith("_"):
+                        continue
+                    if isinstance(attr, hybrid_property):
+                        hybrid_names.append(name)
+            sqls = sorted(set(column_names + relationship_names + hybrid_names))
+            return list(set([item.replace("_id", "").replace("_name", "").strip("_") for item in sqls]))
+        except Exception as e:
+            if cls.__qualname__ != "BaseClass":
+                logger.error(f"Could not inspect SQLAlchemy fields for {cls.__name__}: {e}")
+            return []
+
+    def _serialize_misc_value(self, value):
+        """
+        Serialize a value to a JSON-compatible form.
+        
+        Attempts to coerce a value into a JSON-serializable form. Returns the original 
+        value if already serializable, or converts common types like datetime, date, 
+        timedelta, and BaseClass instances to JSON-compatible representations.
+
+        :param value: Value to serialize.
+        :return: JSON-serializable version of the value.
+        :rtype: any
+        :raises TypeError: If the value cannot be coerced to a JSON-serializable form.
+        """
+        # First, quick test for serializability
+        try:
+            json.dumps(value)
+            return value
+        except TypeError:
+            pass
+        # Handle some common non-serializable types
+        try:
+            if isinstance(value, datetime):
+                return value.strftime("%Y-%m-%dT%H:%M:%S")
+            if isinstance(value, date):
+                return value.strftime("%Y-%m-%d")
+            if isinstance(value, timedelta):
+                return value.days
+        except Exception:
+            # fall through to other heuristics
+            pass
+        # If it's a BaseClass-like instance, prefer name/id when available
+        try:
+            if issubclass(value.__class__, BaseClass):
+                return getattr(value, "name", None) or getattr(value, "id", None) or str(value)
+        except Exception:
+            pass
+        # As a last resort, try to convert to string. If that fails, raise.
+        try:
+            return str(value)
+        except Exception:
+            raise TypeError(f"Value of type {type(value)} is not JSON serializable")
+
+    @classmethod
+    def determine_field_type(cls, field: str, is_new: bool = False) -> str:
+        """
+        Determine the SQLAlchemy field type for a given field name.
+        
+        Inspects the model and returns the type name suitable for form generation,
+        handling relationships, columns, and hybrid properties.
+
+        :param field: Field name to inspect (case-insensitive).
+        :type field: str
+        :param is_new: Whether this is a new record. Some field types 
+                       are skipped for new records. Defaults to False.
+        :type is_new: bool
+        :return: Uppercase type name (e.g., 'STRING', 'INTEGER', 'RELATIONSHIPLIST', 'SKIPPED').
+        :rtype: str
+        """       
+        def handle_instrument_attr(type_):
+            type_ = type_.property
+            type_name = type_.__class__.__name__
+            if type_name == "_RelationshipDeclared":
+                if type_.uselist:
+                    type_name = "RelationshipList"
+                else:
+                    type_name = "RelationshipScalar"
+            else:
+                type_name = type_.expression.type.__str__()
+            return type_name
+        try: 
+            type_ = getattr(cls, field.lower().strip("_"))
+        except TypeError:
+            return "Invalid"
+        type_name = type_.__class__.__name__
+        match type_name:
+            case "hybrid_propertyProxy":
+                try:
+                    type_ = getattr(cls, type_.property.key)
+                except AttributeError:
+                    type_ = getattr(cls, f"_{field}") # Dicey workaround for hybrid_property with underscore
+                type_name = type_.__class__.__name__
+                if type_name == "InstrumentedAttribute":
+                    type_name = handle_instrument_attr(type_=type_)
+                if type_name == "ObjectAssociationProxyInstance":
+                    if is_new:
+                        type_name = "SKIPPED"
+            case "ObjectAssociationProxyInstance":
+                if is_new:
+                    type_name = "SKIPPED"
+            case "InstrumentedAttribute":
+                type_name = handle_instrument_attr(type_=type_)
+            case _:
+                logger.warning(f"Got unmatched type: {type_name} for field {field}.")
+        type_name = re.sub(r"\(.*\)", "", type_name)
+        return type_name.upper()
+
+    @classmethod
+    def get_searchables(cls) -> List[str]:
+        """
+        Get list of fields this model is searchable by.
+        
+        Returns only non-function attributes that are String columns and not foreign keys.
+        These fields are suitable for full-text or fuzzy search operations.
+        
+        :return: List of searchable field names.
+        :rtype: list[str]
+        """
+        output = []
+        # NOTE: get only non-function attributes that are columns, not foreign keys, and of type String.
+        for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a))):
+            if item[0] in ["_misc_info"]:
+                continue
+            if not isinstance(item[1], InstrumentedAttribute) and not isinstance(item[1], hybrid_property):
+                continue
+            if not isinstance(item[1].property, ColumnProperty):
+                continue
+            if len(item[1].foreign_keys) > 0:
+                continue
+            if item[1].type.__class__.__name__ not in ["String"]:
+                continue
+            output.append(item[0])
+        return output
 
     @classmethod
     def get_default_info(cls, *args) -> dict | list | str:
         """
-        Returns default info for a model
+        Get default metadata information for this model.
+        
+        Returns default configuration including singleton fields that should be 
+        limited to single results in queries.
 
-        Returns:
-            dict | list | str: Output of key:value dict or single (list, str) desired variable
+        :param args: Variable-length argument list containing keys to extract 
+                     (e.g., 'singles' to get singleton field names).
+        :return: Dictionary of defaults or specific extracted value.
+        :rtype: dict | list | str
         """
         # NOTE: singles is a list of fields that need to be limited to 1 result.
-        singles = list(set(cls.singles + BaseClass.singles))
-        return dict(singles=singles)
-
-    @classmethod
-    def find_regular_subclass(cls, name: str|None = None) -> Any:
-        """
-        Args:
-            name (str): name of subclass of interest.
-
-        Returns:
-            Any: Subclass of this object.
-        """
-        if name:
-            if " " in name:
-                search = name.title().replace(" ", "")
-            else:
-                search = name
-            return next((item for item in cls.__subclasses__() if item.__name__ == search), cls)
-        else:
-            return cls.__subclasses__()
-
+        return dict(singles=list(set(cls.singles + BaseClass.singles)))
 
     @classmethod
     def fuzzy_search(cls, **kwargs) -> List[Any]:
         """
-        Uses approximation of fields to get list of query results.
+        Perform a fuzzy search on this model using wildcard matching.
+        
+        Searches for records matching the given field patterns using SQL LIKE operators.
+        Useful for user-friendly search interfaces and autocomplete functionality.
 
-        Args:
-            **kwargs ():
-
-        Returns:
-            List[Any]: Results of sqlalchemy query.
+        :param kwargs: Field names mapped to search terms. Each field will be searched 
+                       using percentage-wrapped wildcards (e.g., ``field='value'`` searches for 
+                       ``%value%``).
+        :return: List of matching model instances (max 50 results).
+        :rtype: list[any]
         """
         query: Query = cls.__database_session__.query(cls)
         for k, v in kwargs.items():
@@ -197,71 +541,173 @@ class BaseClass(Base):
         return query.limit(50).all()
 
     @classmethod
-    def results_to_df(cls, objects: list | None = None, **kwargs) -> DataFrame:
+    def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
         """
-        Converts class sub_dicts into a Dataframe for all instances of the class.
+        Query for an existing object or create a new one.
+        
+        Attempts to find a matching object in the database. If found, returns it.
+        If not found, creates a new instance with the provided attributes.
 
-        Args:
-            objects (list): Objects to be converted to dataframe.
-            **kwargs (): Arguments necessary for the to_sub_dict method. eg extraction_kit=X
-
-        Returns:
-            Dataframe
+        :param kwargs: Field-value pairs to query for or set on the new instance.
+                       Can include 'value' which gets mapped to 'name' for queries.
+        :return: Tuple of (model instance, is_new) where is_new 
+                 indicates whether the instance was newly created.
+        :rtype: tuple[any, bool]
         """
-        if not objects:
+        new = False
+        # NOTE: ensure only valid fields are being used.
+        allowed = [k for k, v in cls.__dict__.items() if
+                   isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)] + ['value']
+        query_kwargs = {k: v for k, v in kwargs.items() if k in allowed and not isinstance(v, list)}
+        if "value" in query_kwargs.keys() and "name" not in query_kwargs.keys():
+            query_kwargs["name"] = query_kwargs.get("value")
+        # NOTE: if searching with 'name', only search with name.
+        if "name" in query_kwargs.keys():
+            query_kwargs = dict(name=query_kwargs.get("name"))
+        instance = cls.query(limit=1, **query_kwargs)
+        if instance is None or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in kwargs.items():
+            # Disallow setting 'id'.
+            if k == "id":
+                continue
+            # NOTE: Setattr used to make use of overridden method.
             try:
-                records = [obj.to_sub_dict(**kwargs) for obj in cls.query()]
+                setattr(instance, k, v)
             except AttributeError:
-                records = [obj.to_dict(**kwargs) for obj in cls.query(page_size=0)]
-        else:
-            try:
-                records = [obj.to_sub_dict(**kwargs) for obj in objects]
-            except AttributeError:
-                records = [{k: v['instance_attr'] for k, v in obj.omnigui_instance_dict.items()} for obj in objects]
-        return DataFrame.from_records(records)
+                continue
+        return instance, new
 
     @classmethod
     def query(cls, **kwargs) -> Any | List[Any]:
         """
-        Default query function for models. Overridden in most models with additional filters.
+        Query the database for objects of this model type.
+        
+        Convenience wrapper around :meth:`execute_query` that sets limit to 1 
+        when searching by name.
 
-        Returns:
-            Any | List[Any]: Result of query execution.
+        :param kwargs: Query filters and options. Common options:
+
+                       - name (str): Search by name, automatically limits to 1 result.
+                       - limit (int): Maximum results to return.
+                       - Other model fields as filter conditions.
+        :return: Single result if limit=1 or name search, list otherwise.
+        :rtype: any | list[any]
         """
+        if "name" in kwargs.keys():
+            kwargs['limit'] = 1
         return cls.execute_query(**kwargs)
 
     @classmethod
-    def execute_query(cls, query: Query = None, model=None, limit: int = 0, **kwargs) -> Any | List[Any]:
+    def execute_query(cls, query: Query = None, limit: int = 0, offset: int | None = None,
+                      **kwargs) -> Any | List[Any]:
         """
-        Execute sqlalchemy query with relevant defaults.
+        Execute a database query with advanced filtering and relationship handling.
+        
+        Executes a flexible query against the database with support for:
+        
+        - Dynamic filtering by any model field
+        - Relationship handling (including unsaved instances)
+        - Wildcard/list filtering
+        - Result limiting and offsetting
+        - Automatic single-result limiting for special fields
 
-        Args:
-            model (Any, optional): model to be queried, allows for plugging in. Defaults to None
-            query (Query, optional): input query object. Defaults to None
-            limit (int): Maximum number of results. (0 = all). Defaults to 0
+        :param query: Pre-built SQLAlchemy query object. 
+                      If None, creates a fresh query. Defaults to None.
+        :type query: :class:`sqlalchemy.orm.Query` or None
+        :param limit: Maximum results to return (0 means no limit). Defaults to 0.
+        :type limit: int
+        :param offset: Result offset for pagination. Defaults to None.
+        :type offset: int | None
+        :param kwargs: Field names and values for filtering. Values can be:
 
-        Returns:
-            Any | List[Any]: Single result if limit = 1 or List if other.
+                       - Scalar values for equality comparison
+                       - List values (for fields with uselist=True)
+                       - BaseClass instances (matches by id or name)
+        :return: Single result if limit=1, list of results otherwise.
+        :rtype: any | list[any]
         """
-        if model is None:
-            model = cls
         if query is None:
-            query: Query = cls.__database_session__.query(model)
-        singles = model.get_default_info('singles')
+            query: Query = cls.__database_session__.query(cls)
+            # NOTE: determine which fields to limit to 1.
+        singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
-            logger.info(f"Using key: {k} with value: {v}")
             try:
-                attr = getattr(model, k)
-                # NOTE: account for attrs that use list.
-                if attr.property.uselist:
-                    query = query.filter(attr.contains(v))
-                else:
-                    query = query.filter(attr == v)
+                attr = getattr(cls, k)
             except (ArgumentError, AttributeError) as e:
-                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
+                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\n.")
+                continue
+            # NOTE: account for attrs that use list.
+            try:
+                check = attr.property.uselist
+            except AttributeError:
+                check = False
+            # Handle when the value provided is an instance of a BaseClass
+            # If the instance hasn't been persisted (no id), comparing the
+            # relationship directly will raise StatementError because SQLAlchemy
+            # can't resolve the primary key value. In that case try to match
+            # on a sensible alternative (usually 'name') using .has / .any.
+            if isinstance(v, BaseClass):
+                obj_primarykey = getattr(v, "id", None)
+                is_relationship = isinstance(getattr(attr, "property", None), RelationshipProperty)
+                # If it's a relationship property, prefer .has / .any when no pk
+                if is_relationship:
+                    related_cls = attr.property.mapper.class_
+                    # If object has a primary key, we can compare directly
+                    if obj_primarykey is not None:
+                        try:
+                            # If the attribute is a list-like relationship, use contains; otherwise compare directly
+                            if check:
+                                query = query.filter(attr.contains(v))
+                            else:
+                                query = query.filter(attr == v)
+                        except ArgumentError:
+                            pass
+                    else:
+                        # Try to match by name if available to avoid StatementError
+                        obj_name = getattr(v, "name", None)
+                        if obj_name is not None:
+                            try:
+                                if check:
+                                    query = query.filter(attr.any(related_cls.name == obj_name))
+                                else:
+                                    query = query.filter(attr.has(name=obj_name))
+                            except ArgumentError:
+                                pass
+                        else:
+                            # Can't resolve the unsaved object; skip this filter
+                            continue
+                else:
+                    # Not a relationship property (unlikely to be a BaseClass),
+                    # fall back to attempting direct comparison if pk present.
+                    if obj_primarykey is None:
+                        # can't compare unresolved object, skip
+                        continue
+                    try:
+                        query = query.filter(attr == v)
+                    except ArgumentError:
+                        continue
+            else:
+                # Non-instance values
+                # NOTE: Recall check is true if attr.uselist
+                if check:
+                    try:
+                        query = query.filter(attr.contains(v))
+                    except ArgumentError:
+                        continue
+                else:
+                    if isinstance(v, list):
+                        continue
+                    try:
+                        query = query.filter(attr == v)
+                    except ArgumentError:
+                        continue
             if k in singles:
                 logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
+        if offset:
+            query = query.offset(offset)
         with query.session.no_autoflush:
             match limit:
                 case 0:
@@ -274,192 +720,204 @@ class BaseClass(Base):
     @report_result
     def save(self) -> Report | None:
         """
-        Add the object to the database and commit
+        Add this object to the database and commit the transaction.
+        
+        Ensures all values in misc_info are JSON-serializable, converting them if possible.
+        Removes any values that cannot be serialized.
+
+        :return: Report object with alerts if any errors occurred, or None on success.
+        :rtype: :class:`Report` | None
+            
+        .. note::
+           This method is decorated with @report_result which provides automatic 
+           result reporting. On failure, returns a Report with a Critical-level Alert.
         """
         report = Report()
+        del_keys = []
+        try:
+            if not isinstance(self._misc_info, SafeMiscInfo):
+                self._misc_info = SafeMiscInfo(self._misc_info or {}, owner=self)
+            items = list(self._misc_info.items())
+        except AttributeError:
+            items = []
+        # Ensure values in misc_info are json serializable. Try to coerce
+        # values where possible; drop keys that cannot be coerced.
+        for key, value in items:
+            try:
+                json.dumps(value)
+            except TypeError:
+                try:
+                    self._misc_info[key] = self.sanitize_obj_for_json(value)
+                except TypeError:
+                    del_keys.append(key)
+        for dk in del_keys:
+            try:
+                del self._misc_info[dk]
+            except Exception:
+                pass
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
-        except Exception as e:
-            logger.critical(f"Problem saving object: {e}")
-            logger.error(f"Error message: {type(e)}")
+        except IntegrityError as e:
             self.__database_session__.rollback()
-            report.add_result(Result(msg=e, status="Critical"))
-            return report
+            logger.error(f"Integrity error saving {self}: {e.orig}")
+            report.add_result(Result(msg=str(e.orig), status="Critical"))
+            raise  # or return report, but don't silently drop
+        except OperationalError as e:
+            self.__database_session__.rollback()
+            logger.critical(f"Operational error saving {self}: {e}")
+            raise
 
-    @property
-    def omnigui_instance_dict(self) -> dict:
+    @classmethod
+    def pydantic_model(cls, pyd_model_name: str | None = None) -> Any:
         """
-        For getting any object in an omni-thing friendly output.
+        Get the Pydantic model class corresponding to this SQLAlchemy model.
+        
+        Retrieves the Pydantic validation model used for converting instances
+        to validated data structures.
 
-        Returns:
-            dict: Dictionary of object minus _sa_instance_state with id at the front.
-        """
-        dicto = {key: dict(class_attr=getattr(self.__class__, key), instance_attr=getattr(self, key))
-                 for key in dir(self.__class__) if
-                 isinstance(getattr(self.__class__, key), InstrumentedAttribute) and key not in self.omni_removes
-                 }
-        for k, v in dicto.items():
-            try:
-                v['instance_attr'] = v['instance_attr'].name
-            except AttributeError:
-                continue
-        try:
-            dicto = list_sort_dict(input_dict=dicto, sort_list=self.__class__.omni_sort)
-        except TypeError as e:
-            logger.error(f"Could not sort {self.__class__.__name__} by list due to :{e}")
-        try:
-            dicto = {'id': dicto.pop('id'), **dicto}
-        except KeyError:
-            pass
-        return dicto
-
-    @classproperty
-    def pydantic_model(cls) -> BaseModel:
-        """
-        Gets the pydantic model corresponding to this object.
-
-        Returns:
-            Pydantic model with name "Pyd{cls.__name__}"
+        :param pyd_model_name: Custom name for the Pydantic model to retrieve.
+                               If None, defaults to ``Pyd{cls.__name__}`` or ``Pyd{cls.pyd_model_name}``
+                               if that attribute exists. Defaults to None.
+        :type pyd_model_name: str | None
+        :return: Pydantic model class, or None if not found.
+        :rtype: any
         """
         from backend.validators import pydant
-        try:
-            model = getattr(pydant, f"Pyd{cls.__name__}")
-        except AttributeError:
-            logger.warning(f"Couldn't get {cls.__name__} pydantic model.")
-            return pydant.PydElastic
-        return model
-
-    @classproperty
-    def add_edit_tooltips(cls) -> dict:
-        """
-        Gets tooltips for Omni-add-edit
-
-        Returns:
-            dict: custom dictionary for this class.
-        """
-        return dict()
-
-    def check_all_attributes(self, attributes: dict) -> bool:
-        """
-        Checks this instance against a dictionary of attributes to determine if they are a match.
-
-        Args:
-            attributes (dict): A dictionary of attributes to be check for equivalence
-
-        Returns:
-            bool: If a single unequivocal value is found will be false, else true.
-        """
-        # logger.debug(f"Incoming attributes: {attributes}")
-        for key, value in attributes.items():
-            if value.lower() == "none":
-                value = None
-            # logger.debug(f"Attempting to grab attribute: {key}")
-            self_value = getattr(self, key)
-            class_attr = getattr(self.__class__, key)
-            # logger.debug(f"Self value: {self_value}, class attr: {class_attr} of type: {type(class_attr)}")
-            if isinstance(class_attr, property):
-                filter = "property"
-            else:
-                filter = class_attr.property
-            match filter:
-                case ColumnProperty():
-                    match class_attr.type:
-                        case INTEGER():
-                            if value.lower() == "true":
-                                value = 1
-                            elif value.lower() == "false":
-                                value = 0
-                            else:
-                                value = int(value)
-                        case FLOAT():
-                            value = float(value)
-                case "property":
-                    pass
-                case _RelationshipDeclared():
-                    # logger.debug(f"Checking {self_value}")
-                    try:
-                        self_value = self_value.name
-                    except AttributeError:
-                        pass
-                    if class_attr.property.uselist:
-                        self_value = self_value.__str__()
+        if not pyd_model_name:
             try:
-                # logger.debug(f"Check if {self_value.__class__} is subclass of {self.__class__}")
-                check = issubclass(self_value.__class__, self.__class__)
-            except TypeError as e:
-                logger.error(f"Couldn't check if {self_value.__class__} is subclass of {self.__class__} due to {e}")
-                check = False
-            if check:
-                # logger.debug(f"Checking for subclass name.")
-                self_value = self_value.name
-            # logger.debug(f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
-            if self_value != value:
-                output = False
-                # logger.debug(f"Value {key} is False, returning.")
-                return output
-        return True
+                pyd_model_name = f"Pyd{cls.pyd_model_name}"
+            except AttributeError:
+                pyd_model_name = f"Pyd{cls.__name__}"
+        try:
+            model = getattr(pydant, pyd_model_name)
+        except AttributeError:
+            logger.error(f"Couldn't get model {pyd_model_name}, returning None")
+            return None
+        return model
 
     def __setattr__(self, key, value):
         """
-        Custom dunder method to handle potential list relationship issues.
+        Custom attribute setter to handle relationships and properties.
+        
+        This method intercepts attribute assignments and:
+        
+        - Handles SQLAlchemy special attributes correctly
+        - Routes unknown attributes to misc_info
+        - Properly triggers property setters for hybrid_property and property descriptors
+        - Ensures JSON serializable values in misc_info
+        
+        :param key: Attribute name.
+        :type key: str
+        :param value: Value to assign.
+            
+        .. note::
+           __setattr__ is called before property.setter methods, so this method 
+           explicitly handles property descriptors to ensure their setters are called.
         """
+        if key == "_sa_instance_state":
+            return super().__setattr__(key, value)
+        elif key == "new":
+            return
+        # NOTE: if attribute not found in this object, value gets shoved in to misc_info
         try:
-            field_type = getattr(self.__class__, key)
-        except AttributeError:
-            return super().__setattr__(key, value)
-        if isinstance(field_type, InstrumentedAttribute):
-            # logger.debug(f"{key} is an InstrumentedAttribute.")
-            match field_type.property:
-                case ColumnProperty():
-                    # logger.debug(f"Setting ColumnProperty to {value}")
-                    return super().__setattr__(key, value)
-                case _RelationshipDeclared():
-                    # logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
-                    if field_type.property.uselist:
-                        logger.debug(f"Setting with uselist")
-                        existing = self.__getattribute__(key)
-                        # NOTE: This is causing problems with removal of items from lists. Have to overhaul it.
-                        if existing is not None:
-                            logger.debug(f"{key} Existing: {existing}, incoming: {value}")
-                            if isinstance(value, list):
-                                # value = existing + value
-                                value = value
-                            else:
-                                value = existing + [value]
-                        else:
-                            if isinstance(value, list):
-                                value = value
-                            else:
-                                value = [value]
-                        value = list(set(value))
-                        logger.debug(f"Final value for {key}: {value}")
-                        return super().__setattr__(key, value)
-                    else:
-                        if isinstance(value, list):
-                            if len(value) == 1:
-                                value = value[0]
-                            else:
-                                raise ValueError("Object is too long to parse a single value.")
-                        return super().__setattr__(key, value)
-                case _:
-                    return super().__setattr__(key, value)
+            attr = inspect.getattr_static(self.__class__, key)
+            class_has_attr = True
+        except AttributeError as e:
+            attr = None
+            class_has_attr = False
+        # NOTE: if attribute not found in this object, value gets shoved into misc_info
+        if not class_has_attr:
+            # ensure value is json serializable (or coerce it)
+            try:
+                safe_value = self._serialize_misc_value(value)
+            except TypeError:
+                # Could not coerce to a JSON serializable form; skip storing
+                return
+            if not "sql_instance" in key:
+                try:
+                    try:
+                        if self._misc_info is None:
+                            self._wrap_misc_info()
+                    except AttributeError:
+                        self._wrap_misc_info()
+                    self._misc_info.update({key: safe_value})
+                except AttributeError:
+                    super().__setattr__("_misc_info", {key: safe_value})
         else:
-            return super().__setattr__(key, value)
-
-    def delete(self):
+            # If the class attribute is a descriptor for a property (including
+            # SQLAlchemy hybrid_property), calling super().__setattr__ may not
+            # always trigger the descriptor's fset. Detect hybrid_property or
+            # builtin property descriptors and call their fset directly so
+            # property setters run when users call setattr(instance, name, val).
+            current = getattr(self, key)
+            try:
+                # hybrid_property is imported in module scope above
+                if isinstance(attr, (property, hybrid_property)):
+                    setter = getattr(attr, 'fset', None)
+                    if setter:
+                        return setter(self, value)
+            except Exception as e:
+                # fall back to default behavior if detection fails
+                logger.error(f"Unable to call setter for {self.__str__()}.{attr.__name__} due to {e}")
+                return super().__setattr__(key, current)
+            try:
+                return super().__setattr__(key, value)
+            except AttributeError as e:
+                logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
+                
+    @classmethod
+    def get_relationship_sqlclass(cls, key: str) -> BaseClass | None:
+        """
+        Find the BaseClass subclass associated with a relationship field.
+        
+        Given a relationship field name, determines and returns the SQLAlchemy 
+        model class that the relationship points to.
+        
+        :param key: Relationship field name to look up.
+        :type key: str
+        :return: Model class bound to this relationship, or None if not found.
+        :rtype: :class:`BaseClass` | None
+        """
+        field_type = cls.determine_field_type(key)
+        if "RELATIONSHIP" in field_type:
+            return cls.find_subclasses(class_alias=key.strip("_"))
+        return None
+   
+    def delete(self, **kwargs):
+        """
+        Delete this object from the database.
+        
+        This is a placeholder method. Subclasses should override to provide 
+        proper deletion logic.
+        
+        :param kwargs: Additional keyword arguments (unused in base implementation).
+        
+        .. note::
+           Currently logs an error and does not perform any deletion.
+        """
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
 
-    def rectify_query_date(input_date, eod: bool = False) -> str:
+    @staticmethod
+    def rectify_query_date(input_date: datetime, eod: bool = False) -> str:
         """
-        Converts input into a datetime string for querying purposes
+        Convert input into a datetime string for querying purposes.
+        
+        Accepts various date/datetime formats and converts them to a standardized 
+        datetime string suitable for database queries.
 
-        Args:
-            eod (bool, optional): Whether to use max time to indicate end of day.
-            input_date ():
+        :param input_date: Input date to convert. Can be:
 
-        Returns:
-            datetime: properly formated datetime
+                           - datetime object
+                           - date object
+                           - integer (Excel ordinal format)
+                           - string (parsed by dateutil.parser)
+        :type input_date: datetime | date | int | str
+        :param eod: Whether to append end-of-day time (23:59:59) instead 
+                    of start-of-day time (00:00:00). Defaults to False.
+        :type eod: bool
+        :return: Formatted datetime string in format ``YYYY-MM-DD HH:MM:SS``.
+        :rtype: str
         """
         match input_date:
             case datetime() | date():
@@ -476,25 +934,329 @@ class BaseClass(Base):
         output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
         return output_date
 
+    @classmethod
+    def sanitize_obj_for_json(cls, obj_, expand: bool = False) -> Any:
+        """
+        Recursively sanitize an object for JSON storage and rendering.
+        
+        Converts complex types to JSON-compatible representations:
+        
+        - datetime → ISO format string
+        - date → ISO format string  
+        - timedelta → days (integer)
+        - Lists/AssociationLists → list with sanitized items
+        - Dicts → dict with sanitized values
+        - BaseClass instances → name string (or details_dict if expand=True)
+        - Pydantic models → name string (or improved_dict if expand=True)
+
+        :param obj_: Object to sanitize.
+        :type obj_: any
+        :param expand: If True, expands objects to their full detail 
+                       dictionaries instead of just names. Defaults to False.
+        :type expand: bool
+        :return: JSON-compatible version of the object.
+        :rtype: any
+        """
+        from backend.validators.pydant import PydBaseClass
+        match obj_:
+            case datetime():
+                return obj_.isoformat()
+            case date():
+                return datetime.combine(obj_, datetime.max.time()).isoformat()
+            case timedelta():
+                return obj_.days
+            case list() | _AssociationList():
+                return [cls.sanitize_obj_for_json(item, expand=expand) for item in obj_]
+            case dict():
+                return {k: cls.sanitize_obj_for_json(v, expand=expand) for k, v in obj_.items()}
+            case _ if issubclass(obj_.__class__, BaseClass):
+                if not expand:
+                    return cls.sanitize_obj_for_json(obj_.name)
+                else:
+                    return cls.sanitize_obj_for_json(obj_.to_pydantic().improved_dict, expand=expand)
+            case _ if issubclass(obj_.__class__, PydBaseClass):
+                if not expand:
+                    return cls.sanitize_obj_for_json(obj_.name)
+                else:
+                    return cls.sanitize_obj_for_json(obj_.improved_dict, expand=expand)
+            case _:
+                return obj_
+
+    def details_dict_expand_fields(self, fields: List[str] | List[dict]) -> dict:
+        """
+        Get details dictionary with expanded relationship information.
+        
+        Returns the details dictionary with additional nested information from 
+        related objects. Supports both simple field expansion and recursive expansion.
+        
+        :param fields: Fields to expand. Format options:
+
+                       - List of strings: ``['field1', 'field2']`` - expand these fields from relationships.
+                       - List with nested dicts: ``[{'field1': ['subfield1', 'subfield2']}]`` - 
+                         recursively expand subfields within relationship fields.
+        :type fields: list[str] | list[dict]
+        :return: Details dictionary with requested fields expanded.
+        :rtype: dict
+        """
+        dict_ = self.details_dict
+        if len(fields) == 0:
+            return dict_
+        for field in fields:
+            match field:
+                case str():
+                    try:
+                        value = getattr(self, field)
+                    except AttributeError as e:
+                        logger.error(f"Skipping {field} in {self} due to {e}")
+                        continue
+                    match value:
+                        case InstrumentedAttribute():
+                            output = getattr(self.sql_instance, field)
+                        case _AssociationList():
+                            output = []
+                            for item in value.col:
+                                dicto: dict = item.details_dict
+                                target = getattr(item, field)
+                                target = target.details_dict
+                                target.update({k:v for k, v in dicto.items() if k !="name"})
+                                if target['name'] not in [thing['name'] for thing in output]:
+                                    output.append(target)
+                        case InstrumentedList():
+                            output = [item.details_dict for item in value]
+                        case _ if issubclass(value.__class__, BaseClass):
+                            output = value.details_dict
+                        case _:
+                            continue
+                case dict():
+                    # NOTE: this handles recursions if fields is a dict.
+                    new_fields = list(field.values())[0]
+                    field = list(field.keys())[0]
+                    
+                    try:
+                        value = getattr(self, field)
+                    except AttributeError as e:
+                        logger.error(f"Skipping {field} in {self} due to {e}")
+                        continue
+                    match value:
+                        case _AssociationList():
+                            output = [item.details_dict_expand_fields(new_fields) for item in value]
+                            for item in value.col:
+                                dicto: dict = item.details_dict_expand_fields(new_fields)
+                                target = getattr(item, field)
+                                target = target.details_dict_expand_fields(new_fields)
+                                target.update({k:v for k, v in dicto.items() if k !="name"})
+                                if target['name'] not in [thing['name'] for thing in output]:
+                                    output.append(target)
+                        case InstrumentedList():
+                            output = [item.details_dict_expand_fields(new_fields) for item in value]
+                        case _ if issubclass(value.__class__, BaseClass):
+                            output = value.details_dict
+                        case _:
+                            continue
+                case _:
+                    continue
+            dict_[field] = output
+        return dict_
+    
+    @property
+    def details_dict(self) -> dict:
+        """
+        Get a dictionary representation of this object suitable for serialization.
+        
+        Generates a dictionary of all relevant model data, excluding internal fields 
+        and foreign keys. Includes miscellaneous info and automatically sanitizes values 
+        for JSON compatibility.
+        
+        :return: Dictionary with 'excluded' key listing hidden fields and all other 
+                 model data sanitized for JSON storage.
+        :rtype: dict
+        """
+        relevant = {k: v for k, v in self.__class__.__dict__.items() if
+                    isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
+        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
+        for k, v in relevant.items():
+            if k in output['excluded']:
+                continue
+            # NOTE: foreign keys handled in child overrides.
+            try:
+                check = v.foreign_keys
+            except AttributeError:
+                check = False
+            if check:
+                continue
+            try:
+                value = getattr(self, k)
+            except AttributeError:
+                continue
+            corrected_value = self.sanitize_obj_for_json(value)
+            output[k.strip("_")] = corrected_value
+        if self._misc_info:
+            for key, value in self._misc_info.items():
+                # NOTE don't update from misc_info
+                if key in output.keys():
+                    continue
+                if key.startswith("_"):
+                    continue
+                if key in output['excluded']:
+                    continue
+                output[key] = self.sanitize_obj_for_json(value)
+        if 'name' not in output.keys():
+            output['name'] = self.name
+        return output
+
+    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
+        """
+        Convert this SQLAlchemy instance to a Pydantic model.
+        
+        Transforms the object's data into a validated Pydantic model instance,
+        useful for data validation, serialization, and API responses.
+        
+        :param pyd_model_name: Custom name for the Pydantic model class to use.
+                               If None, defaults to ``Pyd{cls.__name__}``. Defaults to None.
+        :type pyd_model_name: str | None
+        :param kwargs: Additional arguments (reserved for future use).
+        :return: Pydantic model instance representing this object.
+        :rtype: :class:`pydantic.BaseModel`
+        """
+        pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
+        details = self.details_dict
+        details['sql_instance'] = self
+        return pyd(**details)
+
+    def show_details(self, obj):
+        """
+        Display details of this object as an interactive HTML dialog.
+        
+        Converts the object to a Pydantic model and displays it in a styled widget.
+        Requires a parent QWidget or QDialog to attach the dialog to.
+        
+        :param obj: Parent QWidget or QDialog that will own the details dialog.
+        """
+        from frontend.widgets.submission_details import SubmissionDetails
+        dlg = SubmissionDetails(parent=obj, object_ = self.to_pydantic())
+        dlg.exec()
+
+    @classmethod
+    def find_subclasses(cls, class_name: str | None = None, class_alias: str | None = None) -> BaseClass | List[BaseClass] | None:
+        """
+        Find BaseClass subclasses by class name or alias.
+        
+        Searches the registry of BaseClass subclasses for a match by name or alias.
+        
+        :param class_name: Class name to search for (case-insensitive).
+                           Will search for ``cls.__name__.lower()``. Defaults to None.
+        :type class_name: str | None
+        :param class_alias: Alias to search for, checked against each class's
+                            :attr:`aliases` list. Defaults to None.
+        :type class_alias: str | None
+        :return: Matching class (if class_name or class_alias provided),
+                 list of all subclasses (if neither provided), or None if no match found.
+        :rtype: :class:`BaseClass` | list[:class:`BaseClass`] | None
+        """
+        if class_name:
+            object_ = next((cl for cl in BaseClass.__subclasses__() if cl.__name__.lower() == class_name.lower().strip("_")), None)
+            return object_
+        elif class_alias:
+            object_ = next((cl for cl in BaseClass.__subclasses__() if class_alias.lower().strip("_") in cl.aliases), None)
+            return object_
+        else:
+            return BaseClass.__subclasses__()
+
+    @classmethod
+    def rank_sample(cls, sample: PydSample, iii: int) -> PydSample:
+        """
+        Add a rank to a sample in this class.
+        
+        Updates a Pydantic sample instance with a rank value.
+        
+        :param sample: Sample model to be updated.
+        :type sample: :class:`PydSample`
+        :param iii: Rank value to assign to the sample.
+        :type iii: int
+        :return: Updated sample with rank assigned.
+        :rtype: :class:`PydSample`
+        """
+        sample.rank = iii
+        return sample
+
+
+class LogMixin(Base):
+    """
+    Mixin class to add audit logging tracking to SQLAlchemy models.
+    
+    This mixin should be combined with BaseClass to enable comprehensive audit tracking
+    of model changes. Certain attributes are excluded from tracking to avoid noise.
+    
+    This is an abstract class and should not be instantiated directly.
+    
+    :cvar tracking_exclusion: List of field names to exclude from audit tracking.
+    :vartype tracking_exclusion: ClassVar[list]
+    """
+    tracking_exclusion: ClassVar = ['clientsubmissionsampleassociation',
+                                    'contact_id', 'clientlab_id', 'misc_info', '_misc_info']
+
+    __abstract__ = True
+
+    @property
+    def truncated_name(self) -> str:
+        """
+        Get a truncated version of the object's name for concise logging.
+        
+        Limits the name to 64 characters, appending "..." if truncated.
+        
+        :return: Truncated name, up to 64 characters total.
+        :rtype: str
+        """
+        name = str(self)
+        if len(name) > 64:
+            name = f"...{name[-61:]}"
+        return name
+
 
 class ConfigItem(BaseClass):
     """
-    Key:JSON objects to store config settings in database. 
+    Configuration item model for storing key-value settings in the database.
+    
+    Stores application configuration settings as key-value pairs with JSON-serialized values,
+    allowing for flexible storage of complex configuration data.
+    
+    :ivar id: Primary key auto-incremented identifier.
+    :vartype id: int
+    :ivar key: Unique configuration key name (max 32 characters).
+    :vartype key: str
+    :ivar value: JSON-serialized configuration value.
+    :vartype value: dict
     """
+
     id = Column(INTEGER, primary_key=True)
-    key = Column(String(32))  #: Name of the configuration item.
+    key = Column(String(32), nullable=False, unique=True)  #: Name of the configuration item.
     value = Column(JSON)  #: Value associated with the config item.
 
     def __repr__(self) -> str:
+        """
+        Return string representation of this ConfigItem.
+        
+        :return: String representation in format ``<ConfigItem(key : value)>``.
+        :rtype: str
+        """
         return f"<ConfigItem({self.key} : {self.value})>"
 
     @classmethod
     def get_config_items(cls, *args) -> ConfigItem | List[ConfigItem]:
         """
-        Get desired config items, or all from database
+        Retrieve configuration items from the database.
+        
+        Fetches all config items, a single item by key, or multiple items by keys.
 
-        Returns:
-            ConfigItem|List[ConfigItem]: Config item(s)
+        :param args: Configuration keys to retrieve:
+
+                     - No args: Returns all config items.
+                     - One arg: Returns single config item (or None if not found).
+                     - Multiple args: Returns list of all matching config items.
+        :type args: str
+        :return: Single ConfigItem (if one key provided),
+                 list of ConfigItem objects, or all ConfigItem objects if no keys provided.
+        :rtype: :class:`ConfigItem` | list[:class:`ConfigItem`]
         """
         query = cls.__database_session__.query(cls)
         match len(args):
@@ -509,13 +1271,17 @@ class ConfigItem(BaseClass):
         return config_items
 
 
-from .controls import *
-# NOTE: import order must go: orgs, kit, subs due to circular import issues
-from .organizations import *
-from .kits import *
-from .submissions import *
-from .audit import *
-
-# NOTE: Add a creator to the submission for reagent association. Assigned here due to circular import constraints.
-# https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator
-BasicSubmission.reagents.creator = lambda reg: SubmissionReagentAssociation(reagent=reg)
+# NOTE: import order must go: orgs, procedure, submissions due to circular import issues
+from .audit import AuditLog
+from .organizations import (
+    ClientLab, Contact, BaseClass # NOTE: For some reason I  need to import BaseClass at this point for queries to work.
+)
+from .procedures import (
+    ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
+    ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,
+    Tips, TipsLot, ProcedureEquipmentAssociation, ProcedureTypeEquipmentRoleAssociation, Results, ReagentRoleReagentAssociation,
+    ResultsType, ProcedureEquipmentTipslotAssociation
+)
+from .submissions import (
+    ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation
+)

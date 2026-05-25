@@ -1,7 +1,6 @@
 """
 Search box that performs fuzzy search for various object types
 """
-from copy import deepcopy
 from pprint import pformat
 from typing import Tuple, Any, List, Generator
 from pandas import DataFrame
@@ -10,8 +9,8 @@ from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog,
     QTableView, QWidget, QLineEdit, QGridLayout, QComboBox, QDialogButtonBox
 )
-from .submission_table import pandasModel
-import logging
+from . import pandasModel
+import logging, sys
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -59,7 +58,6 @@ class SearchBox(QDialog):
         Changes form inputs based on sample type
         """
         search_fields = []
-        logger.debug(f"Search fields: {search_fields}")
         deletes = [item for item in self.findChildren(FieldSearch)]
         for item in deletes:
             item.setParent(None)
@@ -72,18 +70,14 @@ class SearchBox(QDialog):
                 self.object_type = self.original_type
             else:
                 self.object_type = self.original_type.find_regular_subclass(self.sub_class.currentText())
-        # logger.debug(f"Object type: {self.object_type} - {self.object_type.searchables}")
-        # logger.debug(f"Original type: {self.original_type} - {self.original_type.searchables}")
-        for item in self.object_type.searchables:
-            if item['field'] in [item['field'] for item in search_fields]:
-                logger.debug(f"Already have {item['field']}")
+        for item in self.object_type.get_searchables():
+            if item in [thing for thing in search_fields]:
                 continue
             else:
                 search_fields.append(item)
-        logger.debug(f"Search fields: {search_fields}")
         for iii, searchable in enumerate(search_fields):
-            widget = FieldSearch(parent=self, label=searchable['label'], field_name=searchable['field'])
-            widget.setObjectName(searchable['field'])
+            widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
+            widget.setObjectName(searchable)
             self.layout.addWidget(widget, 1 + iii, 0)
             widget.search_widget.textChanged.connect(self.update_data)
         self.update_data()
@@ -100,7 +94,7 @@ class SearchBox(QDialog):
 
     def update_data(self):
         """
-        Shows dataframe of relevant samples.
+        Shows dataframe of relevant sample.
         """
         fields = self.parse_form()
         sample_list_creator = self.object_type.fuzzy_search(**fields)
@@ -168,12 +162,7 @@ class SearchResults(QTableView):
         self.context = kwargs
         self.parent = parent
         self.object_type = object_type
-        try:
-            self.extras = extras + [item for item in deepcopy(self.object_type.searchables)]
-        except AttributeError:
-            self.extras = extras
-        # logger.debug(f"Extras: {self.extras}")
-
+        
     def setData(self, df: DataFrame) -> None:
         """
         sets data in model
@@ -181,8 +170,8 @@ class SearchResults(QTableView):
 
         self.data = df
         try:
-            self.columns_of_interest = [dict(name=item['field'], column=self.data.columns.get_loc(item['field'])) for
-                                        item in self.extras]
+            self.columns_of_interest = [dict(name=item, column=self.data.columns.get_loc(item)) for
+                                        item in self.object_type.get_searchables()]
         except KeyError:
             self.columns_of_interest = []
         try:
@@ -211,7 +200,8 @@ class SearchResults(QTableView):
         context = {item['name']: x.sibling(x.row(), item['column']).data() for item in self.columns_of_interest}
         try:
             object = self.object_type.query(**context)
-        except KeyError:
+        except KeyError as e:
+            logger.error(e)
             object = None
         try:
             object.edit_from_search(obj=self.parent, **context)

@@ -1,13 +1,17 @@
+"""
 
+"""
+from __future__ import annotations
 import logging
-from pathlib import Path
-from typing import List
+from typing import List, TYPE_CHECKING
 from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QGridLayout
-from backend.validators import PydSubmission
-from tools import get_application_from_parent, jinja_template_loading
+from backend.validators import PydSample, RSLNamer
+from tools import get_application_from_parent, jinja_template_loading, render_details_template
+if TYPE_CHECKING:
+    from backend.db.models import ClientSubmission
 
 env = jinja_template_loading()
 
@@ -16,9 +20,14 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class SampleChecker(QDialog):
 
-    def __init__(self, parent, title:str, pyd: PydSubmission):
+    def __init__(self, parent, title: str, samples: List[PydSample], clientsubmission: ClientSubmission|None=None):
         super().__init__(parent)
-        self.pyd = pyd
+        if clientsubmission:
+            data = clientsubmission.details_dict
+            self.rsl_plate_number = RSLNamer.construct_new_plate_name(data=data)
+        else:
+            self.rsl_plate_number = clientsubmission
+        self.samples = samples
         self.setWindowTitle(title)
         self.app = get_application_from_parent(parent)
         self.webview = QWebEngineView(parent=self)
@@ -30,42 +39,46 @@ class SampleChecker(QDialog):
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
-        template = env.get_template("sample_checker.html")
-        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
-        with open(template_path.joinpath("css", "styles.css"), "r") as f:
-            css = f.read()
-        html = template.render(samples=self.formatted_list, css=css)
+        samples = self.format_sample_list()
+        html = render_details_template(template="sample_checker", samples=samples, rsl_plate_number=self.rsl_plate_number)
         self.webview.setHtml(html)
+        self.webview.page().setWebChannel(self.channel)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         self.layout.addWidget(self.buttonBox, 11, 9, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
         self.setLayout(self.layout)
-        self.webview.page().setWebChannel(self.channel)
 
     @pyqtSlot(str, str, str)
     def text_changed(self, submission_rank: str, key: str, new_value: str):
-        logger.debug(f"Name: {submission_rank}, Key: {key}, Value: {new_value}")
-        match key:
-            case "row" | "column":
-                value = [new_value]
-            case _:
-                value = new_value
         try:
-            item = next((sample for sample in self.pyd.samples if int(submission_rank) in sample.submission_rank))
+            item = next((sample for sample in self.samples if int(submission_rank) == sample.submission_rank))
         except StopIteration:
             logger.error(f"Unable to find sample {submission_rank}")
             return
-        item.__setattr__(key, value)
+        item.__setattr__(key, new_value)
 
-    @property
-    def formatted_list(self) -> List[dict]:
+    @pyqtSlot(int, bool)
+    def enable_sample(self, submission_rank: int, enabled: bool):
+        try:
+            item = next((sample for sample in self.samples if int(submission_rank) == sample.submission_rank))
+        except StopIteration:
+            logger.error(f"Unable to find sample {submission_rank}")
+            return
+        item.__setattr__("enabled", enabled)
+
+    @pyqtSlot(str)
+    def set_rsl_plate_number(self, rsl_plate_number: str):
+        self.rsl_plate_number = rsl_plate_number
+    
+    def format_sample_list(self) -> List[dict]:
         output = []
-        for sample in self.pyd.sample_list:
-            if sample['submitter_id'] in [item['submitter_id'] for item in output]:
-                sample['color'] = "red"
+        for sample in self.samples:
+            s = sample.improved_dict
+            if s['sample_id'] in [item['sample_id'] for item in output]:
+                s['color'] = "red"
             else:
-                sample['color'] = "black"
-            output.append(sample)
+                s['color'] = "black"
+            output.append(s)
         return output
