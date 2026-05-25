@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_va
 from pydantic_core import core_schema
 from pydantic.fields import FieldInfo
 from datetime import date, datetime
-from typing import Any, ClassVar, Generator, List, Generic, TypeVar, Annotated, get_args, get_origin
+from typing import Any, Generator, List, Generic, TypeVar, Annotated, get_args, get_origin
 from types import UnionType
 from tools import classproperty, jinja_template_loading, row_keys, DotDict
 from backend.db import models
@@ -19,8 +19,6 @@ from backend.db.models import BaseClass
 from dateutil.parser import parse
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
-from sqlalchemy.orm import DeclarativeMeta, ColumnProperty
-from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.associationproxy import _AssociationList
 from PyQt6.QtWidgets import QDialog
 
@@ -253,7 +251,6 @@ def _get_relationship_marker(field_info: FieldInfo) -> RelationshipField | None:
         if isinstance(meta, RelationshipField):
             return meta
     return None
-
 
 
 class PydBaseClass(BaseModel):#, validate_assignment=True):
@@ -1061,8 +1058,6 @@ class PydConcrete(PydBaseClass):
                 yield class_
         
 
-
-
 from .abstract import (
     PydEquipmentRole, 
     PydProcess, 
@@ -1076,7 +1071,7 @@ from .abstract import (
     PydProcedureTypeEquipmentRoleAssociation,
     PydProcedureTypeReagentRoleAssociation,
     PydReagentRoleReagentAssociation
-    )
+)
 
 from .concrete import (
     ParserError,
@@ -1096,4 +1091,4 @@ from .concrete import (
     PydProcedureReagentLotAssociation,
     PydProcedureSampleAssociation,
     PydClientSubmissionSampleAssociation
-    )
+)
