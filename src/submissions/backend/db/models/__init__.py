@@ -717,6 +717,12 @@ class BaseClass(Base):
                 case _:
                     return query.limit(limit).all()
 
+    @classmethod
+    def get_primary_keys(cls):
+        """Returns a list of primary key names from an SQLAlchemy object."""
+        mapper = sql_inspect(cls)
+        return [key.name for key in mapper.primary_key]
+
     @report_result
     def save(self) -> Report | None:
         """
@@ -761,7 +767,7 @@ class BaseClass(Base):
         except IntegrityError as e:
             self.__database_session__.rollback()
             logger.error(f"Integrity error saving {self}: {e.orig}")
-            report.add_result(Result(msg=str(e.orig), status="Critical"))
+            report.add_result(Alert(msg=str(e.orig), status="Critical"))
             raise  # or return report, but don't silently drop
         except OperationalError as e:
             self.__database_session__.rollback()

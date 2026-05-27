@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from gql import gql, Client
 from gql.transport.exceptions import TransportConnectionFailed
+from gql.transport.aiohttp import AIOHTTPTransport
 from backend.excel.reports import ChartReportMaker
 from tools import Report, report_result, clean_string
 from frontend.visualizations import KrakenFigure
@@ -29,6 +30,9 @@ class KrakenViewer(InfoPane):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         from backend.db.models import ResultsType
+        from tools import ctx
+        self.API_TOKEN = b64encode(f"{ctx.irida_next.email}:{ctx.irida_next.token}".encode('utf-8')).decode('utf-8')  # Pulls token from config and encodes for HTTP header
+        self.URL = ctx.irida_next.endpoint
         results_type = ResultsType.query(name="Irida Kraken", limit=1)
         if not results_type:
             raise ValueError("Could not find results type Irida Kraken")
@@ -127,21 +131,41 @@ class KrakenViewer(InfoPane):
 
         return output
 
-    
+    def write_metadata(self, sample_id, key, value):
+
+        transport = AIOHTTPTransport(
+            url = self.URL,
+            headers = {
+                "Authorization": f"Basic {self.API_TOKEN}",
+                "Content-Type": "application/json"
+            },
+            verify=True,  # Set to False if using self-signed certs
+            retries=3
+        )
+        client = Client(transport=transport, fetch_schema_from_transport=True)
+        # 2. Write the mutation query
+        query = gql(
+            """
+            mutation SetMetadata($id: ID!, $key: String!, $value: String!) {
+                updateFieldMetadata(id: $id, key: $key, value: $value) {
+                    success
+                    message
+                }
+            }
+            """
+        )
+        
 
     def grab_data(self, project: str, start_date: str, end_date: str, metadata_only: bool = True):
-            
-        from tools import ctx
-
-        API_TOKEN = b64encode(f"{ctx.irida_next.email}:{ctx.irida_next.token}".encode('utf-8')).decode('utf-8')  # Pulls token from config and encodes for HTTP header
+        
         PAGE_SIZE = 5  # Number of samples per request
         
 
         # ==== SETUP GRAPHQL CLIENT ====
         transport = RequestsHTTPTransport(
-            url = ctx.irida_next.endpoint,
+            url = self.URL,
             headers = {
-                "Authorization": f"Basic {API_TOKEN}",
+                "Authorization": f"Basic {self.API_TOKEN}",
                 "Content-Type": "application/json"
             },
             verify=True,  # Set to False if using self-signed certs

@@ -835,6 +835,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
             output['run'] = output['run'].name
+        output['technician'] = self.technician.value
         output['platemap'] = self.make_procedure_platemap()
         # output['name'] = self.name
         return output
@@ -972,6 +973,15 @@ class PydClientSubmission(PydConcrete):
         }
     )
     
+    validate_submissiontype = field_validator("submissiontype", mode="before")(_coerce_str_field)
+    validate_submitted_date = field_validator("submitted_date", mode="before")(_coerce_datetime_field)
+    validate_clientlab = field_validator("clientlab", mode="before")(_coerce_str_field)
+    validate_sample_count = field_validator("sample_count", mode="before")(_coerce_int_field)
+    validate_submission_category = field_validator("submission_category", mode="before")(_coerce_str_field)
+    validate_cost_centre = field_validator("cost_centre", mode="before")(_coerce_str_field)
+    validate_contact = field_validator("contact", mode="before")(_coerce_str_field)
+    validate_submitter_plate_id = field_validator("submitter_plate_id", mode="before")(_coerce_str_field)
+
     @field_validator("run", mode="before")
     @classmethod
     def enforce_run_list(cls, value):
@@ -1303,8 +1313,11 @@ class PydClientSubmission(PydConcrete):
  
         # submitter_plate_id is stored as a plain string on the SQL model
         self.sql_instance.submitter_plate_id = self.submitter_plate_id.value
- 
-        self.sql_instance.sample = self.sample
+        # logger.debug(pformat(self.sample))
+        # No sample duplicates present here
+        # logger.debug(len(self.sql_instance.sample))
+        # self.sql_instance.sample = self.sample
+        # logger.debug(len(self.sql_instance.sample))
         self.sql_instance.run    = self.run
         return self.sql_instance, None
     

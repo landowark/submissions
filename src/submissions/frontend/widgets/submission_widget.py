@@ -282,6 +282,7 @@ class SubmissionFormWidget(QWidget):
 
         def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
                      clientsubmission_object: ClientSubmission | None = None, disable: bool = False) -> None:
+            logger.debug(f"Creating {self.__class__.__name__} for {key}: {value} of type {type(value)}")
             from backend.db.models import SubmissionType
             super().__init__(parent)
             if isinstance(submission_type, str):
@@ -292,7 +293,7 @@ class SubmissionFormWidget(QWidget):
                                                   sub_obj=clientsubmission_object)
             self.setObjectName(key)
             try:
-                self.missing: bool = value['missing']
+                self.missing: bool = value.missing
             except (TypeError, KeyError):
                 self.missing: bool = True
             try:
@@ -346,22 +347,20 @@ class SubmissionFormWidget(QWidget):
             Returns:
                 QWidget: Form object
             """
-            from backend.db.models import ClientSubmission, SubmissionType
+            from backend.db.models import ClientSubmission, SubmissionType, BaseClass
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
             if isinstance(value, dict):
                 value = value.get('value', value)
+            elif isinstance(value, SourcedField):
+                value = value.value
+            if issubclass(value.__class__, BaseClass):
+                value = value.name
             match key:
                 case 'clientlab':
                     add_widget = MyQComboBox(scrollWidget=parent)
                     # NOTE: lookup organizations suitable for clientlab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
                     labs = [item.name for item in ClientLab.query()]
-                    if isinstance(value, dict):
-                        value = value['value']
-                    if isinstance(value, SourcedField):
-                        value = value.value
-                    if isinstance(value, ClientLab):
-                        value = value.name
                     try:
                         looked_up_lab = ClientLab.query(name=value, limit=1)
                     except AttributeError:
@@ -382,9 +381,11 @@ class SubmissionFormWidget(QWidget):
                     try:
                         categories.insert(0, categories.pop(categories.index(value)))
                     except ValueError:
-                        categories.insert(0, categories.pop(categories.index(submission_type)))
+                        categories.insert(0, categories.pop(categories.index(submission_type.name)))
                     add_widget.addItems(categories)
                     add_widget.setToolTip("Enter procedure category or select from list.")
+                    if value in categories:
+                        add_widget.setCurrentIndex(categories.index(value))
                 case _:
                     
                     field_type = ClientSubmission.determine_field_type(key)
@@ -536,6 +537,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         self.parse_form()
         output = self.pyd
         output.sample = [item for item in output.sample if PydSample.is_sample_id_valid(item)]
+        # logger.debug(pformat(output.sample))
+        # No duplicates here
         return output
 
     @report_result
@@ -547,53 +550,53 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         # Save samples individually and collect the saved SQL Sample objects.
         # Later, attach these saved Sample objects to the submission SQL object so
         # .save() does not attempt to INSERT duplicate Sample rows (same sample_id).
-        for sample in pyd.sample:
-            # Normalize PydSample -> SQL Sample object first so we can inspect sample_id safely
-            match sample:
-                case PydSample():
-                    sample_sql = sample.to_sql()
-                    if isinstance(sample_sql, tuple):
-                        sample_sql = sample_sql[0]
-                case Sample():
-                    sample_sql = sample
-                case _:
-                    logger.error(f"Unexpected sample object type: {type(sample)}. Skipping.")
-                    continue
-            # Defensive checks
-            if isinstance(sample_sql, PydSample):
-                logger.error("Expected SQL Sample object but got PydSample after to_sql(). Skipping.")
-                continue
-            if not isinstance(sample_sql, Sample):
-                logger.error(f"Unexpected sample object type: {type(sample_sql)}. Skipping.")
-                continue
-            sid = getattr(sample_sql, 'sample_id', None)
-            # If a sample already exists in DB, query it and reuse that instance.
-            existing = Sample.query(sample_id=sid)
-            if existing:
-                # Sample.query may return a single object or a list; normalize to object
-                sample_sql = existing[0] if isinstance(existing, list) else existing
-            else:
-                # Skip samples with missing/blank placeholder IDs
-                try:
-                    sid_str = str(sid).strip()
-                except Exception:
-                    sid_str = ""
-                if not sid_str or sid_str.lower() in ("", "blank", "na", "n/a", "none"):
-                    logger.warning(f"Sample with sample_id '{sid}' not found.")
-                else:
-                    sample_sql.save()
-                # At this point the rank is correct
-            sample.sql_instance = sample_sql
-            # saved_samples.append(sample_sql)
-        # NOTE: Can't append directly to pyd.run due to using setter.
-        runs = []
-        for run in pyd.run:
-            run = run.to_sql()
-            if isinstance(run, tuple):
-                run = run[0]
-            runs.append(run)
-        pyd.run = runs
-        sql: Procedure = pyd.to_sql()
+        # for sample in pyd.sample:
+        #     # Normalize PydSample -> SQL Sample object first so we can inspect sample_id safely
+        #     match sample:
+        #         case PydSample():
+        #             sample_sql = sample.to_sql()
+        #             if isinstance(sample_sql, tuple):
+        #                 sample_sql = sample_sql[0]
+        #         case Sample():
+        #             sample_sql = sample
+        #         case _:
+        #             logger.error(f"Unexpected sample object type: {type(sample)}. Skipping.")
+        #             continue
+        #     # Defensive checks
+        #     if isinstance(sample_sql, PydSample):
+        #         logger.error("Expected SQL Sample object but got PydSample after to_sql(). Skipping.")
+        #         continue
+        #     if not isinstance(sample_sql, Sample):
+        #         logger.error(f"Unexpected sample object type: {type(sample_sql)}. Skipping.")
+        #         continue
+        #     sid = getattr(sample_sql, 'sample_id', None)
+        #     # If a sample already exists in DB, query it and reuse that instance.
+        #     existing = Sample.query(sample_id=sid)
+        #     if existing:
+        #         # Sample.query may return a single object or a list; normalize to object
+        #         sample_sql = existing[0] if isinstance(existing, list) else existing
+        #     else:
+        #         # Skip samples with missing/blank placeholder IDs
+        #         try:
+        #             sid_str = str(sid).strip()
+        #         except Exception:
+        #             sid_str = ""
+        #         if not sid_str or sid_str.lower() in ("", "blank", "na", "n/a", "none"):
+        #             logger.warning(f"Sample with sample_id '{sid}' not found.")
+        #         else:
+        #             sample_sql.save()
+        #         # At this point the rank is correct
+        #     sample.sql_instance = sample_sql
+        #     # saved_samples.append(sample_sql)
+        # # NOTE: Can't append directly to pyd.run due to using setter.
+        # runs = []
+        # for run in pyd.run:
+        #     run = run.to_sql()
+        #     if isinstance(run, tuple):
+        #         run = run[0]
+        #     runs.append(run)
+        # pyd.run = runs
+        sql: ClientSubmission = pyd.to_sql()
         if isinstance(sql, tuple):
             sql = sql[0]
         # Remove any sample info accidentally left in misc_info by pyd.to_sql

@@ -392,7 +392,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         if isinstance(value, SourcedField):
             return value.value
         elif isinstance(value, dict):
-            return value['value']
+            try:
+                return value['value']
+            except KeyError as e:
+                return None
         return value
 
     def improved_dict_expand_fields(self, fields: List[str | dict] | dict | str, **kwargs) -> dict:
@@ -475,6 +478,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         fields = list(self.__class__.model_fields.keys()) + list(self.model_extra.keys())
         output = {k: self.filter_field(k) for k in fields if k not in ["sql_instance", "new"]}
+        
         if "misc_info" in output.keys():
             iterator = output['misc_info'] or {}
             for k, v in iterator.items():
@@ -515,6 +519,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         improved     = self.improved_dict
  
         # ── Column fields ────────────────────────────────────────────────────
+        
         for k in col_fields:
             v = improved.get(k)
             if v is None:

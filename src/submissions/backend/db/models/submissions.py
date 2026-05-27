@@ -272,6 +272,8 @@ class ClientSubmission(BaseClass, LogMixin):
                 case _:
                     logger.error(f"Unmatched value {item} of type {type(item)} for sample")
                     continue
+            # This indicates that the setter is being run in two duplicate batches
+            
             if isinstance(output, ClientSubmissionSampleAssociation):
                 try:
                     check = output.sample.sample_id.lower().startswith(("blank", "na", "none", ""))
@@ -279,7 +281,17 @@ class ClientSubmission(BaseClass, LogMixin):
                     check = True
                 if check:
                     continue
-                if output.sample not in (s.sample for s in self.clientsubmissionsampleassociation):
+                # Check for existing association by comparing all primary key values
+                logger.debug(f"Checking {output} using {output.get_primary_keys()}")
+                is_duplicate = any(
+                    all(
+                        getattr(existing, pk) == getattr(output, pk)
+                        for pk in output.get_primary_keys()
+                    )
+                    for existing in self.clientsubmissionsampleassociation
+                )
+                
+                if not is_duplicate and output.sample not in (s.sample for s in self.clientsubmissionsampleassociation):
                     self.clientsubmissionsampleassociation.append(output)
             else:
                 logger.error(f"Could not add {output} to {self.__class__.__qualname__}._sample")
@@ -665,7 +677,11 @@ class ClientSubmission(BaseClass, LogMixin):
                         for result in proceduresampleassociation.results:
                             yield result
 
+    # def save(self) -> Report | None:
+    #     logger.debug(pformat(self.sample))
+    #     return super().save()
 
+    
 class Run(BaseClass, LogMixin):
     """
     Object for an entire procedure procedure. Links to client procedure, reagents, equipment, process
