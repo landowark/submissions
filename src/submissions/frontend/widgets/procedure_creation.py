@@ -6,6 +6,8 @@ import sys, logging, datetime
 from pprint import pformat
 from PyQt6.QtCore import pyqtSlot, QVariant
 from typing import TYPE_CHECKING, List
+
+from backend.validators import SourcedField
 if TYPE_CHECKING:
     from backend.validators import PydProcedure
 from . import DefaultWebDialog
@@ -172,13 +174,29 @@ class ProcedureCreation(DefaultWebDialog):
             raise ValueError(f"Function group for {function_name} not found.")
         self.dlg = func(parent=self.app, resultstype=resultstype, procedure=self.procedure)
 
+    # def return_sql(self, new: bool = False):
+    #     assert self.procedure.run is not None
+    #     output = self.procedure.to_sql()
+        
+    #     if isinstance(output, tuple):
+    #         output = output[0]
+    #     assert output.run.rsl_plate_number == self.run.rsl_plate_number
+    #     # As of here, run is None
+    #     assert output.run is not None
+    #     return output
     def return_sql(self, new: bool = False):
         assert self.procedure.run is not None
         output = self.procedure.to_sql()
-        
         if isinstance(output, tuple):
             output = output[0]
-        assert output.run.rsl_plate_number == self.run.rsl_plate_number
-        # As of here, run is None
-        assert output.run is not None
+        
+        # self.run is a PydRun; rsl_plate_number is a SourcedField[str], not a bare str
+        expected_plate = self.run.rsl_plate_number
+        if isinstance(expected_plate, SourcedField):
+            expected_plate = expected_plate.value
+        
+        assert output.run is not None, "Procedure has no run after to_sql()"
+        assert output.run.rsl_plate_number == expected_plate, (
+            f"Run mismatch: got {output.run.rsl_plate_number!r}, expected {expected_plate!r}"
+        )
         return output
