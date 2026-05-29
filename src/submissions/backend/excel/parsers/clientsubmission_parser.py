@@ -4,7 +4,7 @@ Module for clientsubmission parsing
 from __future__ import annotations
 from pprint import pformat
 import logging, sys
-from datetime import datetime
+from datetime import datetime, time
 from string import ascii_lowercase
 from typing import Generator, TYPE_CHECKING, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
@@ -48,13 +48,14 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
             output['submissiontype']['value'] = self.submissiontype.name.title()
         except KeyError:
             pass
-        try:
-            check = isinstance(output['submitted_date']['value'], datetime)
-        except KeyError as e:
-            logger.error(output.keys())
-            raise e
-        if check:
-            output['submitted_date']['value'] = output['submitted_date']['value'].date()
+        # try:
+        #     check = isinstance(output['submitted_date']['value'], datetime)
+        # except KeyError as e:
+        #     logger.error(output.keys())
+        #     raise e
+        # if check:
+        #     output['submitted_date']['value'] = output['submitted_date']['value']
+        output["submitted_date"]['value'] = datetime.combine(output['submitted_date']['value'], datetime.now().time())
         output['endrow'] = self.end_row
         return output
 
@@ -94,7 +95,7 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
         if not isinstance(sample_id, str):
             sample_id = str(sample_id)
         if sample_id.lower() in ["", "blank", "na", "n/a", "n\\a"]:
-            return "", 0
+            return "BLANK", 0
         if sample_id.lower().startswith(("atcc", "mcs", "pos", "positivecontrol", "poscontrol", "pc")):
             return sample_id, 1
         if sample_id.lower().startswith(("en", "neg", "negcontrol", "negativecontrol", "nc")):

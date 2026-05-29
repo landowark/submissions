@@ -21,6 +21,9 @@ from base64 import b64encode
 import requests, io, csv, sys, logging, pandas as pd, re
 
 from decimal import Decimal
+from typing import Tuple, TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.db.models import Sample
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -131,16 +134,17 @@ class KrakenViewer(InfoPane):
 
         return output
 
-    def write_metadata(self, sample_id, key, value):
-
+    async def write_metadata(self, sample_dict, sql_sample):
+        id = sample_dict['id']
+        metadata = sample_dict.get("metadata", {})
+        # NOTE: Mutate metadata here.
+        
         transport = AIOHTTPTransport(
             url = self.URL,
             headers = {
                 "Authorization": f"Basic {self.API_TOKEN}",
                 "Content-Type": "application/json"
-            },
-            verify=True,  # Set to False if using self-signed certs
-            retries=3
+            }
         )
         client = Client(transport=transport, fetch_schema_from_transport=True)
         # 2. Write the mutation query
@@ -154,7 +158,18 @@ class KrakenViewer(InfoPane):
             }
             """
         )
-        
+        variables = {
+            "input": {
+                "sampleId": id,  # Or use "samplePuid" if preferred
+                "metadata": metadata,
+                "clientMutationId": "python-script-01"  # Optional tracking string
+            }
+        }
+        try:
+            result = await client.execute_async(query, variable_values=variables)
+            logger.info(result)
+        except Exception as e:
+            logger.error(f"Error running mutation: {e}")    
 
     def grab_data(self, project: str, start_date: str, end_date: str, metadata_only: bool = True):
         
@@ -257,6 +272,9 @@ class KrakenViewer(InfoPane):
 
         # Step 2: Get data and attachments and process CSVs (if requested by user)
         for sample in all_samples:
+            matched_sample = self.match_sample(sample.get("name"))
+            if matched_sample:
+                thing = self.write_metadata(sample_dict=sample, sql_sample=matched_sample)
             regex = r"(20\d{2}-?\d{2}-?\d{2})(?:-\d+)?$"
             match = re.search(regex, sample['name'])
             if match:
@@ -266,7 +284,7 @@ class KrakenViewer(InfoPane):
                 try:
                     date_obj = datetime.strptime(clean_date, "%Y%m%d")
                 except ValueError as e:
-                    print(f"Date format {clean_date} in sample name '{sample['name']}' is not recognized. Expected format YYYYMMDD or YYYY-MM-DD.")
+                    logger.error(f"Date format {clean_date} in sample name '{sample['name']}' is not recognized. Expected format YYYYMMDD or YYYY-MM-DD.")
                     raise e
             else:
                 date_obj = datetime.strptime(sample['createdAt'], "%Y-%m-%dT%H:%M:%SZ")
@@ -303,6 +321,14 @@ class KrakenViewer(InfoPane):
             output.append(sample)
         return output
             
+    @classmethod
+    def match_sample(cls, sample_name):
+        from backend.db.models import Sample
+        s = Sample.query(sample_id=sample_name, limit=1)
+        if s and not isinstance(s, list):
+            return s
+        else:
+            return None
 
     @report_result
     def update_data(self, *args, **kwargs):

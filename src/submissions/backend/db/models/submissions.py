@@ -252,6 +252,7 @@ class ClientSubmission(BaseClass, LogMixin):
         if not isinstance(value, list) and not isinstance(value, _AssociationList):
             value = [value]
         for item in value:
+            logger.debug(f"Checking sample: {item} of type {type(item)}")
             if item is None:
                 continue
             match item:
@@ -275,11 +276,14 @@ class ClientSubmission(BaseClass, LogMixin):
             # This indicates that the setter is being run in two duplicate batches
             
             if isinstance(output, ClientSubmissionSampleAssociation):
+                logger.debug(f"Checking: {output.sample.sample_id}")
                 try:
                     check = output.sample.sample_id.lower().startswith(("blank", "na", "none", ""))
-                except AttributeError:
+                except AttributeError as e:
+                    logger.error(f"Couldn't get sample_id due to {e}")
                     check = True
                 if check:
+                    logger.debug(f"Skipping assoc: {output}")
                     continue
                 # Check for existing association by comparing all primary key values
                 logger.debug(f"Checking {output} using {output.get_primary_keys()}")
@@ -290,7 +294,6 @@ class ClientSubmission(BaseClass, LogMixin):
                     )
                     for existing in self.clientsubmissionsampleassociation
                 )
-                
                 if not is_duplicate and output.sample not in (s.sample for s in self.clientsubmissionsampleassociation):
                     self.clientsubmissionsampleassociation.append(output)
             else:
@@ -1326,6 +1329,7 @@ class Run(BaseClass, LogMixin):
         procedure_type: ProcedureType = next((proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
         assert all([isinstance(s, PydSample) for s in procedure.sample])
+        assert procedure.run is not None
         # Passed check
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
@@ -1724,11 +1728,11 @@ class Sample(BaseClass, LogMixin):
     def name(self):
         return self.sample_id
     
-    @name.setter
-    def name(self, value):
-        if not isinstance(value, str):
-            value = str(value)    
-        self.sample_id = value
+    # @name.setter
+    # def name(self, value):
+    #     if not isinstance(value, str):
+    #         value = str(value)    
+    #     self.sample_id = value
 
     @hybrid_property
     def comment(self):
@@ -1746,7 +1750,6 @@ class Sample(BaseClass, LogMixin):
         current = self._comment or []
         current.append(value)
         self._comment = current
-
 
     @classmethod
     @declared_attr
@@ -1935,6 +1938,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
     @sample.setter
     def sample(self, value):
         from backend.validators.pydant import PydSample
+        logger.debug(f"{self.__class__.__qualname__} assigning {value} of type {type(value)}")
         match value:
             case str():
                 output = Sample.query(name=value, limit=1)
@@ -2536,7 +2540,7 @@ class ProcedureSampleAssociation(BaseClass):
             case Sample():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for procedure")
+                logger.error(f"Unmatched value {type(value)}: {value} for {self.__class__.__qualname__}._sample")
                 return
         if isinstance(output, tuple):
             output = output[0]
@@ -2710,33 +2714,33 @@ class ProcedureSampleAssociation(BaseClass):
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")
         self._results = list_
   
-    @hybrid_property
-    def sample(self):
-        return self._sample
+    # @hybrid_property
+    # def sample(self):
+    #     return self._sample
 
-    @sample.setter
-    def sample(self, value):
-        from backend.validators.pydant import PydSample
-        match value:
-            case str():
-                output = Sample.query(name=value, limit=1)
-            case dict():
-                output = Sample.query_or_create(**value)
-            case PydSample():
-                output = value.to_sql(update=False)
-            case Sample():
-                output = value
-            case _:
-                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._sample")
-                return
-        if isinstance(output, tuple):
-            output = output[0]
-        if isinstance(output, Sample):
-            if not PydSample.is_sample_id_valid(output.sample_id):
-                output = None
-            self._sample = output
-        else:
-            logger.error(f"Could not set {self.__class__.__qualname__}_sample to {type(output)}")
+    # @sample.setter
+    # def sample(self, value):
+    #     from backend.validators.pydant import PydSample
+    #     match value:
+    #         case str():
+    #             output = Sample.query(name=value, limit=1)
+    #         case dict():
+    #             output = Sample.query_or_create(**value)
+    #         case PydSample():
+    #             output = value.to_sql(update=False)
+    #         case Sample():
+    #             output = value
+    #         case _:
+    #             logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._sample")
+    #             return
+    #     if isinstance(output, tuple):
+    #         output = output[0]
+    #     if isinstance(output, Sample):
+    #         if not PydSample.is_sample_id_valid(output.sample_id):
+    #             output = None
+    #         self._sample = output
+    #     else:
+    #         logger.error(f"Could not set {self.__class__.__qualname__}_sample to {type(output)}")
   
     @property
     def well(self):

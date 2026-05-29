@@ -149,6 +149,8 @@ class SubmissionFormContainer(QWidget):
         # NOTE: create sheetparser using excel sheet and context from gui
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
         self.pydclientsubmission = self.clientsubmission_manager.to_pydantic()
+        logger.debug(f"Submitted date: {self.pydclientsubmission.submitted_date}")
+        # blank samples have no id here.
         checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.sample)
         if checker.exec():
             try:
@@ -174,6 +176,7 @@ class SubmissionFormWidget(QWidget):
             disable = []
         self.app = get_application_from_parent(parent)
         self.pyd = pyd
+        
         # NOTE: pyd contains run up to this point.
         self.missing_info = []
         self.submissiontype = SubmissionType.query(name=self.pyd.submissiontype.get('value'))
@@ -183,7 +186,7 @@ class SubmissionFormWidget(QWidget):
         self.layout = QVBoxLayout()
         for k in list(self.pyd.__class__.model_fields.keys()):
             if k in self.ignore:
-                logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
+                # logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue
             try:
                 check = k in disable
@@ -282,7 +285,7 @@ class SubmissionFormWidget(QWidget):
 
         def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
                      clientsubmission_object: ClientSubmission | None = None, disable: bool = False) -> None:
-            logger.debug(f"Creating {self.__class__.__name__} for {key}: {value} of type {type(value)}")
+            # logger.debug(f"Creating {self.__class__.__name__} for {key}: {value} of type {type(value)}")
             from backend.db.models import SubmissionType
             super().__init__(parent)
             if isinstance(submission_type, str):
@@ -546,47 +549,47 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         from backend.validators.pydant import PydSample
         from backend.db.models import Sample, Procedure
         pyd = self.to_pydantic()
+        # pyd.sample = [sample for sample in pyd.sample if PydSample.is_sample_id_valid(sample)]
         # NOTE: run is empty at this point.
         # Save samples individually and collect the saved SQL Sample objects.
         # Later, attach these saved Sample objects to the submission SQL object so
         # .save() does not attempt to INSERT duplicate Sample rows (same sample_id).
+        # samples = []
         # for sample in pyd.sample:
-        #     # Normalize PydSample -> SQL Sample object first so we can inspect sample_id safely
-        #     match sample:
-        #         case PydSample():
-        #             sample_sql = sample.to_sql()
-        #             if isinstance(sample_sql, tuple):
-        #                 sample_sql = sample_sql[0]
-        #         case Sample():
-        #             sample_sql = sample
-        #         case _:
-        #             logger.error(f"Unexpected sample object type: {type(sample)}. Skipping.")
-        #             continue
-        #     # Defensive checks
-        #     if isinstance(sample_sql, PydSample):
-        #         logger.error("Expected SQL Sample object but got PydSample after to_sql(). Skipping.")
+        # #     # Normalize PydSample -> SQL Sample object first so we can inspect sample_id safely
+        # #     match sample:
+        # #         case PydSample():
+        # #             sample_sql = sample.to_sql()
+        # #             if isinstance(sample_sql, tuple):
+        # #                 sample_sql = sample_sql[0]
+        # #         case Sample():
+        # #             sample_sql = sample
+        # #         case _:
+        # #             logger.error(f"Unexpected sample object type: {type(sample)}. Skipping.")
+        # #             continue
+        # #     # Defensive checks
+        # #     if isinstance(sample_sql, PydSample):
+        # #         logger.error("Expected SQL Sample object but got PydSample after to_sql(). Skipping.")
+        # #         continue
+        # #     if not isinstance(sample_sql, Sample):
+        # #         logger.error(f"Unexpected sample object type: {type(sample_sql)}. Skipping.")
+        # #         continue
+        #     sid = getattr(sample, 'sample_id', None)
+        # #     # If a sample already exists in DB, query it and reuse that instance.
+        #     try:
+        #         sid_str = str(sid).strip()
+        #     except Exception:
+        #         sid_str = None
+        #     if not sid_str:
+        #         logger.error(f"Sample with sample_id '{sid}' not found.")
         #         continue
-        #     if not isinstance(sample_sql, Sample):
-        #         logger.error(f"Unexpected sample object type: {type(sample_sql)}. Skipping.")
+        #     if sid_str.lower() in ("", "blank", "na", "n/a", "none"):
+        #         logger.error(f"Sample with invalid sample_id: {sid}")
         #         continue
-        #     sid = getattr(sample_sql, 'sample_id', None)
-        #     # If a sample already exists in DB, query it and reuse that instance.
-        #     existing = Sample.query(sample_id=sid)
-        #     if existing:
-        #         # Sample.query may return a single object or a list; normalize to object
-        #         sample_sql = existing[0] if isinstance(existing, list) else existing
         #     else:
-        #         # Skip samples with missing/blank placeholder IDs
-        #         try:
-        #             sid_str = str(sid).strip()
-        #         except Exception:
-        #             sid_str = ""
-        #         if not sid_str or sid_str.lower() in ("", "blank", "na", "n/a", "none"):
-        #             logger.warning(f"Sample with sample_id '{sid}' not found.")
-        #         else:
-        #             sample_sql.save()
-        #         # At this point the rank is correct
-        #     sample.sql_instance = sample_sql
+        #         logger.debug(f"Adding sample: {pformat(sample.improved_dict)}")
+        #         samples.append(sample)
+        # pyd.sample = samples
         #     # saved_samples.append(sample_sql)
         # # NOTE: Can't append directly to pyd.run due to using setter.
         # runs = []
@@ -604,6 +607,7 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
             del sql._misc_info['sample']
         except KeyError:
             pass
+        # By this point, sample_id is None for some reason.
         # Clear any pre-built association objects created by pyd.to_sql() so we can
         # re-create clean associations from the saved Sample SQL objects. This avoids
         # carrying over non-serializable _misc_info from pyd objects into the DB.

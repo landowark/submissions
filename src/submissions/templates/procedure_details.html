@@ -46,11 +46,11 @@
         {% endfor %}
     </table><br/>
     {% endif %}
-    {% if procedure['results'] %}
+    {% if procedure['info_results'] %}
     <button type="button"><h3><u>Results:</u></h3></button>
-    {% for result in procedure['results'] %}
+    {% for result in procedure['info_results'] %}
     <p>{% for key, value in result['result'].items() %}
-        <b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value }}<br>
+        <b>{{ key | handle_key }}:</b> {{ value | handle_results }}<br>
     {% endfor %}</p>
     {% endfor %}
     {% endif %}

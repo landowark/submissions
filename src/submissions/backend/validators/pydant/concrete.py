@@ -251,17 +251,20 @@ class PydSample(PydConcrete):
         # sample_id set). Try to resolve an existing Sample by sample_id
         # first. If none exists, populate the sql_instance.sample_id so
         # that downstream association objects don't try to insert NULL.
+        # logger.debug(f"Initial sql_instance: {self.sql_instance}")
         self.sql_instance = super().to_sql(update=update)
+        # logger.debug(f"Initial sql_instance: {self.sql_instance}")
         try:
             # Only set the SQL sample_id when the pydantic sample_id is valid.
             # Blank/NA/placeholder IDs (e.g. "", "NA", "None") are not valid
             # and would violate the UNIQUE constraint if multiple blank sample
             # rows are created. Use the helper validator to decide.
             if not self.is_sample_id_valid(self.sample_id):
+                logger.warning(f"Sample id {self.sample_id} is not valid. Skipping")
                 return None, None
-        except Exception:
+        except Exception as e:
             # Fallback: nothing we can do, return sql as-is
-            pass
+            raise e
         if not update:
             # Try to use an existing SQL Sample if present in DB
             try:
@@ -273,6 +276,7 @@ class PydSample(PydConcrete):
                 return existing, None
             # If no existing object, ensure the blank sql_instance has sample_id set
             return self.sql_instance, None
+        
         self.sql_instance.clientsubmission = getattr(self, "clientsubmission", [])
         self.sql_instance.run = getattr(self, "run", [])
         self.sql_instance.procedure = getattr(self, "procedure", [])
@@ -288,8 +292,10 @@ class PydSample(PydConcrete):
                 sample_id = sample.get('sample_id', '')
             case str():
                 sample_id = sample
+            case PydProcedureSampleAssociation():
+                sample_id = sample.sample
             case _:
-                logger.warning(f"{sample} is not a valid type")
+                logger.warning(f"{type(sample)} is not a valid type")
                 return False
         if sample_id.strip().lower().startswith("blank"):
             return False
@@ -728,6 +734,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         if not update:
             return self.sql_instance, None
         def normalize_dict_field(field_name, value):
+            if isinstance(value, SourcedField):
+                return value.value
             if not isinstance(value, dict):
                 return value
             if field_name in ["technician", "started_date", "completed_date"]:
@@ -762,34 +770,39 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 column = 0
             # Skip invalid/sample placeholders
             if not PydSample.is_sample_id_valid(sample):
+                logger.error(f"Sample {sample} is not valid.")
                 continue
+            # samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
+            samples_sql.append(sample)
             # If it's already a SQLSample instance, reuse it
-            if isinstance(sample, SQLSample):
-                samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
-                continue
-            # If it's a PydSample, decide whether to update or not based on DB
-            if isinstance(sample, PydSample):
-                try:
-                    existing = SQLSample.query(sample_id=sample.sample_id, limit=1) if sample.sample_id else None
-                except Exception:
-                    existing = None
-                try:
-                    if existing:
-                        result = sample.to_sql(update=False)
-                    else:
-                        result = sample.to_sql(update=True)
-                    if isinstance(result, tuple):
-                        sql_sample = result[0]
-                    else:
-                        sql_sample = result
-                    if sql_sample is not None:
-                        samples_sql.append(ProcedureSampleAssociation(sample=sql_sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
-                except Exception as e:
-                    # If conversion fails, skip this sample
-                    logger.exception(f"Failed converting PydSample {sample} to SQL Sample due to {e}")
-                continue
+            # if isinstance(sample, SQLSample):
+            #     samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
+            #     continue
+            # # If it's a PydSample, decide whether to update or not based on DB
+            # if isinstance(sample, PydSample):
+            #     try:
+            #         existing = SQLSample.query(sample_id=sample.sample_id, limit=1) if sample.sample_id else None
+            #     except Exception:
+            #         existing = None
+            #     try:
+            #         if existing:
+            #             result = sample.to_sql(update=False)
+            #         else:
+            #             result = sample.to_sql(update=True)
+            #         if isinstance(result, tuple):
+            #             sql_sample = result[0]
+            #         else:
+            #             sql_sample = result
+            #         if sql_sample is not None:
+            #             samples_sql.append(ProcedureSampleAssociation(sample=sql_sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
+            #     except Exception as e:
+            #         # If conversion fails, skip this sample
+            #         logger.exception(f"Failed converting PydSample {sample} to SQL Sample due to {e}")
+            #         continue
         self.sql_instance.sample = samples_sql
+        logger.debug(pformat(self.sample))
         self.sql_instance.equipment = self.equipment
+        
         # NOTE: Preserve existing Results when editing to avoid triggering delete-orphan cascade.
         # Only update results if this is a new procedure (no id yet) or if results were explicitly modified.
         if self.sql_instance.id is None:
@@ -835,7 +848,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
             output['run'] = output['run'].name
-        output['technician'] = self.technician.value
+        
         output['platemap'] = self.make_procedure_platemap()
         # output['name'] = self.name
         return output
@@ -1313,11 +1326,11 @@ class PydClientSubmission(PydConcrete):
  
         # submitter_plate_id is stored as a plain string on the SQL model
         self.sql_instance.submitter_plate_id = self.submitter_plate_id.value
-        # logger.debug(pformat(self.sample))
-        # No sample duplicates present here
-        # logger.debug(len(self.sql_instance.sample))
+        # At this point, sample_id is None.
+        # logger.debug(pformat([sample.sample_id for sample in self.sample]))
         # self.sql_instance.sample = self.sample
-        # logger.debug(len(self.sql_instance.sample))
+        logger.debug([sample.sample_id for sample in self.sql_instance.sample])
+
         self.sql_instance.run    = self.run
         return self.sql_instance, None
     
@@ -1769,15 +1782,15 @@ class PydProcedureSampleAssociation(PydConcrete):
             value = 0
         return value
 
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import ProcedureSampleAssociation
-    #     self.sql_instance: ProcedureSampleAssociation = super().to_sql(update=update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.procedure = self.procedure
-    #     self.sql_instance.sample = self.sample
-    #     self.sql_instance.results = self.results
-    #     return self.sql_instance, None
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ProcedureSampleAssociation
+        self.sql_instance: ProcedureSampleAssociation = super().to_sql(update=update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.procedure = self.procedure
+        self.sql_instance.sample = self.sample
+        self.sql_instance.results = self.results
+        return self.sql_instance, None
     
     @property
     def improved_dict(self) -> dict:
@@ -1837,16 +1850,17 @@ class PydProcedureEquipmentAssociation(PydConcrete):
                 equipment = "Unassigned Equipment"
         return f"{procedure}->{equipment}"
 
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import ProcedureEquipmentAssociation
-    #     self.sql_instance: ProcedureEquipmentAssociation = super().to_sql(update=update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.equipment = self.equipment
-    #     self.sql_instance.equipmentrole = self.equipmentrole
-    #     self.sql_instance.processversion = self.processversion
-    #     self.sql_instance.tipslot = self.tipslot
-    #     return self.sql_instance, None
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ProcedureEquipmentAssociation
+        self.sql_instance: ProcedureEquipmentAssociation = super().to_sql(update=update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.procedure = self.procedure
+        self.sql_instance.equipment = self.equipment
+        self.sql_instance.equipmentrole = self.equipmentrole
+        self.sql_instance.processversion = self.processversion
+        self.sql_instance.tipslot = self.tipslot
+        return self.sql_instance, None
 
 
 class PydProcedureReagentLotAssociation(PydConcrete):

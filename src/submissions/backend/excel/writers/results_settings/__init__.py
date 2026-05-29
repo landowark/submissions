@@ -32,7 +32,6 @@ class DefaultSettings(object):
         # Check if the result was QDialog.Accepted (usually 1)
         if result == QDialog.DialogCode.Accepted:
             self.settings = self.dlg.settings
-            # print(f"Dialog Accepted! Final settings: {self.settings}")
             self.write_output()
         else:
             logger.info("Dialog Cancelled or Rejected")

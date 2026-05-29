@@ -1932,10 +1932,12 @@ class Procedure(BaseClass):
                     output = item.to_sql()
                     if isinstance(output, tuple):
                         output = output[0]
-                    output.procedure = self
+                    # output.procedure = self
                 case _:
                     logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipment")
                     continue
+            if isinstance(output, tuple):
+                output = output[0]
             if isinstance(output, ProcedureEquipmentAssociation):
                 if output not in list_:
                     list_.append(output)
@@ -1979,11 +1981,29 @@ class Procedure(BaseClass):
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, ProcedureSampleAssociation):
-                if output not in list_:
-                    list_.append(output)
+                logger.debug(f"Checking: {output.sample.sample_id}")
+                try:
+                    check = output.sample.sample_id.lower().startswith(("blank", "na", "none", ""))
+                except AttributeError as e:
+                    logger.error(f"Couldn't get sample_id due to {e}")
+                    check = True
+                if check:
+                    logger.debug(f"Skipping assoc: {output}")
+                    continue
+                # Check for existing association by comparing all primary key values
+                logger.debug(f"Checking {output} using {output.get_primary_keys()}")
+                is_duplicate = any(
+                    all(
+                        getattr(existing, pk) == getattr(output, pk)
+                        for pk in output.get_primary_keys()
+                    )
+                    for existing in self.proceduresampleassociation
+                )
+                if not is_duplicate and output.sample not in (s.sample for s in self.proceduresampleassociation):
+                    self.proceduresampleassociation.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._sample")
-        self.proceduresampleassociation = list_
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._sample")
+        
 
     @hybrid_property
     def started_date(self):
@@ -2182,27 +2202,27 @@ class Procedure(BaseClass):
     def info_results(self) -> dict[str, dict]:
         grouped_results: dict[str, dict] = {}
         for result in self._results:
-            if result.is_sample:
+            if result.is_sample or result.assoc_id is not None:
                 continue
             try:
                 resultstype = result.resultstype.name
             except AttributeError:
                 resultstype = "Unassigned ResultsType"
-            assert result.assoc_id is None
-            grouped_results[resultstype] = result
+            
+            grouped_results[resultstype] = result.to_pydantic()
         return grouped_results
 
     @property
     def sample_results(self) -> dict[str, list]:
         grouped_results: dict[str, list] = {}
-        for result in self._results:
-            if result.assoc_id is None:
+        for result in flatten_list([[result for result in item.results] for item in self.proceduresampleassociation]):
+            if not result.is_sample:
                 continue
             try:
                 resultstype = result.resultstype.name
             except AttributeError:
                 resultstype = "Unassigned ResultsType"
-            grouped_results.setdefault(resultstype, []).append(result)
+            grouped_results.setdefault(resultstype, []).append(result.to_pydantic())
         return grouped_results
 
     @property
@@ -2366,8 +2386,7 @@ class Procedure(BaseClass):
         from frontend.widgets import SubmissionComment
         dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
         if dlg.exec():
-            comment = dlg.parse_form()
-            
+            comment = dlg.parse_form()     
 
     @check_authorization
     def delete(self, obj):
@@ -2389,7 +2408,6 @@ class Procedure(BaseClass):
             except AttributeError:
                 logger.error("App will not refresh data at this time.")
         
-
     # TODO: Convert references to details_dict_expand_fields calls so I can trim this down.
     @property
     def details_dict(self) -> dict:
@@ -2443,10 +2461,9 @@ class Procedure(BaseClass):
         output.sample = [item.to_pydantic() for item in self.proceduresampleassociation]
         output.run = self.run.to_pydantic()
         output.reagentlot = [item.to_pydantic() for item in self.procedurereagentlotassociation]
-        output.result = [item.to_pydantic() for item in self.results]
         output.equipment = [item.to_pydantic() for item in self.procedureequipmentassociation]
-        output.sample_results = flatten_list(
-            [[result.to_pydantic() for result in item.results] for item in self.proceduresampleassociation])
+        output.info_results = self.info_results
+        output.sample_results = self.sample_results
         return output
 
     def construct_pyd_procedure_for_creation(self) -> "PydProcedure":
@@ -2555,12 +2572,16 @@ class Procedure(BaseClass):
         """
         from backend.db.models import RunSampleAssociation
         self.set_cost()
+        assert self.run is not None
         super().save()
         try:
             rank = max([item.run_rank for item in self.run.runsampleassociation])
         except AttributeError:
             rank = 0
         for iii, sampleassociation in enumerate(self.proceduresampleassociation, start=1):
+            if not sampleassociation:
+                logger.error(f"No association at rank {iii}")
+                continue
             if sampleassociation.sample.sample_id not in [s.sample_id for s in self.run.sample]:
                 assoc = RunSampleAssociation(sample=sampleassociation.sample, run=self.run, rank=rank+iii)
                 assoc.save()
@@ -2575,6 +2596,7 @@ class Procedure(BaseClass):
         """
         columns = set([assoc.column for assoc in self.proceduresampleassociation])
         return len(columns)
+    
     @property
     def row_count(self) -> int:
         """

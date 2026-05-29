@@ -1,5 +1,5 @@
 import logging
-import sys, os
+import sys, os, traceback
 from tools import ctx, check_if_app, CustomLogger
 
 # NOTE: environment variable must be set to enable qtwebengine in network path
@@ -20,6 +20,8 @@ from frontend.widgets.app import App
 if __name__ == '__main__':
     ctx.run_startup()
     app = QApplication(['', '--no-sandbox'])
-    ex = App(ctx=ctx)
-    app.exec()
-    sys.exit(ctx.run_teardown())
+    try:
+        ex = App(ctx=ctx)
+        app.exec()
+    finally:
+        sys.exit(ctx.run_teardown())

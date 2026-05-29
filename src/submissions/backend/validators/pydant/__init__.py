@@ -17,6 +17,7 @@ from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
 from dateutil.parser import parse
+from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.associationproxy import _AssociationList
@@ -148,7 +149,7 @@ def _coerce_datetime_field(raw: Any, fallback: datetime | None = None) -> Source
         case datetime():
             coerced = raw_value
         case date():
-            coerced = datetime.combine(raw_value, datetime.min.time())
+            coerced = datetime.combine(raw_value, datetime.now().time())
         case int():
             # Excel ordinal date
             coerced = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + raw_value - 2)
@@ -504,10 +505,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return {item: self.__getattribute__(item) for item in list_}
 
     def to_sql(self, update: bool = True):
-        if self.sql_instance is None:
-            # Resolve via query_or_create so we reuse existing DB rows
-            instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs())
-            self.sql_instance = instance
+        # if self.sql_instance is None:
+        # Resolve via query_or_create so we reuse existing DB rows
+        instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs)
+        self.sql_instance = instance
         from sqlalchemy.ext.hybrid import hybrid_property
         from sqlalchemy.orm.properties import ColumnProperty
  
