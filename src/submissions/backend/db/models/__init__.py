@@ -565,6 +565,7 @@ class BaseClass(Base):
         if "name" in query_kwargs.keys():
             query_kwargs = dict(name=query_kwargs.get("name"))
         instance = cls.query(limit=1, **query_kwargs)
+        
         if instance is None or isinstance(instance, list):
             instance = cls()
             new = True
@@ -577,6 +578,7 @@ class BaseClass(Base):
                 setattr(instance, k, v)
             except AttributeError:
                 continue
+        
         return instance, new
 
     @classmethod

@@ -21,6 +21,7 @@ class ProcedureCreation(DefaultWebDialog):
         super().__init__(parent)
         self.edit = edit
         self.run = procedure.run
+        assert self.run is not None
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
         self.preprocessing_functions = {i[0]: {"function": i[1], "resultstype": i[2]} for i in self.proceduretype.preprocessing_methods}
@@ -172,7 +173,11 @@ class ProcedureCreation(DefaultWebDialog):
         self.dlg = func(parent=self.app, resultstype=resultstype, procedure=self.procedure)
 
     def return_sql(self, new: bool = False):
+        assert self.procedure.run is not None
         output = self.procedure.to_sql()
+        
         if isinstance(output, tuple):
             output = output[0]
+        # As of here, run is None
+        assert output.run is not None
         return output

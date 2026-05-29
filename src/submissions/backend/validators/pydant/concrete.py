@@ -731,9 +731,12 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def to_sql(self, update: bool = True):
         from backend.db.models import Procedure
         self.sql_instance: Procedure = super().to_sql(update=update)
+        assert self.run is not None
+
         if not update:
             return self.sql_instance, None
         def normalize_dict_field(field_name, value):
+            logger.debug(f"Normalizing: {field_name}: {value}")
             if isinstance(value, SourcedField):
                 return value.value
             if not isinstance(value, dict):
@@ -746,18 +749,43 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 if set(value.keys()) <= {"name", "missing"}:
                     return value["name"]
             return value
+        # As of here, run is None
+        # try:
+        #     assert self.sql_instance.run is not None
+        #     logger.debug(self.sql_instance.run)
+        # except AssertionError as e:
+        #     logger.error(f"Run is None")
+        #     raise e
         self.sql_instance.technician = normalize_dict_field("technician", self.technician)
         self.sql_instance.started_date = normalize_dict_field("started_date", self.started_date)
         self.sql_instance.completed_date = normalize_dict_field("completed_date", self.completed_date)
         self.sql_instance.proceduretype = normalize_dict_field("proceduretype", self.proceduretype)
         self.sql_instance.run = normalize_dict_field("run", self.run)
+        # As of here, run is correct.
+        try:
+            assert self.sql_instance.run is not None
+            logger.debug(self.sql_instance.run)
+        except AssertionError as e:
+            logger.error(f"Run is None")
+            raise e
         self.sql_instance.repeat_of = normalize_dict_field("repeat_of", self.repeat_of)
+        # As of here, run is correct
+        try:
+            assert self.sql_instance.run is not None
+            logger.debug(self.sql_instance.run)
+        except AssertionError as e:
+            logger.error(f"Run is None")
+            raise e
+        # This has to be the problem
         self.sql_instance.reagentlot = self.reagentlot
-        # Convert pyd samples to SQL Sample instances before assigning.
-        # Use update=True only when the sample_id does not already exist in DB;
-        # otherwise use update=False to avoid unnecessary writes.
+        # As of here, run is none
+        try:
+            assert self.sql_instance.run is not None
+            logger.debug(self.sql_instance.run)
+        except AssertionError as e:
+            logger.error(f"Run is None")
+            raise e
         samples_sql = []
-        from backend.db.models import Sample as SQLSample, ProcedureSampleAssociation
         for sample in self.sample:
             row, column = self.proceduretype.make_ranked_plate()[sample.rank]
             try:
@@ -799,7 +827,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             #         # If conversion fails, skip this sample
             #         logger.exception(f"Failed converting PydSample {sample} to SQL Sample due to {e}")
             #         continue
-        self.sql_instance.sample = samples_sql
+        # As of here, run is none.
+        
         logger.debug(pformat(self.sample))
         self.sql_instance.equipment = self.equipment
         

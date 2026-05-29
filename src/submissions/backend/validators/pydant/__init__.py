@@ -516,6 +516,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             return self.sql_instance
  
         rel_fields   = self.__class__._relationship_fields   # {name: RelationshipField}
+        # As of here, sql_instance.run is None, but the pydantic run is correct
+        
         col_fields   = self.__class__._column_fields         # [name, ...]
         improved     = self.improved_dict
  
@@ -523,6 +525,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         
         for k in col_fields:
             v = improved.get(k)
+            if self.__class__.__name__ == "PydProcedure":
+                logger.debug(f"Setting column field:{k} to {v}")
             if v is None:
                 continue
             class_attr = getattr(self._sql_class, k, None)
@@ -541,13 +545,16 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             logger.error(f"Could not set {k} on {self.sql_instance}: {e}")
                 case _:
                     pass
- 
+        
         # ── Relationship fields ───────────────────────────────────────────────
         # Subclasses previously overrode to_sql() solely to add these lines.
         # With the tag, the base class handles them, and overrides are only
         # needed for genuinely bespoke logic.
         for k, marker in rel_fields.items():
             v = getattr(self, k, None)
+            if self.__class__.__name__ == "PydProcedure":
+                logger.debug(f"Setting relationship field: {k} to {type(v)} with marker {marker}")
+                # This comes out as the pydrun instance which is correct
             if v is None:
                 continue
             if marker.uselist and isinstance(v, list) and len(v) == 0:

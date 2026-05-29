@@ -1981,14 +1981,14 @@ class Procedure(BaseClass):
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, ProcedureSampleAssociation):
-                logger.debug(f"Checking: {output.sample.sample_id}")
+                # logger.debug(f"Checking: {output.sample.sample_id}")
                 try:
                     check = output.sample.sample_id.lower().startswith(("blank", "na", "none", ""))
                 except AttributeError as e:
                     logger.error(f"Couldn't get sample_id due to {e}")
                     check = True
                 if check:
-                    logger.debug(f"Skipping assoc: {output}")
+                    # logger.debug(f"Skipping assoc: {output}")
                     continue
                 # Check for existing association by comparing all primary key values
                 logger.debug(f"Checking {output} using {output.get_primary_keys()}")
@@ -2101,6 +2101,7 @@ class Procedure(BaseClass):
     def run(self, value):
         from backend.validators.pydant import PydRun
         from .submissions import Run
+        logger.debug(f"Run coming in to setter: {type(value)}, {value}")
         match value:
             case str():
                 output = Run.query(name=value, limit=1)
@@ -2118,17 +2119,19 @@ class Procedure(BaseClass):
                     output = Run.query_or_create(**value)
             case PydRun():
                 output = value.to_sql(update=False)
-                if isinstance(output, tuple):
-                    output = output[0]
             case Run():
                 output = value
             case _:
                 logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._run")
                 return
+        if isinstance(output, tuple):
+            output = output[0]
+        logger.debug(f"Output coming out of run: {output}")
         if isinstance(output, Run):
             self._run = output
         else:
             logger.error(f"Unable to set {self.__class__.__qualname__}._run to {type(output)}")
+        logger.debug(f"Final setting of {self}.run = {self.run}")
     
     @hybrid_property
     def results(self):

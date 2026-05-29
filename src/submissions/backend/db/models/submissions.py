@@ -1334,6 +1334,8 @@ class Run(BaseClass, LogMixin):
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
+            # as of here, sql.run is None
+            assert sql.run == self
             sql.update_last_useds()
             sql.save()
         obj.set_data()
