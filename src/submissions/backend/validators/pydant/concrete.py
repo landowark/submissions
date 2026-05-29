@@ -1651,6 +1651,18 @@ class PydRun(PydConcrete):
     #     self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
     #     return self.sql_instance, None
 
+    @property
+    def _sql_lookup_kwargs(self) -> dict:
+        plate = self.rsl_plate_number
+        if isinstance(plate, SourcedField):
+            plate = plate.value
+        if plate:
+            return {"name": plate}
+        # Fall back to id if available on the sql_instance
+        if self.sql_instance is not None and self.sql_instance.id is not None:
+            return {"id": self.sql_instance.id}
+        return {}
+
     def to_sql(self, update: bool = True):
         from backend.db.models import Run
         self.sql_instance: Run = super().to_sql(update=update)
