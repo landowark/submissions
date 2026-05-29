@@ -512,10 +512,18 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return result
 
     def to_sql(self, update: bool = True):
-        # if self.sql_instance is None:
-        # Resolve via query_or_create so we reuse existing DB rows
-        instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs)
-        self.sql_instance = instance
+        # # if self.sql_instance is None:
+        # # Resolve via query_or_create so we reuse existing DB rows
+        # instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs)
+        # self.sql_instance = instance
+        # Only resolve sql_instance once. If this instance was already resolved
+        # by a prior to_sql() call (self.new=False), reuse it instead of
+        # re-running query_or_create, which would overwrite sql_instance and
+        # break callers that are mid-execution (e.g. circular PRLA -> Procedure refs).
+        if self.new:
+            instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs)
+            self.sql_instance = instance
+            self.new = False          # mark as resolved
         from sqlalchemy.ext.hybrid import hybrid_property
         from sqlalchemy.orm.properties import ColumnProperty
  
