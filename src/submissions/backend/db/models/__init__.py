@@ -569,15 +569,17 @@ class BaseClass(Base):
         if instance is None or isinstance(instance, list):
             instance = cls()
             new = True
-        for k, v in kwargs.items():
-            # Disallow setting 'id'.
-            if k == "id":
-                continue
-            # NOTE: Setattr used to make use of overridden method.
-            try:
-                setattr(instance, k, v)
-            except AttributeError:
-                continue
+            # ONLY set attributes if this is a brand new record!
+            # Moving this outside the 'if' will cause failures. You have been warned.
+            for k, v in kwargs.items():
+                # Disallow setting 'id'.
+                if k == "id":
+                    continue
+                # NOTE: Setattr used to make use of overridden method.
+                try:
+                    setattr(instance, k, v)
+                except AttributeError:
+                    continue
         
         return instance, new
 
@@ -1187,6 +1189,39 @@ class BaseClass(Base):
         sample.rank = iii
         return sample
 
+    @classmethod
+    def already_in_collection(cls, obj: BaseClass, collection: list) -> bool:
+        """
+        Check whether *obj* is already represented in *collection* by comparing
+        primary key values, rather than by object identity.
+
+        Handles three cases:
+        - obj has no PK yet (all PKs are None)  → always False, treat as new
+        - a collection member is the same Python object → True (fast path)
+        - a collection member has identical non-None PK values → True
+
+        Args:
+            obj: A SQLAlchemy model instance (must inherit BaseClass).
+            collection: The instrumented list / plain list to search.
+
+        Returns:
+            True if an equivalent row is already present, False otherwise.
+        """
+        pk_names = obj.get_primary_keys()
+        pk_vals = {k: getattr(obj, k, None) for k in pk_names}
+
+        # If every PK column is None the object hasn't been persisted yet;
+        # we can't meaningfully deduplicate it, so let it through.
+        if all(v is None for v in pk_vals.values()):
+            return False
+
+        for existing in collection:
+            if existing is obj:
+                return True
+            if all(getattr(existing, k, None) == v for k, v in pk_vals.items()):
+                return True
+
+        return False
 
 class LogMixin(Base):
     """

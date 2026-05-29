@@ -23,5 +23,7 @@ if __name__ == '__main__':
     try:
         ex = App(ctx=ctx)
         app.exec()
+    except Exception as e:
+        traceback.print_exc()
     finally:
         sys.exit(ctx.run_teardown())

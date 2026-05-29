@@ -762,22 +762,18 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         self.sql_instance.proceduretype = normalize_dict_field("proceduretype", self.proceduretype)
         self.sql_instance.run = normalize_dict_field("run", self.run)
         # As of here, run is correct.
-        try:
-            assert self.sql_instance.run is not None
-            logger.debug(self.sql_instance.run)
-        except AssertionError as e:
-            logger.error(f"Run is None")
-            raise e
         self.sql_instance.repeat_of = normalize_dict_field("repeat_of", self.repeat_of)
         # As of here, run is correct
-        try:
-            assert self.sql_instance.run is not None
-            logger.debug(self.sql_instance.run)
-        except AssertionError as e:
-            logger.error(f"Run is None")
-            raise e
+        logger.debug(self.reagentlot)
         # This has to be the problem
+        before = id(self.sql_instance)
         self.sql_instance.reagentlot = self.reagentlot
+        after = id(self.sql_instance)
+        try:
+            assert before == after
+        except AssertionError as e:
+            logger.error(f"Before id {before} != id {after}")
+            raise e
         # As of here, run is none
         try:
             assert self.sql_instance.run is not None
@@ -829,7 +825,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             #         continue
         # As of here, run is none.
         
-        logger.debug(pformat(self.sample))
+        # logger.debug(pformat(self.sample))
         self.sql_instance.equipment = self.equipment
         
         # NOTE: Preserve existing Results when editing to avoid triggering delete-orphan cascade.

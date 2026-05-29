@@ -178,6 +178,7 @@ class ProcedureCreation(DefaultWebDialog):
         
         if isinstance(output, tuple):
             output = output[0]
+        assert output.run.rsl_plate_number == self.run.rsl_plate_number
         # As of here, run is None
         assert output.run is not None
         return output

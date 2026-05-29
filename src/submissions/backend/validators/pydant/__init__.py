@@ -267,7 +267,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         }
     )
 
-    sql_instance: BaseClass | None = Field(default=None, repr=False, exclude=True)
+    # sql_instance: BaseClass | None = Field(default=None, repr=False, exclude=True)
 
     @field_validator("sql_instance", mode="before")
     @classmethod
@@ -501,8 +501,15 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     
     @property
     def _sql_lookup_kwargs(self):
-        list_ = {item for item in inspect.signature(self._sql_class.query).parameters.keys() if item in [attr for attr in dir(self) if not attr.startswith("_")]}
-        return {item: self.__getattribute__(item) for item in list_}
+        list_ = {item for item in inspect.signature(self._sql_class.query).parameters.keys()
+                if item in [attr for attr in dir(self) if not attr.startswith("_")]}
+        result = {}
+        for item in list_:
+            v = self.__getattribute__(item)
+            if isinstance(v, SourcedField):
+                v = v.value   # unwrap before handing to query_or_create
+            result[item] = v
+        return result
 
     def to_sql(self, update: bool = True):
         # if self.sql_instance is None:
@@ -525,8 +532,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         
         for k in col_fields:
             v = improved.get(k)
-            if self.__class__.__name__ == "PydProcedure":
-                logger.debug(f"Setting column field:{k} to {v}")
             if v is None:
                 continue
             class_attr = getattr(self._sql_class, k, None)
@@ -552,9 +557,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # needed for genuinely bespoke logic.
         for k, marker in rel_fields.items():
             v = getattr(self, k, None)
-            if self.__class__.__name__ == "PydProcedure":
-                logger.debug(f"Setting relationship field: {k} to {type(v)} with marker {marker}")
-                # This comes out as the pydrun instance which is correct
             if v is None:
                 continue
             if marker.uselist and isinstance(v, list) and len(v) == 0:

@@ -1872,7 +1872,6 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydProcedureReagentLotAssociation
         if not isinstance(value, list):
             value = [value]
-        list_ = []
         for item in value:
             match item:
                 case str():
@@ -1882,6 +1881,10 @@ class Procedure(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.reagentlot.name for eq in self.procedurereagentlotassociation]}")
                         output = ProcedureReagentLotAssociation(reagentlot=item, procedure=self)
                 case PydProcedureReagentLotAssociation():
+                    # If the child Pydantic object has a reference to the parent, 
+                    # update its internal reference to match the current live sql_instance first.
+                    if hasattr(item, 'procedure'):
+                        item.procedure = self.to_pydantic()
                     output = item.to_sql()
                 case dict():
                     output = ProcedureReagentLotAssociation(reagentlot=item, procedure=self, **{k: v for k, v in item.items() if k not in ['reagentlot', 'procedure']})
@@ -1895,11 +1898,11 @@ class Procedure(BaseClass):
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, ProcedureReagentLotAssociation):
-                if output not in list_:
-                    list_.append(output)
+                if not self.already_in_collection(output, self.procedurereagentlotassociation):
+                    self.procedurereagentlotassociation.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._reagentlot")
-        self.procedurereagentlotassociation = list_
+        
 
     @hybrid_property
     def equipment(self):
@@ -1910,7 +1913,6 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydEquipment, PydProcedureEquipmentAssociation
         if not isinstance(value, list):
             value = [value]
-        list_ = []
         for item in value:
             match item:
                 case str():
@@ -1939,11 +1941,11 @@ class Procedure(BaseClass):
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, ProcedureEquipmentAssociation):
-                if output not in list_:
-                    list_.append(output)
+                if not self.already_in_collection(output, self.procedureequipmentassociation):
+                    self.procedureequipmentassociation.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._equipment")
-        self.procedureequipmentassociation = list_
+        
 
     @hybrid_property
     def sample(self):
@@ -1955,7 +1957,7 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydSample, PydProcedureSampleAssociation
         if not isinstance(value, list):
             value = [value]
-        list_ = []
+        
         for iii, item in enumerate(value, start=1):
             match item:
                 case str():
@@ -1992,19 +1994,11 @@ class Procedure(BaseClass):
                     continue
                 # Check for existing association by comparing all primary key values
                 logger.debug(f"Checking {output} using {output.get_primary_keys()}")
-                is_duplicate = any(
-                    all(
-                        getattr(existing, pk) == getattr(output, pk)
-                        for pk in output.get_primary_keys()
-                    )
-                    for existing in self.proceduresampleassociation
-                )
-                if not is_duplicate and output.sample not in (s.sample for s in self.proceduresampleassociation):
+                if not self.already_in_collection(output, self.proceduresampleassociation):
                     self.proceduresampleassociation.append(output)
             else:
                 logger.error(f"Could not add {output} to {self.__class__.__qualname__}._sample")
         
-
     @hybrid_property
     def started_date(self):
         return self._started_date if self._started_date else None
@@ -2109,10 +2103,6 @@ class Procedure(BaseClass):
                 # If caller provided a clientsubmission object inside the dict, avoid
                 # running Run.query_or_create which may build queries with pagination
                 # applied earlier; instead construct a Run instance directly.
-                try:
-                    cs = value.get("clientsubmission")
-                except Exception:
-                    cs = None
                 if isinstance(cs, BaseClass):
                     output = Run(**value)
                 else:
@@ -2144,7 +2134,7 @@ class Procedure(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        list_ = []
+        
         for item in value:
             match item:
                 case str():
@@ -2161,10 +2151,10 @@ class Procedure(BaseClass):
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, Results):
-                list_.append(output)
+                if not self.already_in_collection(output, self._results):
+                    self._results.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")
-        self._results = list_
     
     @hybrid_property
     def repeat_of(self):
