@@ -17,6 +17,7 @@ from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
 from dateutil.parser import parse
+from sqlalchemy import inspect as sa_inspect, UniqueConstraint
 from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
@@ -377,6 +378,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         pass
                 object.__setattr__(self, key, value)
         return self
+    
+    @model_validator(mode="after")
+    def _mark_existing(self):
+        inst = self.sql_instance
+        if inst is not None and getattr(inst, "id", None) is not None and self.new:
+            object.__setattr__(self, "new", False)   # bypass validate_assignment to avoid recursion
+        return self
 
     def filter_field(self, key: str, value: Any | None = None) -> Any:
         """
@@ -498,7 +506,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         output['excluded'] = self.model_config.get("json_schema_extra", {}).get("excluded", [])
         
         return output
+
     
+
     @property
     def _sql_lookup_kwargs(self):
         list_ = {item for item in inspect.signature(self._sql_class.query).parameters.keys()

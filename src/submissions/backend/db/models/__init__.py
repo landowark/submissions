@@ -541,46 +541,97 @@ class BaseClass(Base):
         return query.limit(50).all()
 
     @classmethod
+    def _mapped_fields(cls) -> set[str]:
+        """Names of columns, relationships and hybrid accessors on this model
+        (inherited ones included)."""
+        fields = set()
+        for name in dir(cls):
+            try:
+                attr = getattr(cls, name)
+            except Exception:
+                continue
+            if isinstance(attr, (InstrumentedAttribute, hybrid_property)):
+                fields.add(name)
+        return fields
+
+    # @classmethod
+    # def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
+    #     """
+    #     Query for an existing object or create a new one.
+        
+    #     Attempts to find a matching object in the database. If found, returns it.
+    #     If not found, creates a new instance with the provided attributes.
+
+    #     :param kwargs: Field-value pairs to query for or set on the new instance.
+    #                    Can include 'value' which gets mapped to 'name' for queries.
+    #     :return: Tuple of (model instance, is_new) where is_new 
+    #              indicates whether the instance was newly created.
+    #     :rtype: tuple[any, bool]
+    #     """
+    #     new = False
+    #     # NOTE: ensure only valid fields are being used.
+    #     allowed = [k for k, v in cls.__dict__.items() if
+    #                isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)] + ['value']
+    #     query_kwargs = {k: v for k, v in kwargs.items() if k in allowed and not isinstance(v, list)}
+    #     if "value" in query_kwargs.keys() and "name" not in query_kwargs.keys():
+    #         query_kwargs["name"] = query_kwargs.get("value")
+    #     # NOTE: if searching with 'name', only search with name.
+    #     if "name" in query_kwargs.keys():
+    #         query_kwargs = dict(name=query_kwargs.get("name"))
+    #     instance = cls.query(limit=1, **query_kwargs)
+        
+    #     if instance is None or isinstance(instance, list):
+    #         instance = cls()
+    #         new = True
+    #         # ONLY set attributes if this is a brand new record!
+    #         # Moving this outside the 'if' will cause failures. You have been warned.
+    #         for k, v in kwargs.items():
+    #             # Disallow setting 'id'.
+    #             if k == "id":
+    #                 continue
+    #             # NOTE: Setattr used to make use of overridden method.
+    #             try:
+    #                 setattr(instance, k, v)
+    #             except AttributeError:
+    #                 continue
+        
+    #     return instance, new
+
+    @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
         """
-        Query for an existing object or create a new one.
-        
-        Attempts to find a matching object in the database. If found, returns it.
-        If not found, creates a new instance with the provided attributes.
+        Find an existing row matching `kwargs`, or create one, then write every
+        valid kwarg onto the resulting instance.
 
-        :param kwargs: Field-value pairs to query for or set on the new instance.
-                       Can include 'value' which gets mapped to 'name' for queries.
-        :return: Tuple of (model instance, is_new) where is_new 
-                 indicates whether the instance was newly created.
-        :rtype: tuple[any, bool]
+        Only kwargs naming a column, relationship or hybrid field on `cls` are
+        used; anything else is discarded. Scalar fields drive the lookup;
+        list-valued fields are skipped for the query (they can't be
+        equality-matched) but are still applied afterward. If there are no usable
+        filters, or the query finds nothing, a new instance is created.
+
+        :return: (instance, is_new)
         """
-        new = False
-        # NOTE: ensure only valid fields are being used.
-        allowed = [k for k, v in cls.__dict__.items() if
-                   isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)] + ['value']
-        query_kwargs = {k: v for k, v in kwargs.items() if k in allowed and not isinstance(v, list)}
-        if "value" in query_kwargs.keys() and "name" not in query_kwargs.keys():
-            query_kwargs["name"] = query_kwargs.get("value")
-        # NOTE: if searching with 'name', only search with name.
-        if "name" in query_kwargs.keys():
-            query_kwargs = dict(name=query_kwargs.get("name"))
-        instance = cls.query(limit=1, **query_kwargs)
-        
-        if instance is None or isinstance(instance, list):
+        valid = cls._mapped_fields()
+        fields = {k: v for k, v in kwargs.items() if k in valid}
+
+        query_kwargs = {k: v for k, v in fields.items() if not isinstance(v, list)}
+
+        instance = cls.query(limit=1, **query_kwargs) if query_kwargs else None
+        if isinstance(instance, list):
+            instance = instance[0] if instance else None
+
+        new = instance is None
+        if new:
             instance = cls()
-            new = True
-            # ONLY set attributes if this is a brand new record!
-            # Moving this outside the 'if' will cause failures. You have been warned.
-            for k, v in kwargs.items():
-                # Disallow setting 'id'.
-                if k == "id":
-                    continue
-                # NOTE: Setattr used to make use of overridden method.
-                try:
-                    setattr(instance, k, v)
-                except AttributeError:
-                    continue
-        
+
+        for k, v in fields.items():
+            if k == "id":                      # never force/overwrite the primary key
+                continue
+            try:
+                setattr(instance, k, v)
+            except (AttributeError, ValueError) as e:
+                logger.error(f"query_or_create: could not set {k} on {cls.__name__}: {e}")
+
         return instance, new
 
     @classmethod

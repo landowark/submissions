@@ -1883,8 +1883,6 @@ class Procedure(BaseClass):
                 case PydProcedureReagentLotAssociation():
                     # If the child Pydantic object has a reference to the parent, 
                     # update its internal reference to match the current live sql_instance first.
-                    if hasattr(item, 'procedure'):
-                        item.procedure = self.to_pydantic()
                     output = item.to_sql()
                 case dict():
                     output = ProcedureReagentLotAssociation(reagentlot=item, procedure=self, **{k: v for k, v in item.items() if k not in ['reagentlot', 'procedure']})
@@ -1897,6 +1895,7 @@ class Procedure(BaseClass):
                     continue
             if isinstance(output, tuple):
                 output = output[0]
+            output.procedure = self
             if isinstance(output, ProcedureReagentLotAssociation):
                 if not self.already_in_collection(output, self.procedurereagentlotassociation):
                     self.procedurereagentlotassociation.append(output)
@@ -1932,14 +1931,15 @@ class Procedure(BaseClass):
                     output.procedure = self
                 case PydProcedureEquipmentAssociation():
                     output = item.to_sql()
-                    if isinstance(output, tuple):
-                        output = output[0]
+                    # if isinstance(output, tuple):
+                    #     output = output[0]
                     # output.procedure = self
                 case _:
                     logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipment")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
+            output.procedure = self
             if isinstance(output, ProcedureEquipmentAssociation):
                 if not self.already_in_collection(output, self.procedureequipmentassociation):
                     self.procedureequipmentassociation.append(output)
@@ -1982,6 +1982,7 @@ class Procedure(BaseClass):
                     continue
             if isinstance(output, tuple):
                 output = output[0]
+            output.procedure = self
             if isinstance(output, ProcedureSampleAssociation):
                 # logger.debug(f"Checking: {output.sample.sample_id}")
                 try:
