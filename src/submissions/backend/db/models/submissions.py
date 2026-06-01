@@ -692,8 +692,8 @@ class Run(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     _rsl_plate_number = Column(String(32), unique=True, nullable=False)  #: RSL name (e.g. RSL-22-0012)
-    clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="SET NULL",
-                                                     name="fk_BS_clientsub_id"))  #: id of parent clientsubmission
+    clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="CASCADE",
+                                                     name="fk_BS_clientsub_id"), nullable=False)  #: id of parent clientsubmission, set to CASCADE to delete runs if clientsubmission is deleted
     _clientsubmission = relationship("ClientSubmission", back_populates="_run")  #: parent clientsubmission
     _started_date = Column(TIMESTAMP)  #: Date this procedure was started.
     _run_cost = Column(FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
@@ -789,6 +789,7 @@ class Run(BaseClass, LogMixin):
             value = [value]
         list_ = []
         for item in value:
+            logger.debug(f"Checking procedure: {item} of type {type(item)}")
             match item:
                 case str():
                     output = Procedure.query(name=item, limit=1)

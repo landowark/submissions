@@ -749,40 +749,28 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 if set(value.keys()) <= {"name", "missing"}:
                     return value["name"]
             return value
-        # As of here, run is None
-        # try:
-        #     assert self.sql_instance.run is not None
-        #     logger.debug(self.sql_instance.run)
-        # except AssertionError as e:
-        #     logger.error(f"Run is None")
-        #     raise e
         self.sql_instance.technician = normalize_dict_field("technician", self.technician)
         self.sql_instance.started_date = normalize_dict_field("started_date", self.started_date)
         self.sql_instance.completed_date = normalize_dict_field("completed_date", self.completed_date)
         self.sql_instance.proceduretype = normalize_dict_field("proceduretype", self.proceduretype)
         self.sql_instance.run = normalize_dict_field("run", self.run)
-        # As of here, run is correct.
+        
         self.sql_instance.repeat_of = normalize_dict_field("repeat_of", self.repeat_of)
-        # As of here, run is correct
-        logger.debug(self.reagentlot)
-        # This has to be the problem
-        before = id(self.sql_instance)
         self.sql_instance.reagentlot = self.reagentlot
-        after = id(self.sql_instance)
-        try:
-            assert before == after
-        except AssertionError as e:
-            logger.error(f"Before id {before} != id {after}")
-            raise e
-        # As of here, run is none
+        self.sql_instance.equipment = self.equipment
         try:
             assert self.sql_instance.run is not None
             logger.debug(self.sql_instance.run)
         except AssertionError as e:
             logger.error(f"Run is None")
             raise e
+        self.sql_instance.sample = []  # Clear existing samples to prepare for reassignment
         samples_sql = []
         for sample in self.sample:
+            # Skip invalid/sample placeholders
+            if not PydSample.is_sample_id_valid(sample):
+                logger.error(f"Sample {sample} is not valid.")
+                continue
             row, column = self.proceduretype.make_ranked_plate()[sample.rank]
             try:
                 row = sample.row or row
@@ -792,10 +780,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 column = sample.column or column
             except AttributeError:
                 column = 0
-            # Skip invalid/sample placeholders
-            if not PydSample.is_sample_id_valid(sample):
-                logger.error(f"Sample {sample} is not valid.")
-                continue
+            
             # samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
             samples_sql.append(sample)
             # If it's already a SQLSample instance, reuse it
@@ -827,7 +812,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         
         # logger.debug(pformat(self.sample))
         self.sql_instance.equipment = self.equipment
-        
+        self.sql_instance.sample = samples_sql
         # NOTE: Preserve existing Results when editing to avoid triggering delete-orphan cascade.
         # Only update results if this is a new procedure (no id yet) or if results were explicitly modified.
         if self.sql_instance.id is None:

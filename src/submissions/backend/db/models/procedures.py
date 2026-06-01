@@ -1718,8 +1718,8 @@ class Procedure(BaseClass):
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete="SET NULL",
                                                   name="fk_PRO_proceduretype_id"))  #: client lab id from _organizations))
     _proceduretype = relationship("ProcedureType", back_populates="_procedure")  #: ProcedureType of this procedure
-    run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="SET NULL",
-                                        name="fk_PRO_basicrun_id"))  #: client lab id from _organizations))
+    run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="CASCADE",
+                                        name="fk_PRO_basicrun_id"), nullable=False)  #: id of parent run, set to CASCADE on delete to remove procedures if run is deleted
     _run = relationship("Run", back_populates="_procedure")  #: Run this procedure is part of
     _comment = Column(JSON)  #: user notes
 
@@ -2575,7 +2575,12 @@ class Procedure(BaseClass):
             if not sampleassociation:
                 logger.error(f"No association at rank {iii}")
                 continue
-            if sampleassociation.sample.sample_id not in [s.sample_id for s in self.run.sample]:
+            try:
+                check = sampleassociation.sample.sample_id in [s.sample_id for s in self.run.sample]
+            except AttributeError as e:
+                logger.error(f"Couldn't get sample_id due to {e}")
+                check = True
+            if not check:
                 assoc = RunSampleAssociation(sample=sampleassociation.sample, run=self.run, rank=rank+iii)
                 assoc.save()
         
