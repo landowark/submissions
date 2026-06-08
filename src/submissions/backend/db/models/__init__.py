@@ -9,7 +9,7 @@ from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
-from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -160,14 +160,23 @@ class BaseClass(Base):
         else:
             self._misc_info = SafeMiscInfo(raw_misc, owner=self)
 
+    # @reconstructor
+    # def init_on_load(self):
+    #     """
+    #     Called when an instance is loaded from the database.
+        
+    #     Ensures that the misc_info attribute is properly wrapped after database reconstruction.
+    #     """
+    #     self._wrap_misc_info()
+
     @reconstructor
     def init_on_load(self):
-        """
-        Called when an instance is loaded from the database.
-        
-        Ensures that the misc_info attribute is properly wrapped after database reconstruction.
-        """
-        self._wrap_misc_info()
+        raw = self.__dict__.get("_misc_info")
+        if isinstance(raw, SafeMiscInfo):
+            raw._owner = self
+        else:
+            # committed value -> loaded row is not marked dirty -> no spurious UPDATE/flush
+            set_committed_value(self, "_misc_info", SafeMiscInfo(raw or {}, owner=self))
 
     @hybrid_property
     def misc_info(self) -> dict:
@@ -1264,6 +1273,13 @@ class BaseClass(Base):
         # If every PK column is None the object hasn't been persisted yet;
         # we can't meaningfully deduplicate it, so let it through.
         if all(v is None for v in pk_vals.values()):
+            obj_sample = getattr(getattr(obj, "sample", None), "sample_id", None)
+            obj_rank = getattr(obj, "procedure_rank", None)
+            if obj_sample is not None and obj_rank is not None:
+                for existing in collection:
+                    if (getattr(getattr(existing, "sample", None), "sample_id", None) == obj_sample
+                            and getattr(existing, "procedure_rank", None) == obj_rank):
+                        return True
             return False
 
         for existing in collection:

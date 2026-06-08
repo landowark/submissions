@@ -12,8 +12,19 @@
     <h2><u>Procedure Details for {{ procedure['name'] | extract_value }}</u></h2>
     {{ super() }}
     <p>{% for key, value in procedure.items() if key not in procedure['excluded'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: {{ value | extract_value }}</b><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}:
+        {% if key in ["started_date", "completed_date"] %}
+            <input type="datetime-local" value="{{ value | extract_value | handle_results }}"></b><br>
+        {% else %}
+             {{ value | extract_value }}</b><br>
+        {% endif %}
     {% endfor %}</p>
+    {% if procedure['comment'] %}
+    &nbsp;&nbsp;&nbsp;&nbsp;<h4><b>Comments:</b></h4>
+    <p>{% for comment in procedure['comment'] %}
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ comment['user'] }} ({{ comment['time'] }}):</b> {{ comment['text'] }}<br>
+    {% endfor %}</p>
+    {% endif %}
     {% if procedure['reagent'] %}
     <button type="button"><h3><u>Reagents:</u></h3></button>
     <table style="border: 1px solid black; width: 100%; text-align: center">

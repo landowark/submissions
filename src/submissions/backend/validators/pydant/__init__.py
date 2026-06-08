@@ -206,6 +206,21 @@ def _coerce_int_field(raw: Any) -> SourcedField[int]:
     return SourcedField(value=inner, missing=missing)
 
 
+def _field_annotation_accepts_sourcedfield(field_info: FieldInfo) -> bool:
+    annotation = field_info.annotation
+    if isinstance(annotation, type) and issubclass(annotation, SourcedField):
+        return True
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        annotation = get_args(annotation)[0]
+        origin = get_origin(annotation)
+    if annotation is SourcedField or origin is SourcedField:
+        return True
+    if isinstance(annotation, type) and issubclass(annotation, SourcedField):
+        return True
+    return False
+
+
 class RelationshipField:
     """
     Marker placed in Annotated[..., RelationshipField()] to tag a Pydantic
@@ -330,6 +345,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     @field_validator('*', mode="before")
     @classmethod
     def use_default_if_none(cls, v, info: ValidationInfo):
+        # If the incoming value is a SourcedField and the target field does not
+        # itself expect a SourcedField, unwrap it before any further validators.
+        if isinstance(v, SourcedField):
+            field = cls.model_fields.get(info.field_name)
+            if field and not _field_annotation_accepts_sourcedfield(field):
+                return v.value
+
         # Skip validation for specific fields
         if info.field_name in {"sql_instance"}:
             return v
@@ -978,7 +1000,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     if value is None:
                         continue
                 case datetime() | date():
-                    value = value.strftime("%Y-%m-%d")
+                    value = value.isoformat(timespec="milliseconds")
 
                 case bytes():
                     continue

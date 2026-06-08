@@ -22,13 +22,13 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         dbapi_connection (_type_): _description_
         connection_record (_type_): _description_
     """
-    cursor = dbapi_connection.cursor()
-    if ctx.database.schema == "sqlite":
-        execution_phrase = "PRAGMA foreign_keys=ON"
-    else:
-        cursor.close()
+    if ctx.database.schema != "sqlite":
         return
-    cursor.execute(execution_phrase)
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA journal_mode=WAL")    # crash-safe; no large rollback journal
+    cursor.execute("PRAGMA synchronous=NORMAL")  # durable across app/process crashes
+    cursor.execute("PRAGMA busy_timeout=5000")   # wait on locks instead of erroring out
     cursor.close()
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys, logging
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout, QSpinBox, QDoubleSpinBox,
-    QComboBox, QDateEdit, QLineEdit, QLabel
+    QComboBox, QDateEdit, QLineEdit, QLabel, QApplication
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from .functions import select_open_file, select_save_file
@@ -546,71 +546,23 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
 
     @report_result
     def create_new_submission(self, *args) -> Report:
-        from backend.validators.pydant import PydSample
-        from backend.db.models import Sample, Procedure
-        pyd = self.to_pydantic()
-        # pyd.sample = [sample for sample in pyd.sample if PydSample.is_sample_id_valid(sample)]
-        # NOTE: run is empty at this point.
-        # Save samples individually and collect the saved SQL Sample objects.
-        # Later, attach these saved Sample objects to the submission SQL object so
-        # .save() does not attempt to INSERT duplicate Sample rows (same sample_id).
-        # samples = []
-        # for sample in pyd.sample:
-        # #     # Normalize PydSample -> SQL Sample object first so we can inspect sample_id safely
-        # #     match sample:
-        # #         case PydSample():
-        # #             sample_sql = sample.to_sql()
-        # #             if isinstance(sample_sql, tuple):
-        # #                 sample_sql = sample_sql[0]
-        # #         case Sample():
-        # #             sample_sql = sample
-        # #         case _:
-        # #             logger.error(f"Unexpected sample object type: {type(sample)}. Skipping.")
-        # #             continue
-        # #     # Defensive checks
-        # #     if isinstance(sample_sql, PydSample):
-        # #         logger.error("Expected SQL Sample object but got PydSample after to_sql(). Skipping.")
-        # #         continue
-        # #     if not isinstance(sample_sql, Sample):
-        # #         logger.error(f"Unexpected sample object type: {type(sample_sql)}. Skipping.")
-        # #         continue
-        #     sid = getattr(sample, 'sample_id', None)
-        # #     # If a sample already exists in DB, query it and reuse that instance.
-        #     try:
-        #         sid_str = str(sid).strip()
-        #     except Exception:
-        #         sid_str = None
-        #     if not sid_str:
-        #         logger.error(f"Sample with sample_id '{sid}' not found.")
-        #         continue
-        #     if sid_str.lower() in ("", "blank", "na", "n/a", "none"):
-        #         logger.error(f"Sample with invalid sample_id: {sid}")
-        #         continue
-        #     else:
-        #         logger.debug(f"Adding sample: {pformat(sample.improved_dict)}")
-        #         samples.append(sample)
-        # pyd.sample = samples
-        #     # saved_samples.append(sample_sql)
-        # # NOTE: Can't append directly to pyd.run due to using setter.
-        # runs = []
-        # for run in pyd.run:
-        #     run = run.to_sql()
-        #     if isinstance(run, tuple):
-        #         run = run[0]
-        #     runs.append(run)
-        # pyd.run = runs
-        sql: ClientSubmission = pyd.to_sql()
-        if isinstance(sql, tuple):
-            sql = sql[0]
-        # Remove any sample info accidentally left in misc_info by pyd.to_sql
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            del sql._misc_info['sample']
-        except KeyError:
-            pass
-        # By this point, sample_id is None for some reason.
-        # Clear any pre-built association objects created by pyd.to_sql() so we can
-        # re-create clean associations from the saved Sample SQL objects. This avoids
-        # carrying over non-serializable _misc_info from pyd objects into the DB.
-        sql.save()
-        self.app.table_widget.sub_wid.set_data()
-        self.setParent(None)
+            pyd = self.to_pydantic()
+            sql: ClientSubmission = pyd.to_sql()
+            if isinstance(sql, tuple):
+                sql = sql[0]
+            # Remove any sample info accidentally left in misc_info by pyd.to_sql
+            try:
+                del sql._misc_info['sample']
+            except KeyError:
+                pass
+            # By this point, sample_id is None for some reason.
+            # Clear any pre-built association objects created by pyd.to_sql() so we can
+            # re-create clean associations from the saved Sample SQL objects. This avoids
+            # carrying over non-serializable _misc_info from pyd objects into the DB.
+            sql.save()
+            self.app.table_widget.sub_wid.set_data()
+        finally:
+            QApplication.restoreOverrideCursor()
+            self.setParent(None)

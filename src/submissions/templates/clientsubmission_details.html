@@ -15,7 +15,7 @@
     {% endfor %}
     </p>
     {% if clientsubmission['comment'] %}
-    <button type="button"><h3><u>Comments:</u></h3></button>
+    &nbsp;&nbsp;&nbsp;&nbsp;<h4><b>Comments:</b></h4>
     <p>{% for comment in clientsubmission['comment'] %}
         &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ comment['user'] }} ({{ comment['time'] }}):</b> {{ comment['text'] }}<br>
     {% endfor %}</p>

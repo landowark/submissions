@@ -79,7 +79,7 @@ class DefaultProcedureManager(DefaultManager):
         catching AttributeError.
         """
         # operator = f"{operation.title}r"
-        class_name = f"{self.proceduretype.name.replace(' ', '')}{role.title()}{operation.title}r"
+        class_name = f"{self.proceduretype.name.replace(' ', '')}{role.title()}{operation.title()}r"
         cls = getattr(procedure_parsers, class_name, None)
         if cls is None:
             logger.debug(f"No custom parser '{class_name}', using default.")

@@ -64,6 +64,7 @@ class SubmissionDetails(QDialog):
         self.channel.registerObject('backend', self)
         self.webview.page().setWebChannel(self.channel)
         # NOTE: Used to maintain javascript functions.
+        logger.debug(f"Object details for {object_} - {pformat(object_.comment or dict())}")
         self.object_details(object_=self.object_)
 
     def object_details(self, object_):
@@ -203,5 +204,5 @@ class SubmissionComment(QDialog):
         if comment in ["", None]:
             return None
         dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
-        full_comment = {"name": commenter, "time": dt, "text": comment}
+        full_comment = {"user": commenter, "time": dt, "text": comment}
         return full_comment

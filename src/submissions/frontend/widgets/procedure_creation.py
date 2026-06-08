@@ -4,7 +4,8 @@ Main module to construct the procedure form
 from __future__ import annotations
 import sys, logging, datetime
 from pprint import pformat
-from PyQt6.QtCore import pyqtSlot, QVariant
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import pyqtSlot, QVariant, Qt
 from typing import TYPE_CHECKING, List
 
 from backend.validators import SourcedField
@@ -185,18 +186,22 @@ class ProcedureCreation(DefaultWebDialog):
     #     assert output.run is not None
     #     return output
     def return_sql(self, new: bool = False):
-        assert self.procedure.run is not None
-        output = self.procedure.to_sql()
-        if isinstance(output, tuple):
-            output = output[0]
-        
-        # self.run is a PydRun; rsl_plate_number is a SourcedField[str], not a bare str
-        expected_plate = self.run.rsl_plate_number
-        if isinstance(expected_plate, SourcedField):
-            expected_plate = expected_plate.value
-        
-        assert output.run is not None, "Procedure has no run after to_sql()"
-        assert output.run.rsl_plate_number == expected_plate, (
-            f"Run mismatch: got {output.run.rsl_plate_number!r}, expected {expected_plate!r}"
-        )
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            assert self.procedure.run is not None
+            output = self.procedure.to_sql()
+            if isinstance(output, tuple):
+                output = output[0]
+            
+            # self.run is a PydRun; rsl_plate_number is a SourcedField[str], not a bare str
+            expected_plate = self.run.rsl_plate_number
+            if isinstance(expected_plate, SourcedField):
+                expected_plate = expected_plate.value
+            
+            assert output.run is not None, "Procedure has no run after to_sql()"
+            assert output.run.rsl_plate_number == expected_plate, (
+                f"Run mismatch: got {output.run.rsl_plate_number!r}, expected {expected_plate!r}"
+            )
+        finally:
+            QApplication.restoreOverrideCursor()
         return output

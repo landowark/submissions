@@ -238,6 +238,12 @@ class App(QMainWindow):
             df.to_excel(writer)
             writer.close()
 
+    def closeEvent(self, event):
+        try:
+            self.ctx.run_teardown()   # closes session + disposes engine (checkpoints WAL)
+        finally:
+            super().closeEvent(event)
+
 
 class AddSubForm(QWidget):
 

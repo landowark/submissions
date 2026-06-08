@@ -1872,6 +1872,7 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydProcedureReagentLotAssociation
         if not isinstance(value, list):
             value = [value]
+        self.procedurereagentlotassociation = []  # Clear existing associations to prevent duplicates when resetting reagent lots
         for item in value:
             match item:
                 case str():
@@ -1912,6 +1913,7 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydEquipment, PydProcedureEquipmentAssociation
         if not isinstance(value, list):
             value = [value]
+        self.procedureequipmentassociation = []  # Clear existing associations to prevent duplicates when resetting equipment
         for item in value:
             match item:
                 case str():
@@ -1957,7 +1959,7 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydSample, PydProcedureSampleAssociation
         if not isinstance(value, list):
             value = [value]
-        
+        self.proceduresampleassociation = []  # Clear existing associations to prevent duplicates when resetting samples
         for iii, item in enumerate(value, start=1):
             match item:
                 case str():
@@ -2378,9 +2380,12 @@ class Procedure(BaseClass):
         """
         logger.debug("Add Comment!")
         from frontend.widgets import SubmissionComment
-        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
-            comment = dlg.parse_form()     
+            logger.debug(f"Comment dialog returned: {dlg.parse_form()}")
+            self.comment = dlg.parse_form()
+            self.save()
+
 
     @check_authorization
     def delete(self, obj):
@@ -6158,7 +6163,10 @@ class Results(BaseClass):
     @property
     def sample_id(self):
         if self.assoc_id:
-            return self.sampleprocedureassociation.sample.sample_id
+            try:
+                return self.sampleprocedureassociation.sample.sample_id
+            except AttributeError:
+                return None
         else:
             return None
 

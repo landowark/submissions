@@ -13,6 +13,8 @@ from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
+from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import Qt
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, cast, func, select, or_
 from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
@@ -517,18 +519,22 @@ class ClientSubmission(BaseClass, LogMixin):
         samples = [assoc.sample.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, clientsubmission=self)
         if checker.exec():
-            run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
-            # Rank the selected pydantic samples, then convert them back to SQL Sample
-            selected_samples = []
-            for iii, sample in enumerate(samples, start=1):
-                if not sample.enabled:
-                    logger.info(f"Skipping disabled sample {sample.sample_id} at rank {iii}")
-                    continue
-                else:
-                    sample = self.rank_sample(sample, iii)
-                    selected_samples.append(sample)
-            run.sample = selected_samples
-            run.save()
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
+                # Rank the selected pydantic samples, then convert them back to SQL Sample
+                selected_samples = []
+                for iii, sample in enumerate(samples, start=1):
+                    if not sample.enabled:
+                        logger.info(f"Skipping disabled sample {sample.sample_id} at rank {iii}")
+                        continue
+                    else:
+                        sample = self.rank_sample(sample, iii)
+                        selected_samples.append(sample)
+                run.sample = selected_samples
+                run.save()
+            finally:
+                QApplication.restoreOverrideCursor()
         else:
             logger.warning("Run cancelled.")
         obj.set_data()

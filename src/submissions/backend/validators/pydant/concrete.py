@@ -728,13 +728,100 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         reg = reagent.to_sql()
         reg.save()
 
-    def to_sql(self, update: bool = True):
-        from backend.db.models import Procedure
-        self.sql_instance: Procedure = super().to_sql(update=update)
-        assert self.run is not None
+    # def to_sql(self, update: bool = True):
+    #     from backend.db.models import Procedure
+    #     self.sql_instance: Procedure = super().to_sql(update=update)
+    #     assert self.run is not None
 
-        if not update:
-            return self.sql_instance, None
+    #     if not update:
+    #         return self.sql_instance, None
+    #     def normalize_dict_field(field_name, value):
+    #         logger.debug(f"Normalizing: {field_name}: {value}")
+    #         if isinstance(value, SourcedField):
+    #             return value.value
+    #         if not isinstance(value, dict):
+    #             return value
+    #         if field_name in ["technician", "started_date", "completed_date"]:
+    #             return value.get("value")
+    #         if field_name in ["proceduretype", "run", "repeat_of"]:
+    #             if set(value.keys()) <= {"value", "missing"}:
+    #                 return value["value"]
+    #             if set(value.keys()) <= {"name", "missing"}:
+    #                 return value["name"]
+    #         return value
+    #     self.sql_instance.technician = normalize_dict_field("technician", self.technician)
+    #     self.sql_instance.started_date = normalize_dict_field("started_date", self.started_date)
+    #     self.sql_instance.completed_date = normalize_dict_field("completed_date", self.completed_date)
+    #     self.sql_instance.proceduretype = normalize_dict_field("proceduretype", self.proceduretype)
+    #     self.sql_instance.run = normalize_dict_field("run", self.run)
+        
+    #     self.sql_instance.repeat_of = normalize_dict_field("repeat_of", self.repeat_of)
+    #     self.sql_instance.reagentlot = self.reagentlot
+    #     self.sql_instance.equipment = self.equipment
+    #     try:
+    #         assert self.sql_instance.run is not None
+    #         logger.debug(self.sql_instance.run)
+    #     except AssertionError as e:
+    #         logger.error(f"Run is None")
+    #         raise e
+    #     self.sql_instance.sample = []  # Clear existing samples to prepare for reassignment
+    #     samples_sql = []
+    #     for sample in self.sample:
+    #         # Skip invalid/sample placeholders
+    #         if not PydSample.is_sample_id_valid(sample):
+    #             logger.error(f"Sample {sample} is not valid.")
+    #             continue
+    #         row, column = self.proceduretype.make_ranked_plate()[sample.rank]
+    #         try:
+    #             row = sample.row or row
+    #         except AttributeError:
+    #             row = 0
+    #         try:
+    #             column = sample.column or column
+    #         except AttributeError:
+    #             column = 0
+            
+    #         # samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
+    #         samples_sql.append(sample)
+    #         # If it's already a SQLSample instance, reuse it
+    #         # if isinstance(sample, SQLSample):
+    #         #     samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
+    #         #     continue
+    #         # # If it's a PydSample, decide whether to update or not based on DB
+    #         # if isinstance(sample, PydSample):
+    #         #     try:
+    #         #         existing = SQLSample.query(sample_id=sample.sample_id, limit=1) if sample.sample_id else None
+    #         #     except Exception:
+    #         #         existing = None
+    #         #     try:
+    #         #         if existing:
+    #         #             result = sample.to_sql(update=False)
+    #         #         else:
+    #         #             result = sample.to_sql(update=True)
+    #         #         if isinstance(result, tuple):
+    #         #             sql_sample = result[0]
+    #         #         else:
+    #         #             sql_sample = result
+    #         #         if sql_sample is not None:
+    #         #             samples_sql.append(ProcedureSampleAssociation(sample=sql_sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
+    #         #     except Exception as e:
+    #         #         # If conversion fails, skip this sample
+    #         #         logger.exception(f"Failed converting PydSample {sample} to SQL Sample due to {e}")
+    #         #         continue
+    #     # As of here, run is none.
+        
+    #     # logger.debug(pformat(self.sample))
+    #     self.sql_instance.equipment = self.equipment
+    #     self.sql_instance.sample = samples_sql
+    #     # NOTE: Preserve existing Results when editing to avoid triggering delete-orphan cascade.
+    #     # Only update results if this is a new procedure (no id yet) or if results were explicitly modified.
+    #     if self.sql_instance.id is None:
+    #         # New procedure: assign the results as provided
+    #         self.sql_instance.results = self.results
+    #     # else: Existing procedure - preserve original Results instances to prevent orphan deletion
+    #     return self.sql_instance, None
+
+    def to_sql(self, update: bool = True):
         def normalize_dict_field(field_name, value):
             logger.debug(f"Normalizing: {field_name}: {value}")
             if isinstance(value, SourcedField):
@@ -749,76 +836,25 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 if set(value.keys()) <= {"name", "missing"}:
                     return value["name"]
             return value
-        self.sql_instance.technician = normalize_dict_field("technician", self.technician)
-        self.sql_instance.started_date = normalize_dict_field("started_date", self.started_date)
-        self.sql_instance.completed_date = normalize_dict_field("completed_date", self.completed_date)
-        self.sql_instance.proceduretype = normalize_dict_field("proceduretype", self.proceduretype)
-        self.sql_instance.run = normalize_dict_field("run", self.run)
-        
-        self.sql_instance.repeat_of = normalize_dict_field("repeat_of", self.repeat_of)
-        self.sql_instance.reagentlot = self.reagentlot
-        self.sql_instance.equipment = self.equipment
-        try:
-            assert self.sql_instance.run is not None
-            logger.debug(self.sql_instance.run)
-        except AssertionError as e:
-            logger.error(f"Run is None")
-            raise e
-        self.sql_instance.sample = []  # Clear existing samples to prepare for reassignment
-        samples_sql = []
-        for sample in self.sample:
-            # Skip invalid/sample placeholders
-            if not PydSample.is_sample_id_valid(sample):
-                logger.error(f"Sample {sample} is not valid.")
-                continue
-            row, column = self.proceduretype.make_ranked_plate()[sample.rank]
-            try:
-                row = sample.row or row
-            except AttributeError:
-                row = 0
-            try:
-                column = sample.column or column
-            except AttributeError:
-                column = 0
-            
-            # samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
-            samples_sql.append(sample)
-            # If it's already a SQLSample instance, reuse it
-            # if isinstance(sample, SQLSample):
-            #     samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
-            #     continue
-            # # If it's a PydSample, decide whether to update or not based on DB
-            # if isinstance(sample, PydSample):
-            #     try:
-            #         existing = SQLSample.query(sample_id=sample.sample_id, limit=1) if sample.sample_id else None
-            #     except Exception:
-            #         existing = None
-            #     try:
-            #         if existing:
-            #             result = sample.to_sql(update=False)
-            #         else:
-            #             result = sample.to_sql(update=True)
-            #         if isinstance(result, tuple):
-            #             sql_sample = result[0]
-            #         else:
-            #             sql_sample = result
-            #         if sql_sample is not None:
-            #             samples_sql.append(ProcedureSampleAssociation(sample=sql_sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
-            #     except Exception as e:
-            #         # If conversion fails, skip this sample
-            #         logger.exception(f"Failed converting PydSample {sample} to SQL Sample due to {e}")
-            #         continue
-        # As of here, run is none.
-        
-        # logger.debug(pformat(self.sample))
-        self.sql_instance.equipment = self.equipment
-        self.sql_instance.sample = samples_sql
-        # NOTE: Preserve existing Results when editing to avoid triggering delete-orphan cascade.
-        # Only update results if this is a new procedure (no id yet) or if results were explicitly modified.
+        from backend.db.models import Procedure
+        # Filter invalid samples up front so the base relationship handler wires only valid ones.
+        self.sample = [s for s in self.sample if PydSample.is_sample_id_valid(s)]
+
+        self.sql_instance: Procedure = super().to_sql(update=update)  # sets sample/reagentlot/equipment once
+        assert self.run is not None
+        if not update:
+            return self.sql_instance, None
+
+        # keep your bespoke column normalizations (technician, dates, proceduretype, run, repeat_of)
+        self.sql_instance.technician      = normalize_dict_field("technician", self.technician)
+        self.sql_instance.started_date    = normalize_dict_field("started_date", self.started_date)
+        self.sql_instance.completed_date  = normalize_dict_field("completed_date", self.completed_date)
+        self.sql_instance.proceduretype   = normalize_dict_field("proceduretype", self.proceduretype)
+        self.sql_instance.run             = normalize_dict_field("run", self.run)
+        self.sql_instance.repeat_of       = normalize_dict_field("repeat_of", self.repeat_of)
+
         if self.sql_instance.id is None:
-            # New procedure: assign the results as provided
             self.sql_instance.results = self.results
-        # else: Existing procedure - preserve original Results instances to prevent orphan deletion
         return self.sql_instance, None
     
     def check_reagent_expiries(self, exempt: List[str] = []) -> Report:
@@ -1404,7 +1440,7 @@ class PydRun(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath"]
+            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath", "uploaded_by"]
         }
     )
 
