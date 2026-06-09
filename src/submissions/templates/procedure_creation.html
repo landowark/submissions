@@ -21,7 +21,7 @@
             <div class="left">
                 <form>
                   <label for="technician">Technician:</label><br>
-                  <input type="text" class="form_text full" id="technician" name="technician" width="100%" value="{{ procedure['technician']['value'] }}" background-color="{{ procedure['technician']['colour'] }}"><br><br>
+                  <input type="text" class="form_text full" id="technician" name="technician" width="100%" value="{{ procedure['technician']['value'] | handle_results }}" background-color="{{ procedure['technician']['colour'] }}"><br><br>
                   <label for="repeat">Repeat:</label>
                   <input type="checkbox" id="repeat" name="repeat" value="{{ procedure['repeat'] }}"><br>
                   <select class="dropdown hidden_input" id="repeat_of">
@@ -29,13 +29,19 @@
                       <option value="{{ previous }}">{{ previous }}</option>
                     {% endfor %}
                   </select><br><br>
-
+                  <label for="start_date">Started Date:</label><br>
+                  <input type="datetime-local" id="started_date" class="form_text" value="{{ procedure['started_date']  | handle_results }}"><br>
+                  {% if edit %}
+                    <br>
+                    <label for="completed_date">Completed date:</label><br>
+                    <input type="datetime-local" id="completed_date" class="form_text" value="{{ procedure['completed_date'] | handle_results }}"><br>
+                  {% endif %}
                   {% if proceduretype['reagentrole'] %}
                     <br>
                     <h1><u>Reagents</u></h1>
                     <hr>
                     {% for reagentrole in proceduretype['reagentrole'] %}
-                    <input type="checkbox" class="procedure_checkbox" checked id="{{ reagentrole['name'] }}_check" name="{{ reagentrole['name'] }}"><label for="{{ reagentrole['name'] }}">{{ reagentrole['name'] }}:</label><br>
+                    <input type="checkbox" class="procedure_checkbox" checked id="{{ reagentrole['name'] }}_check" name="{{ reagentrole['name'] }}" {% if not reagentrole.get('filled', True) %}disabled{% endif %}><label for="{{ reagentrole['name'] }}">{{ reagentrole['name'] }}:</label><br>
                     <select class="reagentrole dropdown" id="{{ reagentrole['name'] }}" name="{{ reagentrole['name'] }}"><br>
                         {% for reagent in reagentrole['reagent'] %}
                         {% for reagentlot in reagent['reagentlot'] %}
@@ -66,7 +72,7 @@
         {% for equipmentrole in proceduretype['equipmentrole'] %}
             <div class="grid-container">
                 <div>
-                    <input type="checkbox" class="procedure_checkbox" checked id="{{ equipmentrole['name'] }}_check" name="{{ equipmentrole['name'] }}"><label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
+                    <input type="checkbox" class="procedure_checkbox" checked id="{{ equipmentrole['name'] }}_check" name="{{ equipmentrole['name'] }}" {% if not equipmentrole.get('filled', True) %}disabled{% endif %}><label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
                     <select class="equipmentrole dropdown" id="{{ equipmentrole['name'] }}" name="{{ equipmentrole['name'] }}">
                     </select>
                 </div>

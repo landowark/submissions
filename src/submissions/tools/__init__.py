@@ -332,7 +332,7 @@ def jinja_template_loading() -> Environment:
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     env.filters['get_type'] = get_type
-    env.filters['extract_value'] = get_value
+    env.filters['extract_value'] = handle_results
     env.filters['sanitize'] = sanitize_object_for_json
     env.filters['handle_key'] = handle_keys
     env.filters['handle_results'] = handle_results
@@ -923,10 +923,26 @@ def handle_keys(key:str) -> str:
 
 
 def handle_results(input_value:dict|str) -> str:
-    if isinstance(input_value, str):
-        output = f"{html.escape(input_value)}"
-    else:
-        output = f"<pre>{html.escape(json.dumps(input_value, indent=4))}</pre>"
+    logger.debug(f"Handling results for {input_value}")
+    if isinstance(input_value, dict):
+        input_value = input_value.get("value", input_value)
+    
+    match input_value:
+        case bool():
+            output = str(input_value).title()
+        case str() | int() | float():
+            output = html.escape(str(input_value))
+        case datetime() | date():
+            output = input_value.isoformat(timespec='milliseconds')
+        case None:
+            output = html.escape("NA")
+        case _:
+            try:
+                output = f"<pre>{html.escape(json.dumps(input_value, indent=4))}</pre>"
+            except (TypeError, ValueError):
+                logger.error(f"Could not convert {input_value} to json for display. Displaying as string instead.")
+                output = f"{html.escape(str(input_value))}"
+            
     output = re.sub(r'[{}]|&quot;|,', '', output)
     return output
     

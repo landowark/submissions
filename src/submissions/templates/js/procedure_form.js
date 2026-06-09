@@ -283,6 +283,16 @@ function runPreprocessFunction(element) {
     backend.run_preprocess_function(element.innerText);
 }
 
+var dateInputs = document.querySelectorAll('input.date_change');
+    dateInputs.forEach(function(input) {
+        input.addEventListener('change', function() {
+            var id = this.id.replace('_dc', '');
+            var newValue = this.value;
+            console.log('Date changed for:', id, 'New value:', newValue);
+            backend.update_date(id, newValue);
+        });
+    });
+
 // window.onload = function() {
 //     for(let i = 0; i < reagentRoles.length; i++) {
 //         console.log("Updating reagent:", reagentRoles[i].id, reagentRoles[i].value)

@@ -2364,6 +2364,7 @@ class Procedure(BaseClass):
         if dlg.exec():
             sql: Procedure = dlg.return_sql()
             sql.update_last_useds()
+            sql.sample = procedure.sample
             # NOTE: Print out all procedureequipmentassociation objects
             sql.save()
         obj.set_data()
@@ -2480,7 +2481,17 @@ class Procedure(BaseClass):
                 sample.control_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')
             sample_list.append(sample)
         output = dict(
-            proceduretype=self.proceduretype,
+            # Convert the ProcedureType to its pydantic form and mark which
+            # reagent/equipment roles are already filled on this procedure so
+            # the UI can disable the corresponding checkboxes for missing ones.
+            proceduretype=(lambda: (
+                (lambda pyd: (  # annotate pyd in-place then return
+                    [setattr(rr, 'filled', getattr(rr, 'name', '') in {assoc.reagentrole for assoc in self.procedurereagentlotassociation}) for rr in getattr(pyd, 'reagentrole', [])],
+                    [setattr(er, 'filled', getattr(er, 'name', '') in {assoc.equipmentrole for assoc in self.procedureequipmentassociation}) for er in getattr(pyd, 'equipmentrole', [])],
+                    pyd
+                )[-1])
+                )(self.proceduretype.to_pydantic())
+            )(),
             run=self.run.to_pydantic(),
             technician=self.technician,
             repeat=bool(self.repeat),
@@ -5077,7 +5088,7 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
     )
     tipslot_id = Column(
         INTEGER,
-        ForeignKey("_tipslot.id"),
+        ForeignKey("_tipslot.id", ondelete="CASCADE"),
         primary_key=True
     )
 
@@ -5089,6 +5100,7 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
                 "_procedureequipmentassociation.procedure_id",
                 "_procedureequipmentassociation.equipmentrole_id",
             ],
+            ondelete="CASCADE",
         ),
     )
 

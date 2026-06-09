@@ -7,7 +7,6 @@ from pprint import pformat
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import pyqtSlot, QVariant, Qt
 from typing import TYPE_CHECKING, List
-
 from backend.validators import SourcedField
 if TYPE_CHECKING:
     from backend.validators import PydProcedure
@@ -85,7 +84,8 @@ class ProcedureCreation(DefaultWebDialog):
             procedure=self.procedure,
             platemap=self.platemap,
             now = datetime.datetime.now(),
-            preprocessing_buttons = [item for item in self.preprocessing_functions.keys()]
+            preprocessing_buttons = [item for item in self.preprocessing_functions.keys()],
+            edit=self.edit
         )
         self.webview.setHtml(html)
         
@@ -175,16 +175,6 @@ class ProcedureCreation(DefaultWebDialog):
             raise ValueError(f"Function group for {function_name} not found.")
         self.dlg = func(parent=self.app, resultstype=resultstype, procedure=self.procedure)
 
-    # def return_sql(self, new: bool = False):
-    #     assert self.procedure.run is not None
-    #     output = self.procedure.to_sql()
-        
-    #     if isinstance(output, tuple):
-    #         output = output[0]
-    #     assert output.run.rsl_plate_number == self.run.rsl_plate_number
-    #     # As of here, run is None
-    #     assert output.run is not None
-    #     return output
     def return_sql(self, new: bool = False):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
