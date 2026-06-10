@@ -179,15 +179,27 @@ class PydSample(PydConcrete):
     @field_validator('is_control', mode='before')
     @classmethod
     def enforce_value_range(cls, value):
-        if value is None:
-            value = 0
-        if value >= 1:
-            value = 1
-        elif value <= -1:
-            value = -1
-        else:
-            value = 0
-        return value
+        # Coerce a variety of incoming shapes (int, str, dict, SourcedField-like)
+        # into a safe integer in the range [-1, 0, 1]. Avoid TypeErrors from
+        # comparing incompatible types (e.g. str with int).
+        try:
+            # unwrap dict-like inputs that use {'value': ...}
+            if isinstance(value, dict) and 'value' in value:
+                raw = value.get('value')
+            elif isinstance(value, SourcedField):
+                raw = value.value
+            else:
+                raw = value
+            if raw is None:
+                return 0
+            iv = int(raw)
+        except (TypeError, ValueError):
+            return 0
+        if iv >= 1:
+            return 1
+        if iv <= -1:
+            return -1
+        return 0
 
     @field_validator("sample_id", mode="before")
     @classmethod
@@ -273,14 +285,33 @@ class PydSample(PydConcrete):
             except Exception:
                 existing = None
             if existing:
+                try:
+                    existing.is_control = int(self.is_control)
+                except Exception:
+                    logger.exception(f"Failed to set is_control={self.is_control} on existing {existing}")
                 return existing, None
             # If no existing object, ensure the blank sql_instance has sample_id set
+            try:
+                # set control flag on the transient sql_instance so callers that
+                # immediately attach it will see the correct value
+                self.sql_instance.is_control = int(self.is_control)
+            except Exception:
+                logger.exception(f"Failed to set is_control={self.is_control} on transient {self.sql_instance}")
             return self.sql_instance, None
         
         self.sql_instance.clientsubmission = getattr(self, "clientsubmission", [])
         self.sql_instance.run = getattr(self, "run", [])
         self.sql_instance.procedure = getattr(self, "procedure", [])
         self.sql_instance.rank = self.rank
+        # Ensure SQL model receives control flag. Sample SQL model exposes
+        # `is_control` as a hybrid_property backed by `_is_control`; the
+        # base-class to_sql skips hybrid properties, so set it explicitly.
+        try:
+            self.sql_instance.is_control = int(self.is_control)
+        except Exception:
+            # Be defensive: if assignment fails, log and continue without
+            # crashing the import flow.
+            logger.exception(f"Failed to set is_control={self.is_control} on {self.sql_instance}")
         return self.sql_instance, None
 
     @classmethod
@@ -1375,7 +1406,7 @@ class PydClientSubmission(PydConcrete):
         # At this point, sample_id is None.
         # logger.debug(pformat([sample.sample_id for sample in self.sample]))
         # self.sql_instance.sample = self.sample
-        logger.debug([sample.sample_id for sample in self.sql_instance.sample])
+        # logger.debug([sample.sample_id for sample in self.sql_instance.sample])
 
         self.sql_instance.run    = self.run
         return self.sql_instance, None
