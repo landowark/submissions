@@ -41,17 +41,26 @@
                     <h1><u>Reagents</u></h1>
                     <hr>
                     {% for reagentrole in proceduretype['reagentrole'] %}
-                    <input type="checkbox" class="procedure_checkbox" checked id="{{ reagentrole['name'] }}_check" name="{{ reagentrole['name'] }}" {% if not reagentrole.get('filled', True) %}disabled{% endif %}><label for="{{ reagentrole['name'] }}">{{ reagentrole['name'] }}:</label><br>
-                    <select class="reagentrole dropdown" id="{{ reagentrole['name'] }}" name="{{ reagentrole['name'] }}"><br>
-                        {% for reagent in reagentrole['reagent'] %}
-                        {% for reagentlot in reagent['reagentlot'] %}
-                        {% if reagentlot['active'] %}
-                        <option value="{{ reagentlot['name'] }}">{{ reagentlot['name'] }}</option>
-                        {% endif %}
-                        {% endfor %}
-                        {% endfor %}
+                    {% if reagentrole is mapping %}
+                        {% set rname = reagentrole.get('name') %}
+                        {% set role_filled = reagentrole.get('filled', True) %}
+                    {% else %}
+                        {% set rname = reagentrole %}
+                        {% set role_filled = True %}
+                    {% endif %}
+                    <input type="checkbox" class="procedure_checkbox" id="{{ rname }}_check" name="{{ rname }}" {% if rname in procedure['active_reagentroles'] %}checked{% endif %}><label for="{{ rname }}">{{ rname }}:</label><br>
+                    <select class="reagentrole dropdown" id="{{ rname }}" name="{{ rname }}" {% if rname not in procedure['active_reagentroles'] %}disabled{% endif %}>
+                            {% if reagentrole is mapping %}
+                                {% for reagent in reagentrole.get('reagent', []) %}
+                                    {% for reagentlot in reagent.get('reagentlot', []) %}
+                                        {% if reagentlot['active'] %}
+                                            <option value="{{ reagentlot['name'] }}">{{ reagentlot['name'] }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                            {% endif %}
                     </select>
-                    <div class="new_reagent" id="new_{{ reagentrole['name'] }}"></div>
+                    <div class="new_reagent" id="new_{{ rname }}"></div>
                     <br>
                     {% endfor %}
                   {% endif %}
@@ -70,20 +79,27 @@
         <h1><u>Equipment</u></h1>
         <br><hr><br>
         {% for equipmentrole in proceduretype['equipmentrole'] %}
+            {% if equipmentrole is mapping %}
+              {% set ename = equipmentrole.get('name') %}
+              {% set er_filled = equipmentrole.get('filled', True) %}
+            {% else %}
+              {% set ename = equipmentrole %}
+              {% set er_filled = True %}
+            {% endif %}
             <div class="grid-container">
                 <div>
-                    <input type="checkbox" class="procedure_checkbox" checked id="{{ equipmentrole['name'] }}_check" name="{{ equipmentrole['name'] }}" {% if not equipmentrole.get('filled', True) %}disabled{% endif %}><label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
-                    <select class="equipmentrole dropdown" id="{{ equipmentrole['name'] }}" name="{{ equipmentrole['name'] }}">
+                    <input type="checkbox" class="procedure_checkbox" id="{{ ename }}_check" name="{{ ename }}" {% if ename in procedure['active_equipmentroles'] %}checked{% endif %}><label for="{{ ename }}">{{ ename }}:</label><br>
+                    <select class="equipmentrole dropdown" id="{{ ename }}" name="{{ ename }}" {% if ename not in procedure['active_equipmentroles'] %}disabled{% endif %}>
                     </select>
                 </div>
                 <div>
-                    <label for="{{ equipmentrole['name'] }}_process">Process:</label><br>
-                    <select class="process dropdown" id="{{ equipmentrole['name'] }}_process" name="{{ equipmentrole['name'] }}_process">
+                    <label for="{{ ename }}_process">Process:</label><br>
+                    <select class="process dropdown" id="{{ ename }}_process" name="{{ ename }}_process"  {% if ename not in procedure['active_equipmentroles'] %}disabled{% endif %}>
                     </select>
                 </div>
                 <div>
-                    <label for="{{ equipmentrole['name'] }}_tips">Tips:</label><br>
-                    <select multiple class="tips dropdown" id="{{ equipmentrole['name'] }}_tips" name="{{ equipmentrole['name'] }}_tips">
+                    <label for="{{ ename }}_tips">Tips:</label><br>
+                    <select multiple class="tips dropdown" id="{{ ename }}_tips" name="{{ ename }}_tips" {% if ename not in procedure['active_equipmentroles'] %}disabled{% endif %}>
                     </select>
                 </div>
 

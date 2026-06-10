@@ -2360,6 +2360,8 @@ class Procedure(BaseClass):
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.debug("Edit!")
         procedure = self.construct_pyd_procedure_for_creation()
+        procedure.active_reagentroles = [assoc.reagentrole.name for assoc in self.procedurereagentlotassociation]
+        procedure.active_equipmentroles = [assoc.equipmentrole.name for assoc in self.procedureequipmentassociation]
         dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
         if dlg.exec():
             sql: Procedure = dlg.return_sql()
@@ -2386,7 +2388,6 @@ class Procedure(BaseClass):
             logger.debug(f"Comment dialog returned: {dlg.parse_form()}")
             self.comment = dlg.parse_form()
             self.save()
-
 
     @check_authorization
     def delete(self, obj):
@@ -2480,18 +2481,28 @@ class Procedure(BaseClass):
                 sample.enabled = getattr(assoc, "enabled", True)
                 sample.control_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')
             sample_list.append(sample)
+        # Build a PydProcedureType instance and attach expanded relationship
+        # dicts (reagentrole/equipmentrole) to its model_extra. Mark which
+        # roles are already present on this Procedure with a 'filled' flag.
+        try:
+            pyd_proc_type = self.proceduretype.to_pydantic()
+            expanded = pyd_proc_type.improved_dict_expand_fields([
+                {"reagentrole": [{"reagent": ["reagentlot"]}]},
+                {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", "process"]}]}
+            ])
+            # annotate filled flags on expanded entries
+            for item in expanded.get('reagentrole', []):
+                item['filled'] = any(assoc.reagentrole.name == item.get('name') for assoc in self.procedurereagentlotassociation)
+            for item in expanded.get('equipmentrole', []):
+                item['filled'] = any(assoc.equipmentrole.name == item.get('name') for assoc in self.procedureequipmentassociation)
+            # attach expanded dicts so templates can read them via proceduretype['reagentrole']
+            pyd_proc_type.model_extra.update(expanded)
+        except Exception as e:
+            logger.error(f"Couldn't build expanded proceduretype for {self.__class__.__qualname__} with name {self.name}")
+            logger.error(f"Error: {e}")
+            pyd_proc_type = self.proceduretype.to_pydantic() if hasattr(self.proceduretype, 'to_pydantic') else self.proceduretype
         output = dict(
-            # Convert the ProcedureType to its pydantic form and mark which
-            # reagent/equipment roles are already filled on this procedure so
-            # the UI can disable the corresponding checkboxes for missing ones.
-            proceduretype=(lambda: (
-                (lambda pyd: (  # annotate pyd in-place then return
-                    [setattr(rr, 'filled', getattr(rr, 'name', '') in {assoc.reagentrole for assoc in self.procedurereagentlotassociation}) for rr in getattr(pyd, 'reagentrole', [])],
-                    [setattr(er, 'filled', getattr(er, 'name', '') in {assoc.equipmentrole for assoc in self.procedureequipmentassociation}) for er in getattr(pyd, 'equipmentrole', [])],
-                    pyd
-                )[-1])
-                )(self.proceduretype.to_pydantic())
-            )(),
+            proceduretype=pyd_proc_type,
             run=self.run.to_pydantic(),
             technician=self.technician,
             repeat=bool(self.repeat),
@@ -2504,7 +2515,9 @@ class Procedure(BaseClass):
             completed_date=self.completed_date,
             sql_instance=self,
         )
+        
         pyd = PydProcedure(**output)
+        
         return pyd
 
     @classmethod
@@ -2678,6 +2691,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     
     last_used_lot = Column(String(64), ForeignKey("_reagentlot.lot"))  #: id of associated procedure
 
+    _always_used = Column(INTEGER, default=1)  #: flag indicating if this reagent role is always used in the procedure type
+
     @classproperty
     def aliases(cls) -> List[str]:
         """
@@ -2710,6 +2725,29 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 self.reagentrole = reagentrole
             except Exception:
                 logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
+
+    @hybrid_property
+    def always_used(self):
+        """Return whether this reagent role is always used in the procedure type."""
+        au = getattr(self, "_always_used", 1)
+        return bool(au)
+
+    @always_used.setter
+    def always_used(self, value):
+        match value:
+            case int():
+                self._always_used = value
+            case bool():
+                self._always_used = int(value)
+            case str():
+                if value.lower() in ['true', '1', 'yes', 'on']:
+                    self._always_used = 1
+                elif value.lower() in ['false', '0', 'no', 'off']:
+                    self._always_used = 0
+                else:
+                    raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._always_used")
+            case _:
+                raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._always_used")
 
     @hybrid_property
     def proceduretype(self):
@@ -5715,7 +5753,8 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     """
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated procedure
-    _static = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
+    # _static = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
+    _always_used = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
     _proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypeequipmentroleassociation",
                                  foreign_keys=[proceduretype_id])  #: associated procedure
@@ -5748,25 +5787,46 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
                 logger.error(f"Couldn't set equipmentrole to {equipmentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def static(self):
-        return bool(self._static)
+    def always_used(self):
+        return bool(self._always_used)
     
-    @static.setter
-    def static(self, value):
+    @always_used.setter
+    def always_used(self, value):
         match value:
             case int():
-                self._static = value
+                self._always_used = value
             case bool():
-                self._static = int(value)
+                self._always_used = int(value)
             case str():
                 if value.lower() in ['true', '1', 'yes', 'on']:
-                    self._static = 1
+                    self._always_used = 1
                 elif value.lower() in ['false', '0', 'no', 'off']:
-                    self._static = 0
+                    self._always_used = 0
                 else:
-                    raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._static")
+                    raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._always_used")
             case _:
-                raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._static")
+                raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._always_used")
+
+    # @hybrid_property
+    # def static(self):
+    #     return bool(self._static)
+    
+    # @static.setter
+    # def static(self, value):
+    #     match value:
+    #         case int():
+    #             self._static = value
+    #         case bool():
+    #             self._static = int(value)
+    #         case str():
+    #             if value.lower() in ['true', '1', 'yes', 'on']:
+    #                 self._static = 1
+    #             elif value.lower() in ['false', '0', 'no', 'off']:
+    #                 self._static = 0
+    #             else:
+    #                 raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._static")
+    #         case _:
+    #             raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._static")
 
     @hybrid_property
     def name(self):
@@ -6218,8 +6278,9 @@ class Results(BaseClass):
         if bool(self.sample_id):
             output.sample_id = self.sample_id
             output.sample = self.sampleprocedureassociation.sample.sample_id
-        for k, v in self.result.items():
-            setattr(output, k, v)
+        if self.result:
+            for k, v in self.result.items():
+                setattr(output, k, v)
         return output
 
 

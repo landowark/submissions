@@ -1,6 +1,9 @@
 # 202606.02
 
 - Date changer for procedure details.
+- Deactivation of unused reagentroles and equipmentroles in editting and uncommon ones in creation.
+- Ability to click through to sample details in Run and ClientSubmission details.
+- Removal of procedure.js due to moving logic into details.js.
 
 # 202605.04
 

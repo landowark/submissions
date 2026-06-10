@@ -156,7 +156,7 @@ class DefaultProcedureManager(DefaultManager):
                 workbook = res_info_writer.write_to_workbook(workbook=workbook)
                 grouped_writer['info'] = res_info_writer
             # The sample writer should take as pydant_object, results as pydantic objects from each proceduresampleassociation in the procedure
-            sample_results = [res.to_pydantic() for res in parents['sample']]
+            sample_results = [res.to_pydantic() if hasattr(res, "to_pydantic") else res for res in parents['sample']]
             if len(sample_results) > 0:
                 try:
                     Writer = getattr(results_writers, f"{resulttype_name.replace(" ", "")}SampleWriter")

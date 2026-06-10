@@ -387,6 +387,7 @@ class PydProcedureTypeReagentRoleAssociation(PydAbstract):
 
     proceduretype: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
     reagentrole: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
+    always_used: bool = Field(default=True, description="If true, this reagent role is always required for the procedure type.")
     last_used: str = Field(default="NA")
 
     @field_validator("last_used", mode="before")
@@ -414,7 +415,7 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
 
     proceduretype: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
     equipmentrole: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
-    static: bool = Field(default=True, description="If true, this equipment role is always required for the procedure type.")
+    always_used: bool = Field(default=True, description="If true, this equipment role is always required for the procedure type.")
 
     # @field_validator("static", mode="before")
     # @classmethod
@@ -435,7 +436,7 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
     #             value = True
     #     return value
 
-    _validate_na = field_validator("static", mode="before")(coerce_int_to_bool)
+    _validate_na = field_validator("always_used", mode="before")(coerce_int_to_bool)
     
     @classproperty
     def aliases(cls) -> List[str]:

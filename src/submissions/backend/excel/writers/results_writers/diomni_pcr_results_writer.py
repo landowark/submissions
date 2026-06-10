@@ -74,7 +74,10 @@ class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
         align = Alignment(horizontal="center")
         start_row += 1
         self.start_row = start_row + 1
-        self.worksheet = workbook[self.sheet]    
+        try:
+            self.worksheet = workbook[self.sheet]
+        except KeyError:
+            self.worksheet = workbook.create_sheet(title=self.sheet)
         for df in self.create_results_dataframes():
             rows = dataframe_to_rows(df, index=False)
             cell = self.worksheet.cell(row=start_row, column=1, value=df.caption)

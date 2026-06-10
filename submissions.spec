@@ -44,7 +44,7 @@ a = Analysis(
             ("alembic.ini", "files"),
             ("src\\scripts\\*.py", "files\\scripts")
     ],
-    hiddenimports=["pyodbc"],
+    hiddenimports=["pyodbc", "tkinter.filedialog"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

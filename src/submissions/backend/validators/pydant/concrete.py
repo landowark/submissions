@@ -982,6 +982,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             sample_dicts = self.sample
         except AssertionError:
             sample_dicts = [s.to_pydantic() for s in self.sql_instance.proceduresampleassociation]
+        
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
 
@@ -1018,7 +1019,6 @@ class PydClientSubmission(PydConcrete):
                          'endrow', 
                          "abbreviation",
                          "full_batch_size"
-                         
                          ],
             "key_value_order": ["submitter_plate_id",
                        "submitted_date",
@@ -1440,7 +1440,7 @@ class PydRun(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath", "uploaded_by"]
+            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath", "uploaded_by", "comment"]
         }
     )
 
@@ -1727,7 +1727,7 @@ class PydRun(PydConcrete):
 
     def to_html(self, **kwargs):
         details = self.improved_dict_expand_fields(fields=['procedure', 'sample'])
-        output = super().to_html(**details)
+        output = super().to_html(**details)#, js_in=["procedure"])
         return output
 
     def add_samples(self, samples):

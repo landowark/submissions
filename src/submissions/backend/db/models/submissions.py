@@ -4,7 +4,7 @@ Models for the main procedure and sample types.
 from __future__ import annotations
 from getpass import getuser
 from random import sample
-import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
+import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools, json
 from uuid import uuid4
 from inspect import isclass
 from operator import itemgetter
@@ -1335,6 +1335,8 @@ class Run(BaseClass, LogMixin):
         from backend.validators.pydant import PydSample
         procedure_type: ProcedureType = next((proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
+        procedure.active_reagentroles = [item.reagentrole.name for item in procedure_type.proceduretypereagentroleassociation if item.always_used]
+        procedure.active_equipmentroles = [item.equipmentrole.name for item in procedure_type.proceduretypeequipmentroleassociation if item.always_used]
         assert all([isinstance(s, PydSample) for s in procedure.sample])
         assert procedure.run is not None
         # Passed check
@@ -1402,7 +1404,7 @@ class Run(BaseClass, LogMixin):
         """
         logger.debug("Add Comment!")
         from frontend.widgets import SubmissionComment
-        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             comment = dlg.parse_form()
             self.comment = comment
