@@ -48,13 +48,6 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
             output['submissiontype']['value'] = self.submissiontype.name.title()
         except KeyError:
             pass
-        # try:
-        #     check = isinstance(output['submitted_date']['value'], datetime)
-        # except KeyError as e:
-        #     logger.error(output.keys())
-        #     raise e
-        # if check:
-        #     output['submitted_date']['value'] = output['submitted_date']['value']
         output["submitted_date"]['value'] = datetime.combine(output['submitted_date']['value'], datetime.now().time())
         output['endrow'] = self.end_row
         return output

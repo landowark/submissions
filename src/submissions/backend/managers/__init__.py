@@ -43,7 +43,6 @@ class DefaultManager(object):
         return instance
 
     def __init__(self, parent, input_object: Path | str | pydant.PydBaseClass | BaseClass | Workbook | Worksheet | None = None, **kwargs):
-        
         self.parent = parent
         self.input_object = input_object
         self.sheets = kwargs.get("sheets", None)
@@ -117,7 +116,6 @@ class DefaultManager(object):
 
     def to_pydantic(self):
         return self.pyd
-
 
     def get_worksheet(self, sheet: Worksheet | str | int = 0):
         match sheet:

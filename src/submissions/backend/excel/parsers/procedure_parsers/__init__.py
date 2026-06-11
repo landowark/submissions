@@ -63,7 +63,6 @@ class ProcedureReagentParser(DefaultTABLEParser):
             item['reagent'] = item.pop('reagent_name', "NA")
             yield item
 
-    
 
 class ProcedureEquipmentParser(DefaultTABLEParser):
 

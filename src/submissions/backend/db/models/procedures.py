@@ -6,7 +6,6 @@ process versions, tips, and related associations. It includes rich association t
 for flexible input types.
 """
 from __future__ import annotations
-import getpass
 from pprint import pformat
 from jinja2 import Template
 import zipfile, logging, re, numpy as np, json
@@ -17,10 +16,9 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
-
 from frontend.widgets.submission_details import SubmissionComment
 from tools import check_authorization, setup_lookup, flatten_list, timezone
-from typing import Iterator, List, Any, Tuple, TYPE_CHECKING, Callable
+from typing import Iterator, List, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
@@ -1832,10 +1830,6 @@ class Procedure(BaseClass):
             proceduretype = self.proceduretype.name
         except AttributeError:
             proceduretype = "Unknown ProcedureType"
-        if self.id is not None:
-            id = f" ({self.id})"
-        else:
-            id = ""
         try:
             started_date = self.started_date.strftime("%Y-%m-%d %H:%M:%S")
         except AttributeError:
@@ -1933,9 +1927,6 @@ class Procedure(BaseClass):
                     output.procedure = self
                 case PydProcedureEquipmentAssociation():
                     output = item.to_sql()
-                    # if isinstance(output, tuple):
-                    #     output = output[0]
-                    # output.procedure = self
                 case _:
                     logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipment")
                     continue
@@ -1986,14 +1977,12 @@ class Procedure(BaseClass):
                 output = output[0]
             output.procedure = self
             if isinstance(output, ProcedureSampleAssociation):
-                # logger.debug(f"Checking: {output.sample.sample_id}")
                 try:
                     check = output.sample.sample_id.lower().startswith(("blank", "na", "none", ""))
                 except AttributeError as e:
                     logger.error(f"Couldn't get sample_id due to {e}")
                     check = True
                 if check:
-                    # logger.debug(f"Skipping assoc: {output}")
                     continue
                 # Check for existing association by comparing all primary key values
                 logger.debug(f"Checking {output} using {output.get_primary_keys()}")
@@ -2382,7 +2371,6 @@ class Procedure(BaseClass):
         :return: None
         """
         logger.debug("Add Comment!")
-        from frontend.widgets import SubmissionComment
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             logger.debug(f"Comment dialog returned: {dlg.parse_form()}")
@@ -2392,7 +2380,6 @@ class Procedure(BaseClass):
     @check_authorization
     def delete(self, obj):
         from frontend.widgets.pop_ups import QuestionAsker
-        # fname = self.__backup_path__.joinpath(f"{self.name}-backup({date.today().strftime('%Y%m%d')})")
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
         if msg.exec():
             self.procedureequipmentassociation = []
@@ -2515,9 +2502,7 @@ class Procedure(BaseClass):
             completed_date=self.completed_date,
             sql_instance=self,
         )
-        
         pyd = PydProcedure(**output)
-        
         return pyd
 
     @classmethod
@@ -2677,7 +2662,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                             primary_key=True)  #: id of associated reagentrole
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
                               primary_key=True)  #: id of associated proceduretype
-    # last_used = Column(String(32))  #: last used lot number of this type of reagent
     
     # NOTE: reference to the "ReagentType" object
     _reagentrole = relationship(ReagentRole,
@@ -2702,6 +2686,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         :rtype: List[str]
         """
         return super().aliases + ["reagentroleproceduretypeassociation"]
+    
     def __init__(self, *args, **kwargs):
         """
         Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
@@ -5075,6 +5060,7 @@ class TipsLot(BaseClass, LogMixin):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
+    
     @check_authorization
     def save(self):
         """
@@ -5753,7 +5739,6 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     """
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated procedure
-    # _static = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
     _always_used = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
     _proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypeequipmentroleassociation",
@@ -5806,27 +5791,6 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
                     raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._always_used")
             case _:
                 raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._always_used")
-
-    # @hybrid_property
-    # def static(self):
-    #     return bool(self._static)
-    
-    # @static.setter
-    # def static(self, value):
-    #     match value:
-    #         case int():
-    #             self._static = value
-    #         case bool():
-    #             self._static = int(value)
-    #         case str():
-    #             if value.lower() in ['true', '1', 'yes', 'on']:
-    #                 self._static = 1
-    #             elif value.lower() in ['false', '0', 'no', 'off']:
-    #                 self._static = 0
-    #             else:
-    #                 raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._static")
-    #         case _:
-    #             raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._static")
 
     @hybrid_property
     def name(self):
@@ -5928,6 +5892,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
         :return: None
         """
         super().save()
+    
     @classmethod
     @setup_lookup
     def query(cls,
@@ -6208,7 +6173,6 @@ class Results(BaseClass):
         except AttributeError as e:
             logger.critical(f"Could not get procedure for setting association.")
             raise e
-        logger.debug(f"Incoming: {value}")
         match value:
             case str():
                 output = ProcedureSampleAssociation.query(sample=value, procedure=proc, limit=1)

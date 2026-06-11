@@ -28,15 +28,6 @@ class PydReagent(PydAbstract):
     cost_per_ml: float = Field(default=0.00, description="Cost of a millilitre of this reagent.")
     reagentlot: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Lot numbers of this reagent.", repr=False)
 
-    # _relationship_fields = ["reagentrole", "reagentlot"]
-
-    # @field_validator("manufacturer", "ref")
-    # @classmethod
-    # def validate_optional_strings(cls, value):
-    #     if value is None:
-    #         return "NA"
-    #     return value
-
     _validate_na = field_validator("manufacturer", "ref")(coerce_none_to_na)
     
     @field_validator("eol_ext", mode="before")
@@ -46,16 +37,6 @@ class PydReagent(PydAbstract):
             return value.days
         return value
     
-    # def to_sql(self, update: bool = True):
-    #     # self.name = self.name.replace("-", ":")
-    #     from backend.db.models import Reagent
-    #     self.sql_instance: Reagent = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.reagentrole = self.reagentrole
-    #     self.sql_instance.reagentlot = self.reagentlot
-    #     return self.sql_instance, None
-
 
 class PydTips(PydAbstract):
 
@@ -78,15 +59,6 @@ class PydTips(PydAbstract):
         output['name'] = self.name
         return output
 
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import Tips
-    #     self.sql_instance: Tips = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.tipslot = self.tipslot
-    #     self.sql_instance.process = self.process
-    #     return self.sql_instance, None 
-    
 
 class PydReagentRole(PydAbstract):
 
@@ -95,30 +67,11 @@ class PydReagentRole(PydAbstract):
     proceduretype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="ProcedureTypes using this role", repr=False)
 
 
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import ReagentRole
-    #     self.sql_instance: ReagentRole = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.proceduretype = self.proceduretype
-    #     self.sql_instance.reagent = self.reagent
-    #     return self.sql_instance, None
-
-
 class PydEquipmentRole(PydAbstract):
 
     name: str = Field(default="NA", description="Name of this equipment role.")
     equipment: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Equipment this role can use.", repr=False)
     proceduretype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="ProcedureTypes using this role", repr=False)
-
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import EquipmentRole
-    #     self.sql_instance: EquipmentRole = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.proceduretype = self.proceduretype
-    #     self.sql_instance.equipment = self.equipment
-    #     return self.sql_instance, None
 
 
 class PydProcess(PydAbstract):
@@ -127,30 +80,12 @@ class PydProcess(PydAbstract):
     tips: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Tips used by this process.", repr=False)
     processversion: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Versions of this process.", repr=False)
 
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import Process
-    #     self.sql_instance: Process = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.tips = self.tips
-    #     self.sql_instance.processversion = self.processversion
-    #     return self.sql_instance, None
 
-    
 class PydResultsType(PydAbstract):
 
     name: str = Field(default="NA")
     results: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
     proceduretype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
-
-    # def to_sql(self, update: bool = True):
-    #     self.sql_instance = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.proceduretype = self.proceduretype
-    #     # NOTE: At this point, results will likely be an empty list.
-    #     self.sql_instance.results = self.results
-    #     return self.sql_instance, None
 
 
 class PydSubmissionType(PydAbstract):
@@ -215,17 +150,6 @@ class PydSubmissionType(PydAbstract):
             logger.error("Cannot remove proceduretypes from Default SubmissionType.")
             return
         super().remove_relationship(field, value)
-
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import SubmissionType
-    #     self.sql_instance: SubmissionType = super().to_sql(update)
-    #     self.sql_instance.file_name_template = self.file_name_template
-    #     self.sql_instance.abbreviation = self.abbreviation
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.proceduretype = self.proceduretype
-    #     self.sql_instance.clientsubmission = self.clientsubmission
-    #     return self.sql_instance, None
 
 
 class PydProcedureType(PydAbstract):
@@ -322,18 +246,6 @@ class PydProcedureType(PydAbstract):
             matrix = np.array([[0 for xxx in range(1, self.plate_columns + 1 )] for yyy in range(1, self.plate_rows + 1 )])
         return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
 
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import ProcedureType
-    #     self.sql_instance: ProcedureType = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.procedure = self.procedure
-    #     self.sql_instance.submissiontype = self.submissiontype
-    #     self.sql_instance.equipmentrole = self.equipmentrole
-    #     self.sql_instance.reagentrole = self.reagentrole
-    #     self.sql_instance.resultstype = self.resultstype
-    #     return self.sql_instance, None
-
     @property
     def allowed_result_methods(self) -> List[str]:
         return self.sql_instance.allowed_result_methods
@@ -401,15 +313,6 @@ class PydProcedureTypeReagentRoleAssociation(PydAbstract):
     def aliases(cls) -> List[str]:
         return super().aliases + ["reagentroleproceduretypeassociation"]
     
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import ProcedureTypeReagentRoleAssociation
-    #     self.sql_instance: ProcedureTypeReagentRoleAssociation = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.proceduretype = self.proceduretype
-    #     self.sql_instance.reagentrole = self.reagentrole
-    #     return self.sql_instance, None
-
 
 class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
 
@@ -417,39 +320,11 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
     equipmentrole: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
     always_used: bool = Field(default=True, description="If true, this equipment role is always required for the procedure type.")
 
-    # @field_validator("static", mode="before")
-    # @classmethod
-    # def int_to_bool(cls, value):
-    #     if isinstance(value, int):
-    #         value = bool(value)
-    #     return value
-    
-    # @field_validator("static")
-    # @classmethod
-    # def enforce_active(cls, value):
-    #     if value is None:
-    #         value = True
-    #     if isinstance(value, str):
-    #         if value.lower() in ["false", "0", "no", "off"]:
-    #             value = False
-    #         else:
-    #             value = True
-    #     return value
-
     _validate_na = field_validator("always_used", mode="before")(coerce_int_to_bool)
     
     @classproperty
     def aliases(cls) -> List[str]:
         return super().aliases + ["equipmentroleproceduretypeassociation"]
-
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import ProcedureTypeEquipmentRoleAssociation
-    #     self.sql_instance: ProcedureTypeEquipmentRoleAssociation = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.proceduretype = self.proceduretype
-    #     self.sql_instance.equipmentrole = self.equipmentrole
-    #     return self.sql_instance, None
 
 
 class PydEquipmentRoleEquipmentAssociation(PydAbstract):
@@ -461,16 +336,6 @@ class PydEquipmentRoleEquipmentAssociation(PydAbstract):
     @classproperty
     def aliases(cls) -> List[str]:
         return super().aliases + ["equipmentequipmentroleassociation"]
-
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import EquipmentRoleEquipmentAssociation
-    #     self.sql_instance: EquipmentRoleEquipmentAssociation = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.equipmentrole = self.equipmentrole
-    #     self.sql_instance.equipment = self.equipment
-    #     self.sql_instance.process = self.process
-    #     return self.sql_instance, None
 
 
 class PydReagentRoleReagentAssociation(PydAbstract):
@@ -489,12 +354,3 @@ class PydReagentRoleReagentAssociation(PydAbstract):
     @classproperty
     def aliases(cls) -> List[str]:
         return super().aliases + ["reagentreagentroleassociation"]
-
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import ReagentRoleReagentAssociation
-    #     self.sql_instance: ReagentRoleReagentAssociation = super().to_sql(update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.reagentrole = self.reagentrole
-    #     self.sql_instance.reagent = self.reagent
-    #     return self.sql_instance, None

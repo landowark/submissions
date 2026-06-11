@@ -8,7 +8,6 @@ from typing import Generator
 from openpyxl.cell import MergedCell
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
-from itertools import islice
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -64,8 +63,6 @@ class DefaultParser(object):
             if all([item.value is None for item in row]):
                 return iii
         return worksheet.max_row + 1
-    
-    
 
 
 class DefaultKEYVALUEParser(DefaultParser):

@@ -160,15 +160,6 @@ class BaseClass(Base):
         else:
             self._misc_info = SafeMiscInfo(raw_misc, owner=self)
 
-    # @reconstructor
-    # def init_on_load(self):
-    #     """
-    #     Called when an instance is loaded from the database.
-        
-    #     Ensures that the misc_info attribute is properly wrapped after database reconstruction.
-    #     """
-    #     self._wrap_misc_info()
-
     @reconstructor
     def init_on_load(self):
         raw = self.__dict__.get("_misc_info")
@@ -562,49 +553,6 @@ class BaseClass(Base):
             if isinstance(attr, (InstrumentedAttribute, hybrid_property)):
                 fields.add(name)
         return fields
-
-    # @classmethod
-    # def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
-    #     """
-    #     Query for an existing object or create a new one.
-        
-    #     Attempts to find a matching object in the database. If found, returns it.
-    #     If not found, creates a new instance with the provided attributes.
-
-    #     :param kwargs: Field-value pairs to query for or set on the new instance.
-    #                    Can include 'value' which gets mapped to 'name' for queries.
-    #     :return: Tuple of (model instance, is_new) where is_new 
-    #              indicates whether the instance was newly created.
-    #     :rtype: tuple[any, bool]
-    #     """
-    #     new = False
-    #     # NOTE: ensure only valid fields are being used.
-    #     allowed = [k for k, v in cls.__dict__.items() if
-    #                isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)] + ['value']
-    #     query_kwargs = {k: v for k, v in kwargs.items() if k in allowed and not isinstance(v, list)}
-    #     if "value" in query_kwargs.keys() and "name" not in query_kwargs.keys():
-    #         query_kwargs["name"] = query_kwargs.get("value")
-    #     # NOTE: if searching with 'name', only search with name.
-    #     if "name" in query_kwargs.keys():
-    #         query_kwargs = dict(name=query_kwargs.get("name"))
-    #     instance = cls.query(limit=1, **query_kwargs)
-        
-    #     if instance is None or isinstance(instance, list):
-    #         instance = cls()
-    #         new = True
-    #         # ONLY set attributes if this is a brand new record!
-    #         # Moving this outside the 'if' will cause failures. You have been warned.
-    #         for k, v in kwargs.items():
-    #             # Disallow setting 'id'.
-    #             if k == "id":
-    #                 continue
-    #             # NOTE: Setattr used to make use of overridden method.
-    #             try:
-    #                 setattr(instance, k, v)
-    #             except AttributeError:
-    #                 continue
-        
-    #     return instance, new
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:

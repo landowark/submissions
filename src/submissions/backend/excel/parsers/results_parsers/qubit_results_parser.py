@@ -33,5 +33,4 @@ class QubitSampleParser(DefaultResultsSampleParser):
     def parsed_info(self) -> Generator[dict, None, None]:
         for item in super().parsed_info:
             item['date_analyzed'] = item['test_date']
-            
             yield item

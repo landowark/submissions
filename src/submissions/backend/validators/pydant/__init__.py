@@ -17,7 +17,6 @@ from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
 from dateutil.parser import parse
-from sqlalchemy import inspect as sa_inspect, UniqueConstraint
 from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
@@ -204,7 +203,6 @@ def _coerce_int_field(raw: Any) -> SourcedField[int]:
     except (ValueError, TypeError) as e:
         raise TypeError(f"Expected integer, got {inner!r}: {e}") from e 
     return SourcedField(value=inner, missing=missing)
-
 
 def _field_annotation_accepts_sourcedfield(field_info: FieldInfo) -> bool:
     annotation = field_info.annotation
@@ -440,7 +438,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             dict: Expanded dictionary.
         """
         # Allow callers to pass a single dict or string instead of a list
-        condense = kwargs.get("condense", False)
+        # condense = kwargs.get("condense", False)
         if isinstance(fields, dict):
             fields = [fields]
         elif isinstance(fields, str):
@@ -544,10 +542,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return result
 
     def to_sql(self, update: bool = True):
-        # # if self.sql_instance is None:
-        # # Resolve via query_or_create so we reuse existing DB rows
-        # instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs)
-        # self.sql_instance = instance
         # Only resolve sql_instance once. If this instance was already resolved
         # by a prior to_sql() call (self.new=False), reuse it instead of
         # re-running query_or_create, which would overwrite sql_instance and

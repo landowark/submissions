@@ -3,7 +3,6 @@ Module for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
 import logging
-from pathlib import Path
 from pprint import pformat
 from backend.excel.parsers.results_parsers.diomni_pcr_results_parser import DiomniPCRSampleParser, DiomniPCRInfoParser
 from . import DefaultResultsManager

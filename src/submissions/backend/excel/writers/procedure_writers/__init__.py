@@ -32,7 +32,6 @@ class ProcedureReagentWriter(DefaultTABLEWriter):
     exclude = ["id", "comments", "missing", "active", "name", "reagentlot", "procedure", "excluded", "reagentlotprocedureassociation", "procedurereagentlotassociation", "reagent_name"]
     header_order = ["reagentrole", "reagent", "lot", "expiry"]
 
-
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"

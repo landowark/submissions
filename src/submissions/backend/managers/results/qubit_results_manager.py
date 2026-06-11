@@ -24,7 +24,6 @@ class QubitManager(DefaultResultsManager):
         if input_object is None:
             input_object = select_open_file(file_extension="csv", obj=get_application_from_parent(parent))
         super().__init__(procedure=procedure, parent=parent, input_object=input_object)
-        # self.parse()
         self.sample_matcher()
 
     def sample_matcher(self):

@@ -30,7 +30,6 @@ class DiomniPCRInfoParser(DefaultResultsInfoParser):
         self.date_analyzed = date_analyzed
         
 
-
 class DiomniPCRSampleParser(DefaultResultsSampleParser):
     """Object to pull data from Design and Analysis PCR export file."""
 

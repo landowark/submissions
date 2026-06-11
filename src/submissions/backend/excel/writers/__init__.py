@@ -37,11 +37,6 @@ class DefaultWriter(object):
     def stringify_value(cls, value: Any) -> str:
         if isinstance(value, SourcedField):
             value = value.value
-            # except (KeyError, ValueError):
-            #     try:
-            #         value = value['name
-            #     except (KeyError, ValueError):
-            #         return
         match value:
             case _ if issubclass(value.__class__, BaseClass):
                 value = value.name
@@ -68,7 +63,8 @@ class DefaultWriter(object):
         key = key.replace("lot", " lot").strip()
         key = key.replace("_", " ")
         key = key.title()
-        key = key.replace(" Id", " ID")
+        key = key.replace(" Id", " ID").strip()
+        key = key.replace("Rsl", "RSL").strip()
         return key
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
@@ -180,10 +176,7 @@ class DefaultKEYVALUEWriter(DefaultWriter):
 class DefaultTABLEWriter(DefaultWriter):
 
     sheet = "Client Info"
-    # start_row = 19
-    # header_order = []
-    # exclude = []
-
+    
     def get_row_count(self, start_row: int = 1):
         list_df = DataFrame([item for item in self.worksheet.values][start_row - 1:])
         row_count = list_df.shape[0]
@@ -239,14 +232,11 @@ class DefaultTABLEWriter(DefaultWriter):
         font = Font(bold=True, color="ffffffff")
         fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
         align = Alignment(horizontal="center")
-        logger.debug(self.start_row)
         for cell in worksheet[self.start_row]:
             cell.font = font
             cell.fill = fill
             cell.alignment = align
         return worksheet
-
-
 
 
 from .procedure_writers import ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter

@@ -7,8 +7,8 @@ and querying database changes by user and date range.
 from __future__ import annotations
 from typing import List
 from dateutil.parser import parse
-from sqlalchemy.orm import declarative_base, DeclarativeMeta, Query
-from . import BaseClass, ctx, Base
+from sqlalchemy.orm import Query
+from . import BaseClass, Base
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, func
 from datetime import date, datetime, timedelta
 import logging

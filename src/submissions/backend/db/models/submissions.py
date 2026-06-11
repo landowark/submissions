@@ -254,7 +254,6 @@ class ClientSubmission(BaseClass, LogMixin):
         if not isinstance(value, list) and not isinstance(value, _AssociationList):
             value = [value]
         for item in value:
-            logger.debug(f"Checking sample: {item} of type {type(item)}")
             if item is None:
                 continue
             match item:
@@ -276,7 +275,6 @@ class ClientSubmission(BaseClass, LogMixin):
                     logger.error(f"Unmatched value {item} of type {type(item)} for sample")
                     continue
             # This indicates that the setter is being run in two duplicate batches
-            
             if isinstance(output, ClientSubmissionSampleAssociation):
                 logger.debug(f"Checking: {output.sample.sample_id}")
                 try:
@@ -285,10 +283,8 @@ class ClientSubmission(BaseClass, LogMixin):
                     logger.error(f"Couldn't get sample_id due to {e}")
                     check = True
                 if check:
-                    logger.debug(f"Skipping assoc: {output}")
                     continue
                 # Check for existing association by comparing all primary key values
-                logger.debug(f"Checking {output} using {output.get_primary_keys()}")
                 is_duplicate = any(
                     all(
                         getattr(existing, pk) == getattr(output, pk)
@@ -341,7 +337,6 @@ class ClientSubmission(BaseClass, LogMixin):
         if not self._comment:
             return []
         if not isinstance(self._comment, list):
-            # logger.error(f"Comment for {self.__class__.__qualname__} with name {self.name} is not a list: {self._comment}")
             return []
         return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
     
@@ -579,7 +574,6 @@ class ClientSubmission(BaseClass, LogMixin):
             output['excluded'] += excl
         except KeyError:
             output['excluded'] = excl
-        # output['expanded'] = ["clientlab", "contact", "submission_type"]
         return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
@@ -686,11 +680,7 @@ class ClientSubmission(BaseClass, LogMixin):
                         for result in proceduresampleassociation.results:
                             yield result
 
-    # def save(self) -> Report | None:
-    #     logger.debug(pformat(self.sample))
-    #     return super().save()
 
-    
 class Run(BaseClass, LogMixin):
     """
     Object for an entire procedure procedure. Links to client procedure, reagents, equipment, process
@@ -795,7 +785,6 @@ class Run(BaseClass, LogMixin):
             value = [value]
         list_ = []
         for item in value:
-            logger.debug(f"Checking procedure: {item} of type {type(item)}")
             match item:
                 case str():
                     output = Procedure.query(name=item, limit=1)
@@ -1343,12 +1332,6 @@ class Run(BaseClass, LogMixin):
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
-            # as of here, sql.run is None
-            # try:
-            #     assert sql.run == self
-            # except AssertionError as e:
-            #     logger.error(sql.run)
-            #     raise e
             sql.update_last_useds()
             sql.save()
         obj.set_data()
@@ -1385,6 +1368,7 @@ class Run(BaseClass, LogMixin):
         Args:
             obj (Widget): Parent widget 
         """
+        logger.info("Edit!")
         from frontend.widgets.submission_widget import SubmissionFormWidget
         for widget in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
             widget.setParent(None)
@@ -1402,7 +1386,7 @@ class Run(BaseClass, LogMixin):
         :type obj: Any
         :return: None
         """
-        logger.debug("Add Comment!")
+        logger.info("Add Comment!")
         from frontend.widgets import SubmissionComment
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
@@ -1743,12 +1727,6 @@ class Sample(BaseClass, LogMixin):
     def name(self):
         return self.sample_id
     
-    # @name.setter
-    # def name(self, value):
-    #     if not isinstance(value, str):
-    #         value = str(value)    
-    #     self.sample_id = value
-
     @hybrid_property
     def comment(self):
         if not self._comment:
@@ -1858,9 +1836,9 @@ class Sample(BaseClass, LogMixin):
         :type obj: Any
         :return: None
         """
-        logger.debug("Add Comment!")
+        logger.info("Add Comment!")
         from frontend.widgets import SubmissionComment
-        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             comment = dlg.parse_form()
             self.comment = comment
@@ -1953,7 +1931,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
     @sample.setter
     def sample(self, value):
         from backend.validators.pydant import PydSample
-        logger.debug(f"{self.__class__.__qualname__} assigning {value} of type {type(value)}")
         match value:
             case str():
                 output = Sample.query(name=value, limit=1)
@@ -2169,9 +2146,9 @@ class ClientSubmissionSampleAssociation(BaseClass):
         :type obj: Any
         :return: None
         """
-        logger.debug("Add Comment!")
+        logger.info("Add Comment!")
         from frontend.widgets import SubmissionComment
-        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             comment = dlg.parse_form()
             self.comment = comment
@@ -2499,9 +2476,9 @@ class RunSampleAssociation(BaseClass):
         :type obj: Any
         :return: None
         """
-        logger.debug("Add Comment!")
+        logger.info("Add Comment!")
         from frontend.widgets import SubmissionComment
-        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             comment = dlg.parse_form()
             self.comment = comment
@@ -2617,9 +2594,9 @@ class ProcedureSampleAssociation(BaseClass):
         :type obj: Any
         :return: None
         """
-        logger.debug("Add Comment!")
+        logger.info("Add Comment!")
         from frontend.widgets import SubmissionComment
-        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             comment = dlg.parse_form()
             self.comment = comment
@@ -2728,34 +2705,6 @@ class ProcedureSampleAssociation(BaseClass):
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")
         self._results = list_
-  
-    # @hybrid_property
-    # def sample(self):
-    #     return self._sample
-
-    # @sample.setter
-    # def sample(self, value):
-    #     from backend.validators.pydant import PydSample
-    #     match value:
-    #         case str():
-    #             output = Sample.query(name=value, limit=1)
-    #         case dict():
-    #             output = Sample.query_or_create(**value)
-    #         case PydSample():
-    #             output = value.to_sql(update=False)
-    #         case Sample():
-    #             output = value
-    #         case _:
-    #             logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._sample")
-    #             return
-    #     if isinstance(output, tuple):
-    #         output = output[0]
-    #     if isinstance(output, Sample):
-    #         if not PydSample.is_sample_id_valid(output.sample_id):
-    #             output = None
-    #         self._sample = output
-    #     else:
-    #         logger.error(f"Could not set {self.__class__.__qualname__}_sample to {type(output)}")
   
     @property
     def well(self):
