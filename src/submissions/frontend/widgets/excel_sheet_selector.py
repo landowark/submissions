@@ -3,7 +3,7 @@ Widget to select which sheet(s) to import from an Excel file. This is used in th
 and allows the user to select which sheets to import if there are multiple sheets in the file.
 """
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialogButtonBox, QDialog, QCheckBox
+from PyQt6.QtWidgets import QVBoxLayout, QLabel, QDialogButtonBox, QDialog, QCheckBox
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 

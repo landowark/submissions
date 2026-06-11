@@ -545,13 +545,25 @@ class BaseClass(Base):
         """Names of columns, relationships and hybrid accessors on this model
         (inherited ones included)."""
         fields = set()
+        # Collect instrumented attributes (columns, relationships) via getattr
         for name in dir(cls):
             try:
                 attr = getattr(cls, name)
             except Exception:
                 continue
-            if isinstance(attr, (InstrumentedAttribute, hybrid_property)):
+            if isinstance(attr, InstrumentedAttribute):
                 fields.add(name)
+        # hybrid_property descriptors live on the class __dict__ (or base classes)
+        # and may not be detectable via getattr(cls, name) at runtime because
+        # SQLAlchemy replaces them with proxy objects. Inspect class dicts
+        # directly to find the actual hybrid_property objects.
+        for base in cls.__mro__:
+            for name, attr in base.__dict__.items():
+                try:
+                    if isinstance(attr, hybrid_property):
+                        fields.add(name)
+                except Exception:
+                    continue
         return fields
 
     @classmethod
@@ -568,6 +580,7 @@ class BaseClass(Base):
 
         :return: (instance, is_new)
         """
+        logger.debug(f"query_or_create called on {cls.__name__} with kwargs: {kwargs}")
         valid = cls._mapped_fields()
         fields = {k: v for k, v in kwargs.items() if k in valid}
 
@@ -575,8 +588,17 @@ class BaseClass(Base):
 
         instance = cls.query(limit=1, **query_kwargs) if query_kwargs else None
         if isinstance(instance, list):
-            instance = instance[0] if instance else None
-
+            instance = None
+        # Final check to ensure the instance actually matches all provided filters (e.g. list-valued ones)
+        if instance:
+            logger.debug(f"query_or_create: found existing {cls.__name__} with {query_kwargs}, running final check for all fields.")
+            check = all(
+                (getattr(instance, k) == v if not isinstance(v, list) else all(item in getattr(instance, k) for item in v))
+                for k, v in fields.items()
+            )
+            if not check:
+                logger.debug(f"query_or_create: existing instance did not match all fields, creating new {cls.__name__}.")
+                instance = None
         new = instance is None
         if new:
             instance = cls()
@@ -588,7 +610,6 @@ class BaseClass(Base):
                 setattr(instance, k, v)
             except (AttributeError, ValueError) as e:
                 logger.error(f"query_or_create: could not set {k} on {cls.__name__}: {e}")
-
         return instance, new
 
     @classmethod

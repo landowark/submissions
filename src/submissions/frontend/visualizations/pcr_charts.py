@@ -11,14 +11,6 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class PCRFigure(ResultsFigure):
 
-    # def __init__(self, df: pd.DataFrame, settings: dict, **kwargs):
-    #     df['dt_internal'] = pd.to_datetime(df["submitted_date"]).dt.normalize()
-    #     start = pd.to_datetime(settings['start_date']).normalize()
-    #     end = pd.to_datetime(settings['end_date']).normalize()
-    #     super().__init__(df=df, settings=settings, **kwargs)
-    #     self.df = df
-    #     self.construct_chart(df=df)
-
     def construct_chart(self, df: pd.DataFrame, **kwargs):
         check = super().construct_chart(df=df, **kwargs)
         if not check:

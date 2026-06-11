@@ -142,7 +142,6 @@ class App(QMainWindow):
         self.abstractActions = [QAction(f"Manage {subcls.__name__.replace("Pyd", "")}", self) for subcls in PydAbstract.get_managables()]
         self.concreateActions = [QAction(f"Manage {subcls.__name__.replace("Pyd", "")}", self) for subcls in PydConcrete.get_managables()]
                 
-
     def _connectActions(self):
         """
         connect menu and tool bar item to functions

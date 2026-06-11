@@ -20,7 +20,6 @@ class InfoPane(QWidget):
     def __init__(self, parent: QWidget) -> None:
         from backend.db.models import SubmissionType
         super().__init__(parent)
-        # self.app = self.parent().parent()
         self.app = self.window()
         self.report = Report()
         self.datepicker = StartEndDatePicker(default_start=-180)
@@ -62,7 +61,6 @@ class InfoPane(QWidget):
             with QSignalBlocker(self.datepicker.start_date) as blocker:
                 self.datepicker.start_date.setDate(lastmonth)
             report.add_result(Alert(owner=self.__str__(), msg=msg, status="Warning"))
-            # self.update_data()
         self.start_date = datetime.combine(self.datepicker.start_date.date().toPyDate(), datetime.min.time())
         self.end_date = datetime.combine(self.datepicker.end_date.date().toPyDate(), datetime.max.time())
         if hasattr(self, "submission_type"):
@@ -109,7 +107,6 @@ class PosNegPane(InfoPane):
         self.pos_neg = CheckableComboBox(parent=self)
         self.pos_neg.model().itemChanged.connect(self.update_data)
         self.pos_neg.setEditable(False)
-        # with QSignalBlocker(self.pos_neg.model()) as blocker:
         self.pos_neg.addItem("Select", header=True)
         self.pos_neg.addItem("Positive")
         self.pos_neg.addItem("Negative")

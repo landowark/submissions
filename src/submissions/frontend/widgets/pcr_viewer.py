@@ -16,7 +16,6 @@ class PCRViewer(PosNegPane):
         Sets data in the info pane
         
         """
-
         super().update_data()
         try:
             self.report_obj = PCRMaker(**self.chart_settings)    

@@ -416,7 +416,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     model_config = ConfigDict(
         json_schema_extra = {"excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits', 'comment',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
-               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"]}
+               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results", 
+               "active_reagentroles", "active_equipmentroles"]},
     )
 
     @field_validator("technician", mode="before")
@@ -923,11 +924,18 @@ class PydClientSubmission(PydConcrete):
     @field_validator("submission_category")
     @classmethod
     def enforce_typing(cls, value, values):
-        if not value['value'] in ["Research", "Diagnostic", "Surveillance", "Validation"]:
-            try:
-                value['value'] = values.data['submissiontype']['value']
-            except (AttributeError, KeyError):
-                value['value'] = "NA"
+        if isinstance(value, dict):
+            if not value['value'] in ["Research", "Diagnostic", "Surveillance", "Validation"]:
+                try:
+                    value['value'] = values.data['submissiontype']['value']
+                except (AttributeError, KeyError):
+                    value['value'] = "NA"
+        elif isinstance(value, SourcedField):
+            if not value.value in ["Research", "Diagnostic", "Surveillance", "Validation"]:
+                try:
+                    value.value = values.data['submissiontype'].value
+                except (AttributeError, KeyError):
+                    value.value = "NA"
         return value
 
     @field_validator("full_batch_size")

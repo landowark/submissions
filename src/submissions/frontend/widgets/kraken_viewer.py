@@ -21,9 +21,6 @@ from base64 import b64encode
 import requests, io, csv, sys, logging, pandas as pd, re
 
 from decimal import Decimal
-from typing import Tuple, TYPE_CHECKING
-if TYPE_CHECKING:
-    from backend.db.models import Sample
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -251,12 +248,9 @@ class KrakenViewer(InfoPane):
         """)
 
 
-        # def fetch_all_samples_with_data():
         all_samples = []
         after_cursor = None
         # Format must be a string since we changed the variable type to String
-        
-
         # Step 1: Fetch Sample IDs (Low Complexity)
         while True:
             variables = {"projectId": project, "first": PAGE_SIZE, "after": after_cursor, "startDate": start_date, "endDate": end_date}
@@ -424,14 +418,6 @@ class KrakenViewer(InfoPane):
         if issubclass(self.fig.__class__, KrakenFigure):
             self.save_button.setEnabled(True)
         # NOTE: construct html for webview
-        # if self.metadata_box.isChecked():
-        #     name = "metadata"
-        # else:
-        #     name = "fulldata"
-        # try:
-        #     self.fig.df.to_csv(f"{name}_test.csv")
-        # except PermissionError:
-        #     pass
         self.webview.setHtml(self.fig.html)
         self.webview.update()
         return report

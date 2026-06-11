@@ -29,8 +29,6 @@ class SubmissionsTree(QTreeView):
         self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
         self.setExpandsOnDoubleClick(False)
         self.model: ClientSubmissionRunModel = model
-        # header_labels = ["Name", "Submission Type", "Client Lab", "Submitted Date"]
-        # self.model.setHorizontalHeaderLabels(header_labels)
         self.setModel(self.model)
         self.setSelectionBehavior(QAbstractItemView.selectionBehavior(self).SelectRows)
         self.set_data()
@@ -118,8 +116,6 @@ class SubmissionsTree(QTreeView):
         sel: QModelIndex = self.indexAt(local_pos)
         if not sel.isValid():
             return
-        # indexes = self.selectedIndexes()
-        # dicto = next((item.data(1) for item in indexes if item.data(1)))
         target_index = sel.siblingAtColumn(0)
 
         # 2. Extract the data dictionary we stored in the UserRole namespace

@@ -16,6 +16,7 @@ from backend.db.models import Procedure, Results
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+
 class ResultsSampleMatcher(QDialog):
 
     def __init__(self, parent, results_var_name: str, results: Generator[dict, None, None], samples:List[str],

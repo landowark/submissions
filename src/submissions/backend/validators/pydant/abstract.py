@@ -79,6 +79,7 @@ class PydProcess(PydAbstract):
     name: str = Field(default="NA", description="Name of this process.")
     tips: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Tips used by this process.", repr=False)
     processversion: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Versions of this process.", repr=False)
+    equipmentroleequipmentassociation: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Equipment role-equipment associations used by this process.", repr=False)
 
 
 class PydResultsType(PydAbstract):

@@ -4,7 +4,7 @@ Contains miscellaneous widgets for frontend functions
 import math, logging
 from PyQt6.QtGui import QStandardItem, QIcon
 from PyQt6.QtWidgets import (
-    QLabel, QLineEdit, QComboBox, QDateEdit, QListView, QPushButton, QWidget,
+    QLabel, QLineEdit, QComboBox, QDateEdit, QPushButton, QWidget,
     QHBoxLayout, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QDate, QSize
@@ -45,7 +45,6 @@ class CheckableComboBox(QComboBox):
     # here we assume default checked
     
     def addItem(self, item, header: bool = False, start_checked: bool = True):
-        # super(CheckableComboBox, self).addItem(item)
         super().addItem(item)
         item_obj: QStandardItem = self.model().item(self.count() - 1, 0)
         if not header:
@@ -71,8 +70,7 @@ class CheckableComboBox(QComboBox):
 
     def get_checked(self):
         return [self.itemText(i) for i in range(self.count()) if self.itemChecked(i)]
-        # return [self.itemText(i) for i in range(self.count()) if self.itemChecked(i) and self.itemText(i) != "Select"]
-
+        
 
 class Pagifier(QWidget):
 

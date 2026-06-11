@@ -4412,6 +4412,12 @@ class ProcessVersion(BaseClass):
         # NOTE: Can't use f strings for this.
         return process_subquery + " - v" + cast(cls.version, String)
 
+    @name.setter
+    def name(self, value):
+        process, version = value.split(" - v")
+        self.process = process.strip()
+        self.version = float(version.strip())
+
     @hybrid_property
     def active(self):
         return bool(self._active)

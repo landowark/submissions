@@ -10,16 +10,12 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from backend.db import models
-from backend.validators import pydant
 from tools import timezone, get_application_from_parent, list_str_comparator
 from .functions import select_save_file, save_pdf
 from . import CustomWebEnginePage
 from getpass import getuser
 from datetime import datetime
 from pprint import pformat
-# from typing import TYPE_CHECKING
-# if TYPE_CHECKING:
-    # from backend.db.models import Run, Sample, ClientSubmission, Procedure, Reagent
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -96,29 +92,6 @@ class SubmissionDetails(QDialog):
         else:
             self.back.setEnabled(True)
 
-    # @pyqtSlot(str, str, str)
-    # def update_reagent(self, old_lot: str, new_lot: str, expiry: str):
-    #     """
-    #     Designed to allow editing reagent in details view (depreciated)
-
-    #     Args:
-    #         old_lot ():
-    #         new_lot ():
-    #         expiry ():
-
-    #     Returns:
-
-    #     """
-    #     expiry = datetime.strptime(expiry, "%Y-%m-%d")
-    #     reagent = models.Reagent.query(lot=old_lot)
-    #     if reagent:
-    #         reagent.lot = new_lot
-    #         reagent.expiry = expiry
-    #         reagent.save()
-    #         self.reagent_details(reagent=reagent, kit=self.kit)
-    #     else:
-    #         logger.error(f"Reagent with lot {old_lot} not found.")
-
     @pyqtSlot(str)
     def sign_off(self, run: str | models.Run) -> None:
         """
@@ -130,7 +103,6 @@ class SubmissionDetails(QDialog):
         Returns:
             None
         """
-        # from backend.db.models import Run
         logger.info(f"Signing off on {run} - ({getuser()})")
         if isinstance(run, str):
             run = models.Run.query(name=run)

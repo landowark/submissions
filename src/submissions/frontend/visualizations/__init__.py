@@ -1,9 +1,8 @@
 """
 Contains all operations for creating charts, graphs and visual effects.
 """
-from datetime import timedelta, date
+from datetime import date
 from typing import Generator
-from pandas import DataFrame
 import plotly
 import pandas as pd, logging
 from plotly.graph_objects import Figure
@@ -25,10 +24,7 @@ class CustomFigure(Figure):
         # can raise AttributeError for arbitrary attribute names. Using the
         # base object setattr bypasses that and stores the dataframe safely.
         object.__setattr__(self, 'df', df)
-        
         self.data = []
-        
-        # self.update_xaxes(range=[settings['start_date'] - timedelta(days=1), settings['end_date']])
         self.generic_figure_markers(ytitle=ytitle, months=months)
 
     def generic_figure_markers(self, ytitle: str | None = None, months: int = 6):
@@ -146,8 +142,6 @@ class ResultsFigure(CustomFigure):
         super().__init__(df, settings, **kwargs)
         object.__setattr__(self, 'start', pd.to_datetime(settings['start_date']).normalize())
         object.__setattr__(self, 'end', pd.to_datetime(settings['end_date']).normalize())
-        # self.start = pd.to_datetime(settings['start_date']).normalize()
-        # self.end = pd.to_datetime(settings['end_date']).normalize()
         self.df['day_num'] = (self.df['dt_internal'] - self.start).dt.days
         sample_ranks = df.groupby('dt_internal')['procedure'].transform(lambda x: x.astype('category').cat.codes)
         

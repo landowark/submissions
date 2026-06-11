@@ -56,7 +56,6 @@ class KrakenFigure(CustomFigure):
             match mode:
                 case "count":
                     data.append(subset['new_est_reads'].tolist())
-                    # hovers.append([f"{self.species_or_genus}: {s}<br>Reads: %{{y:,.0f}}<extra></extra>"] * len(subset['new_est_reads']))
                 case "percent":
                     data.append(subset['relative_fraction'].tolist())
             hovers.append(hover_str)
