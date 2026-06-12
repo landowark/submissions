@@ -627,17 +627,22 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 
     def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str | None = None, checked:bool=True):
         from backend.db.models import ReagentLot
+        logger.debug(f"Updating reagents with role {reagentrole}, name {name}, lot {lot}, expiry {expiry}, checked {checked}")
         try:
+            # Find the existing reagentlot association with this role, if it exists.
             removable = next((item for item in self.reagentlot if reagentrole == item.reagentrole), None)
         except AttributeError as e:
             logger.error(e)
             removable = None
+        logger.debug(f"Found removable: {removable}")
         if removable:
             idx = self.reagentlot.index(removable)
-            self.reagentlot.remove(removable)
+            self.reagentlot.pop(idx)
+            logger.debug(f"Removed reagentlot at index {idx}: {removable}")
         else:
             idx = 0
         reagentlot = ReagentLot.query(reagent=name, lot=lot, limit=1)
+        
         if not reagentlot:
             logger.warning(f"Could not find reagentlot {name} to update. Creating new reagentlot.")
             reagentlot = ReagentLot(reagent=name, lot=lot, active=True)
@@ -645,6 +650,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
             self.reagentlot.insert(idx, insertable)
+        
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
@@ -1460,6 +1466,9 @@ class PydProcedureReagentLotAssociation(PydConcrete):
     reagentlot: Annotated[str | dict |  PydReagentLot, RelationshipField(uselist=False)] = Field(default="NA")
     reagentrole: Annotated[str | dict | PydReagentRole, RelationshipField(uselist=False)] = Field(default="NA", repr=False)
     
+    def __repr__(self) -> str:
+        return f"<PydProcedureReagentLotAssociation({self.procedure} -> {self.reagentlot})>"
+
     @property
     def constructed_name(self) -> str:
         match self.procedure:

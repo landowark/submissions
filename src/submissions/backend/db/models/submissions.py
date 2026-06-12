@@ -329,6 +329,12 @@ class ClientSubmission(BaseClass, LogMixin):
         self._submitted_date = value
 
     @hybrid_property
+    def completed_date(self):
+        if self.run:
+            return max((run.completed_date for run in self.run if run.completed_date), default=None)
+        return None
+
+    @hybrid_property
     def name(self):
         return self.submitter_plate_id
 

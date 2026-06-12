@@ -39,20 +39,21 @@ repeat_of.addEventListener("change", function() {
 
 var changed_it = new Event('change');
 
-const reagentRoles = document.getElementsByClassName("reagentrole");
+const reagentRoles = document.getElementsByClassName("reagentrole_container");
 
 for(let i = 0; i < reagentRoles.length; i++) {
-  reagentRoles[i].addEventListener("change", async function() {
-    if (reagentRoles[i].value.includes("--New--")) {
+  var rr = reagentRoles[i].querySelector(".reagentrole");
+  rr.addEventListener("change", async function() {
+    if (rr.value.includes("--New--")) {
         // alert("Create new reagent.")
         var br = document.createElement("br");
-        var new_reg = document.getElementById("new_" + reagentRoles[i].id);
+        var new_reg = document.getElementById("new_" + rr.id);
         var new_form = document.createElement("form");
         new_form.setAttribute("class", "new_reagent_form")
-        new_form.setAttribute("id", reagentRoles[i].id + "_addition")
+        new_form.setAttribute("id", rr.id + "_addition")
         var rr_name = document.createElement("select");
-        rr_name.setAttribute("id", "new_" + reagentRoles[i].id + "_name");
-        var rr_options = await backend.get_reagent_names(reagentRoles[i].id).then(
+        rr_name.setAttribute("id", "new_" + rr.id + "_name");
+        var rr_options = await backend.get_reagent_names(rr.id).then(
             function(result) {
                 result.forEach( function(item) {
                     rr_name.options.add( new Option(item));
@@ -60,19 +61,19 @@ for(let i = 0; i < reagentRoles.length; i++) {
             }
         );
         var rr_name_label = document.createElement("label");
-        rr_name_label.setAttribute("for", "new_" + reagentRoles[i].id + "_name");
+        rr_name_label.setAttribute("for", "new_" + rr.id + "_name");
         rr_name_label.innerHTML = "Name:";
         var rr_lot = document.createElement("input");
         rr_lot.setAttribute("type", "text");
-        rr_lot.setAttribute("id", "new_" + reagentRoles[i].id + "_lot");
+        rr_lot.setAttribute("id", "new_" + rr.id + "_lot");
         var rr_lot_label = document.createElement("label");
-        rr_lot_label.setAttribute("for", "new_" + reagentRoles[i].id + "_lot");
+        rr_lot_label.setAttribute("for", "new_" + rr.id + "_lot");
         rr_lot_label.innerHTML = "Lot:";
         var rr_expiry = document.createElement("input");
         rr_expiry.setAttribute("type", "date");
-        rr_expiry.setAttribute("id", "new_" + reagentRoles[i].id + "_expiry");
+        rr_expiry.setAttribute("id", "new_" + rr.id + "_expiry");
         var rr_expiry_label = document.createElement("label");
-        rr_expiry_label.setAttribute("for", "new_" + reagentRoles[i].id + "_expiry");
+        rr_expiry_label.setAttribute("for", "new_" + rr.id + "_expiry");
         rr_expiry_label.innerHTML = "Expiry:";
         var submit_btn = document.createElement("input");
         submit_btn.setAttribute("type", "submit");
@@ -91,17 +92,19 @@ for(let i = 0; i < reagentRoles.length; i++) {
         new_form.appendChild(br.cloneNode());
         new_form.onsubmit = function(event) {
             event.preventDefault();
-            name = document.getElementById("new_" + reagentRoles[i].id + "_name").value;
-            lot = document.getElementById("new_" + reagentRoles[i].id + "_lot").value;
-            expiry = document.getElementById("new_" + reagentRoles[i].id + "_expiry").value;
-            backend.add_new_reagent(reagentRoles[i].id, name, lot, expiry);
+            name = document.getElementById("new_" + rr.id + "_name").value;
+            lot = document.getElementById("new_" + rr.id + "_lot").value;
+            expiry = document.getElementById("new_" + rr.id + "_expiry").value;
+            backend.add_new_reagent(rr.id, name, lot, expiry);
             new_form.remove();
 //            reagentRoles[i].dispatchEvent(changed_it);
         }
         new_reg.appendChild(new_form);
     } else {
-        backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
-        newregform = document.getElementById(reagentRoles[i].id + "_addition");
+        var checkbox = reagentRoles[i].querySelector(".procedure_checkbox"); 
+        console.log("Checkbox for reagent role:", rr.id, checkbox);  
+        backend.update_reagent(rr.id, rr.value, checkbox.checked);
+        newregform = document.getElementById(rr.id + "_addition");
         try {
             newregform.remove();
         }
@@ -157,7 +160,10 @@ window.addEventListener('load', function () {
 });
 
 function reagentrole_startup(reagentrole) {
-    backend.update_reagent(reagentrole.id, reagentrole.value);
+    selector = reagentrole.querySelector(".reagentrole");
+    checkbox = reagentrole.querySelector(".procedure_checkbox");
+    // selector.disabled = !checkbox.checked;
+    backend.update_reagent(reagentrole.id, reagentrole.value, checkbox.checked);
 }
 
 function equipment_startup(equipmentrole) {

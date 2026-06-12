@@ -92,6 +92,7 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, str, str, QVariant)
     @pyqtSlot(str, str, str, QVariant, bool)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
+        logger.debug(f"Updating equipment with role {equipmentrole}, equipment {equipment}, processversion {processversion}, tips {tips}, checked {checked}")
         self.procedure.update_equipment(equipmentrole=equipmentrole, equipment=equipment, processversion=processversion, tips=tips, checked=checked)
 
     @pyqtSlot(str, str)
@@ -113,6 +114,7 @@ class ProcedureCreation(DefaultWebDialog):
 
     @pyqtSlot(str, bool)
     def check_toggle(self, key: str, ischecked: bool):
+        logger.debug(f"Checkbox toggled: {key} set to {ischecked}")
         setattr(self.procedure, key, ischecked)
 
     @pyqtSlot(list)
@@ -155,9 +157,9 @@ class ProcedureCreation(DefaultWebDialog):
         try:
             name, lot = name_lot_expiry.split(" - ", 1)
         except ValueError as e:
-            logger.error(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
-            return
+            raise ValueError(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
         self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, checked=checked)
+        # logger.debug(f"Reagent update complete. Current reagents: {pformat(self.procedure.reagentlot)}")
 
     @pyqtSlot(str, result=list)
     def get_reagent_names(self, reagentrole_name: str):
