@@ -591,13 +591,13 @@ class BaseClass(Base):
             instance = None
         # Final check to ensure the instance actually matches all provided filters (e.g. list-valued ones)
         if instance:
-            logger.debug(f"query_or_create: found existing {cls.__name__} with {query_kwargs}, running final check for all fields.")
+            # logger.debug(f"query_or_create: found existing {cls.__name__} with {query_kwargs}, running final check for all fields.")
             check = all(
                 (getattr(instance, k) == v if not isinstance(v, list) else all(item in getattr(instance, k) for item in v))
                 for k, v in fields.items()
             )
             if not check:
-                logger.debug(f"query_or_create: existing instance did not match all fields, creating new {cls.__name__}.")
+                # logger.debug(f"query_or_create: existing instance did not match all fields, creating new {cls.__name__}.")
                 instance = None
         new = instance is None
         if new:

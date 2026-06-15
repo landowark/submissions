@@ -2087,7 +2087,6 @@ class Procedure(BaseClass):
     def run(self, value):
         from backend.validators.pydant import PydRun
         from .submissions import Run
-        logger.debug(f"Run coming in to setter: {type(value)}, {value}")
         match value:
             case str():
                 output = Run.query(name=value, limit=1)
@@ -2108,12 +2107,10 @@ class Procedure(BaseClass):
                 return
         if isinstance(output, tuple):
             output = output[0]
-        logger.debug(f"Output coming out of run: {output}")
         if isinstance(output, Run):
             self._run = output
         else:
             logger.error(f"Unable to set {self.__class__.__qualname__}._run to {type(output)}")
-        logger.debug(f"Final setting of {self}.run = {self.run}")
     
     @hybrid_property
     def results(self):
@@ -2355,8 +2352,10 @@ class Procedure(BaseClass):
         if dlg.exec():
             sql: Procedure = dlg.return_sql()
             sql.update_last_useds()
-            sql.sample = procedure.sample
-            # NOTE: Print out all procedureequipmentassociation objects
+            # Use the edited PydProcedure from the dialog to populate SQL relationships
+            pyd = dlg.procedure
+            sql.sample = pyd.sample
+            sql.equipment = pyd.equipment
             sql.save()
         obj.set_data()
 

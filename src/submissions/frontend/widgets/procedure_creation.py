@@ -179,12 +179,14 @@ class ProcedureCreation(DefaultWebDialog):
 
     def return_sql(self, new: bool = False):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        logger.debug("Converting procedure to SQL...")
+        logger.debug(f"Current procedure state before to_sql: {pformat(self.procedure.__dict__)}")
         try:
             assert self.procedure.run is not None
             output = self.procedure.to_sql()
             if isinstance(output, tuple):
                 output = output[0]
-            
+            # logger.debug(f"Output from to_sql: {pformat(output.to_pydantic().improved_dict)}")
             # self.run is a PydRun; rsl_plate_number is a SourcedField[str], not a bare str
             expected_plate = self.run.rsl_plate_number
             if isinstance(expected_plate, SourcedField):

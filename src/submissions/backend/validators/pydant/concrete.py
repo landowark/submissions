@@ -479,7 +479,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         for item in value:
             match item:
                 case dict():
-                    output.append(item['name'])
+                    # output.append(item['name'])
+                    output.append(PydProcedureEquipmentAssociation(**item))
                 case str() | PydProcedureEquipmentAssociation():
                     output.append(item)
                 case _:
@@ -650,7 +651,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
             self.reagentlot.insert(idx, insertable)
-        
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
@@ -755,7 +755,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
             output['run'] = output['run'].name
-        
+        for reagent in output.get('reagentlot', []):
+            try:
+                del reagent['reagentlotprocedureassociation']
+            except (TypeError, KeyError):
+                pass
         output['platemap'] = self.make_procedure_platemap()
         # output['name'] = self.name
         return output

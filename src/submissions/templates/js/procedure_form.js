@@ -101,9 +101,11 @@ for(let i = 0; i < reagentRoles.length; i++) {
         }
         new_reg.appendChild(new_form);
     } else {
-        var checkbox = reagentRoles[i].querySelector(".procedure_checkbox"); 
-        console.log("Checkbox for reagent role:", rr.id, checkbox);  
-        backend.update_reagent(rr.id, rr.value, checkbox.checked);
+        // var checkbox = reagentRoles[i].querySelector(".procedure_checkbox"); 
+        selector = rr.querySelector(".reagentrole");
+        checkbox = rr.querySelector(".procedure_checkbox");
+        console.log("Checkbox for reagent role:", selector.id, checkbox);  
+        backend.update_reagent(selector.id, selector.value, checkbox.checked);
         newregform = document.getElementById(rr.id + "_addition");
         try {
             newregform.remove();
@@ -163,7 +165,7 @@ function reagentrole_startup(reagentrole) {
     selector = reagentrole.querySelector(".reagentrole");
     checkbox = reagentrole.querySelector(".procedure_checkbox");
     // selector.disabled = !checkbox.checked;
-    backend.update_reagent(reagentrole.id, reagentrole.value, checkbox.checked);
+    backend.update_reagent(selector.id, selector.value, checkbox.checked);
 }
 
 function equipment_startup(equipmentrole) {
