@@ -1406,7 +1406,7 @@ class PydProcedureEquipmentAssociation(PydConcrete):
     start_time: datetime = Field(default_factory=datetime.now, description="Start time of equipment use", validate_default=True)
     end_time: datetime = Field(default_factory=datetime.now, description="End time of equipment use", validate_default=True)
     procedure: Annotated[str | dict | PydProcedure, RelationshipField(uselist=False)] = Field(default="NA")
-    equipment: Annotated[str | dict | PydEquipment, RelationshipField] = Field(default="NA")
+    equipment: Annotated[str | dict | PydEquipment, RelationshipField(uselist=False)] = Field(default="NA")
     equipmentrole: Annotated[str | dict | PydEquipmentRole, RelationshipField(uselist=False)] = Field(default="NA")
     processversion: Annotated[str | dict |  PydProcessVersion | None, RelationshipField(uselist=False)] = Field(default=None)
     tipslot: Annotated[List[str | dict | PydTipsLot], RelationshipField(uselist=True)] = Field(default_factory=list)

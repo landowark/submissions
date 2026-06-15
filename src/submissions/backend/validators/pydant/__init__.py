@@ -262,9 +262,12 @@ def _get_relationship_marker(field_info: FieldInfo) -> RelationshipField | None:
                 return meta
     # Also check metadata stored directly on the FieldInfo (Pydantic v2
     # moves Annotated extras into field_info.metadata)
-    for meta in field_info.metadata:
+    for meta in (*get_args(annotation)[1:], *field_info.metadata):
         if isinstance(meta, RelationshipField):
             return meta
+        if meta is RelationshipField:                 # someone forgot the ()
+            logger.warning("RelationshipField used as a bare class; treating as RelationshipField(). Add the parentheses.")
+            return RelationshipField()
     return None
 
 
