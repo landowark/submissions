@@ -1451,17 +1451,33 @@ class PydProcedureEquipmentAssociation(PydConcrete):
                 equipment = "Unassigned Equipment"
         return f"{procedure}->{equipment}"
 
+    # def to_sql(self, update: bool = True):
+    #     from backend.db.models import ProcedureEquipmentAssociation
+    #     self.sql_instance: ProcedureEquipmentAssociation = super().to_sql(update=update)
+    #     if not update:
+    #         return self.sql_instance, None
+    #     self.sql_instance.procedure = self.procedure
+    #     self.sql_instance.equipment = self.equipment
+    #     self.sql_instance.equipmentrole = self.equipmentrole
+    #     self.sql_instance.processversion = self.processversion
+    #     self.sql_instance.tipslot = self.tipslot
+    #     return self.sql_instance, None
+
     def to_sql(self, update: bool = True):
         from backend.db.models import ProcedureEquipmentAssociation
         self.sql_instance: ProcedureEquipmentAssociation = super().to_sql(update=update)
         if not update:
-            return self.sql_instance, None
-        self.sql_instance.procedure = self.procedure
-        self.sql_instance.equipment = self.equipment
-        self.sql_instance.equipmentrole = self.equipmentrole
-        self.sql_instance.processversion = self.processversion
-        self.sql_instance.tipslot = self.tipslot
-        return self.sql_instance, None
+            return self.sql_instance
+        # super() already wired procedure/equipment/equipmentrole/processversion/tipslot
+        # through the *guarded* relationship loop. Re-doing that here (the old behaviour)
+        # was both redundant and the unguarded throw surface that emptied the list.
+        # The only thing the base loop deliberately skips is empty/None relationships
+        # (its "don't clobber existing associations" guard), so force just those clears:
+        if not self.processversion:
+            self.sql_instance.processversion = None
+        if not self.tipslot:
+            self.sql_instance.tipslot = []
+        return self.sql_instance        # single instance — symmetric with the reagentlot child
 
 
 class PydProcedureReagentLotAssociation(PydConcrete):

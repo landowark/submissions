@@ -527,19 +527,70 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         
         return output
 
-    
-
     @property
-    def _sql_lookup_kwargs(self):
-        list_ = {item for item in inspect.signature(self._sql_class.query).parameters.keys()
-                if item in [attr for attr in dir(self) if not attr.startswith("_")]}
+    def _sql_lookup_kwargs(self) -> dict:
+        """
+        Scalar kwargs used to find-or-create this object's SQL row.
+
+        Two rules keep the lookup safe:
+
+        1. Only values usable as a scalar equality filter survive. Unresolved
+        relationship values (PydBaseClass instances), collections (uselist
+        relationships) and dicts are dropped. A `query` override that does
+        `cls.<relationship> == <value>` raises "Mapped instance expected for
+        relationship comparison" the moment <value> is a raw Pydantic object /
+        str / dict instead of a mapped instance. Relationships are wired
+        separately by to_sql()'s relationship loop, so they never need to take
+        part in the lookup. SourcedField values are unwrapped first.
+
+        2. Junction / association tables identify a row by their composite FK tuple,
+        not by any scalar. There is no meaningful scalar lookup for them, so we
+        return {} and let query_or_create create a fresh row whose FK tuple is
+        then populated by relationship wiring. This prevents a partial match
+        (e.g. role-name only) from silently re-binding an existing association
+        onto a different parent.
+        """
+        sig = inspect.signature(self._sql_class.query).parameters
+        candidates = {
+            name for name in sig
+            if not name.startswith("_")
+            and name not in ("limit", "kwargs")
+            and name in dir(self)
+        }
+
         result = {}
-        for item in list_:
-            v = self.__getattribute__(item)
-            if isinstance(v, SourcedField):
-                v = v.value   # unwrap before handing to query_or_create
-            result[item] = v
+        for name in candidates:
+            value = getattr(self, name)
+            if isinstance(value, SourcedField):
+                value = value.value                      # unwrap before inspecting
+            if value is None:
+                continue
+            if isinstance(value, PydBaseClass):
+                continue                                 # unresolved relationship object
+            if isinstance(value, (list, tuple, set, dict)):
+                continue                                 # uselist relationship / serialized blob
+            result[name] = value
+
+        # Composite-key (junction) tables have no scalar identity → always create.
+        try:
+            if len(self._sql_class.__table__.primary_key.columns) > 1:
+                return {}
+        except AttributeError:
+            pass
+
         return result
+
+    # @property
+    # def _sql_lookup_kwargs(self):
+    #     list_ = {item for item in inspect.signature(self._sql_class.query).parameters.keys()
+    #             if item in [attr for attr in dir(self) if not attr.startswith("_")]}
+    #     result = {}
+    #     for item in list_:
+    #         v = self.__getattribute__(item)
+    #         if isinstance(v, SourcedField):
+    #             v = v.value   # unwrap before handing to query_or_create
+    #         result[item] = v
+    #     return result
 
     def to_sql(self, update: bool = True):
         # Only resolve sql_instance once. If this instance was already resolved
@@ -601,8 +652,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             try:
                 setattr(self.sql_instance, k, v)
             except Exception as e:
-                logger.error(f"Could not set relationship {k} on {self.sql_instance}: {e}")
- 
+                logger.error(f"Could not set relationship {k} on {self.sql_instance}: {e}", exc_info=True)
         for k, v in self.model_extra.items():
             self.sql_instance._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
  

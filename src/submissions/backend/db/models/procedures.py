@@ -1866,7 +1866,7 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydProcedureReagentLotAssociation
         if not isinstance(value, list):
             value = [value]
-        self.procedurereagentlotassociation = []  # Clear existing associations to prevent duplicates when resetting reagent lots
+        built = []  # Clear existing associations to prevent duplicates when resetting reagent lots
         for item in value:
             match item:
                 case str():
@@ -1890,55 +1890,96 @@ class Procedure(BaseClass):
                     continue
             if isinstance(output, tuple):
                 output = output[0]
-            output.procedure = self
+            
             if isinstance(output, ProcedureReagentLotAssociation):
-                if not self.already_in_collection(output, self.procedurereagentlotassociation):
-                    self.procedurereagentlotassociation.append(output)
+                if not self.already_in_collection(output, built):
+                    built.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._reagentlot")
+        self.procedurereagentlotassociation = built    
         
 
     @hybrid_property
     def equipment(self):
         return self._equipment
     
+    # @equipment.setter
+    # def equipment(self, value):
+    #     from backend.validators.pydant import PydEquipment, PydProcedureEquipmentAssociation
+    #     if not isinstance(value, list):
+    #         value = [value]
+    #     self.procedureequipmentassociation = []  # Clear existing associations to prevent duplicates when resetting equipment
+    #     for item in value:
+    #         match item:
+    #             case str():
+    #                 try:
+    #                     output = next((assoc for assoc in self.procedureequipmentassociation if assoc.equipment.name==item))
+    #                 except StopIteration:
+    #                     logger.error(f"Couldn't find {item} in {[eq.equipment.name for eq in self.procedureequipmentassociation]}")
+    #                     output = ProcedureEquipmentAssociation(equipment=item, procedure=self)
+    #             case Equipment():
+    #                 output = ProcedureEquipmentAssociation(equipment=item, procedure=self)
+    #             case PydEquipment():
+    #                 output = ProcedureEquipmentAssociation(equipment=item, procedure=self, **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'procedure', 'equipment']})
+    #             case dict():
+    #                 output = ProcedureEquipmentAssociation(equipment=item, procedure=self, **{k: v for k, v in item.items() if k not in ['name', 'procedure', "equipment"]})
+    #             case ProcedureEquipmentAssociation():
+    #                 output = item
+    #                 output.procedure = self
+    #             case PydProcedureEquipmentAssociation():
+    #                 output = item.to_sql()
+    #             case _:
+    #                 logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipment")
+    #                 continue
+    #         if isinstance(output, tuple):
+    #             output = output[0]
+    #         output.procedure = self
+    #         if isinstance(output, ProcedureEquipmentAssociation):
+    #             if not self.already_in_collection(output, self.procedureequipmentassociation):
+    #                 self.procedureequipmentassociation.append(output)
+    #         else:
+    #             logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._equipment")
+        
     @equipment.setter
     def equipment(self, value):
         from backend.validators.pydant import PydEquipment, PydProcedureEquipmentAssociation
         if not isinstance(value, list):
             value = [value]
-        self.procedureequipmentassociation = []  # Clear existing associations to prevent duplicates when resetting equipment
+        built = []                                   # build into a temp list...
         for item in value:
             match item:
                 case str():
-                    try:
-                        output = next((assoc for assoc in self.procedureequipmentassociation if assoc.equipment.name==item))
-                    except StopIteration:
-                        logger.error(f"Couldn't find {item} in {[eq.equipment.name for eq in self.procedureequipmentassociation]}")
-                        output = ProcedureEquipmentAssociation(equipment=item, procedure=self)
+                    output = ProcedureEquipmentAssociation(equipment=item)
                 case Equipment():
-                    output = ProcedureEquipmentAssociation(equipment=item, procedure=self)
+                    output = ProcedureEquipmentAssociation(equipment=item)
                 case PydEquipment():
-                    output = ProcedureEquipmentAssociation(equipment=item, procedure=self, **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'procedure', 'equipment']})
+                    output = ProcedureEquipmentAssociation(
+                        equipment=item,
+                        **{k: v for k, v in item.improved_dict.items()
+                        if k not in ['name', 'procedure', 'equipment']})
                 case dict():
-                    output = ProcedureEquipmentAssociation(equipment=item, procedure=self, **{k: v for k, v in item.items() if k not in ['name', 'procedure', "equipment"]})
+                    output = ProcedureEquipmentAssociation(
+                        equipment=item,
+                        **{k: v for k, v in item.items()
+                        if k not in ['name', 'procedure', 'equipment']})
                 case ProcedureEquipmentAssociation():
                     output = item
-                    output.procedure = self
                 case PydProcedureEquipmentAssociation():
                     output = item.to_sql()
                 case _:
                     logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipment")
                     continue
-            if isinstance(output, tuple):
+            if isinstance(output, tuple):            # tolerate any legacy tuple return
                 output = output[0]
-            output.procedure = self
             if isinstance(output, ProcedureEquipmentAssociation):
-                if not self.already_in_collection(output, self.procedureequipmentassociation):
-                    self.procedureequipmentassociation.append(output)
+                if not self.already_in_collection(output, built):
+                    built.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._equipment")
-        
+        # ...then one atomic assignment. This replaces contents, sets each member's
+        # back-ref to self via back_populates, and only runs if the whole list built
+        # without raising. No clear-first window, and no double-add.
+        self.procedureequipmentassociation = built
 
     @hybrid_property
     def sample(self):
@@ -5691,6 +5732,8 @@ class ProcedureEquipmentAssociation(BaseClass):
                 query = query.filter(cls.equipment_id == equipment)
             case Equipment():
                 query = query.filter(cls.equipment == equipment)
+            case str():
+                query = query.filter(cls._equipment.has(Equipment.name == equipment))
             case _:
                 pass
         match procedure:
@@ -5698,6 +5741,8 @@ class ProcedureEquipmentAssociation(BaseClass):
                 query = query.filter(cls.procedure_id == procedure)
             case Procedure():
                 query = query.filter(cls.procedure == procedure)
+            case str():
+                query = query.filter(cls._procedure.has(Procedure.name == procedure))
             case _:
                 pass
         if equipmentrole is not None:
