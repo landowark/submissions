@@ -127,7 +127,7 @@ def _coerce_datetime_field(raw: Any, fallback: datetime | None = None) -> Source
       strip_started_datetime_string()   (mode="after")  — on started_date
       strip_completed_datetime_string() (mode="after")  — on completed_date
  
-    The RSL-plate-number suffix stripping (r"(_|-)\d(R\d)?$") that lives
+    The RSL-plate-number suffix stripping (r"(_|-)\\d(R\\d)?$") that lives
     inside strip_started_datetime_string is preserved here via the regex
     pre-clean step.
     """
@@ -363,6 +363,28 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 return field.get_default()
         return v
     
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_orm_internal_keys(cls, data):
+        """Keep declared fields and legitimate extras; drop SQLAlchemy/private internals
+        (association-proxy caches, instance state) so they never enter model_extra."""
+        if not isinstance(data, dict):
+            return data
+        fields = cls.model_fields
+        cleaned = {}
+        for k, v in data.items():
+            if k in fields:                       # never drop a real field
+                cleaned[k] = v
+            elif isinstance(k, str) and (
+                k.startswith("_")                 # dunder / SQLAlchemy private
+                or "AssociationProxy" in k
+                or "sa_instance_state" in k
+            ):
+                continue
+            else:
+                cleaned[k] = v
+        return cleaned
+
     @model_validator(mode="before")
     @classmethod
     def prevalidate(cls, data: dict) -> dict:
@@ -657,6 +679,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             except Exception as e:
                 logger.error(f"Could not set relationship {k} on {self.sql_instance}: {e}", exc_info=True)
         for k, v in self.model_extra.items():
+            assert not (k.startswith("_") or "AssociationProxy" in k), f"internal extra leaked: {k}"
             self.sql_instance._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
  
         return self.sql_instance
@@ -1127,6 +1150,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         rel = cls._relationship_fields
         return [name for name in cls.model_fields if name not in rel]
 
+   
 
 class PydAbstract(PydBaseClass):
 

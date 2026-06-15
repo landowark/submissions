@@ -46,6 +46,8 @@ class SafeMiscInfo(MutableDict, dict):
     :vartype _owner: :class:`BaseClass` or None
     """
 
+    _INTERNAL_MARKERS = ("AssociationProxy", "sa_instance_state", "_sa_")
+
     def __init__(self, *args, owner: BaseClass | None = None, **kwargs):
         """
         Initialize SafeMiscInfo dictionary.
@@ -58,6 +60,11 @@ class SafeMiscInfo(MutableDict, dict):
         dict.__init__(self, *args, **kwargs)
         self._owner = owner
 
+    def _is_internal_key(self, key) -> bool:
+        if not isinstance(key, str):
+            return False
+        return key.startswith("_") or any(m in key for m in self._INTERNAL_MARKERS)
+
     def _set_safe_item(self, key: str, value):
         """
         Set a key-value pair with sanitization and conflict checking.
@@ -69,11 +76,21 @@ class SafeMiscInfo(MutableDict, dict):
         :type key: str
         :param value: Value to store, will be sanitized if owner is present.
         """
+        if self._is_internal_key(key):
+            return                                # silently drop ORM internals
         if self._owner and key.replace("_", "").lower() in self._owner.sqlalchemy_fields:
-            logger.warning(f"Key {key} in misc_info conflicts with existing field name. Skipping.")
+            logger.debug(f"Key {key} in misc_info shadows a mapped field; skipping.")  # was warning
             return
         safe_value = self._owner.sanitize_obj_for_json(value) if self._owner else value
         dict.__setitem__(self, key, safe_value)
+
+    # def _set_safe_item(self, key: str, value):
+        
+    #     if self._owner and key.replace("_", "").lower() in self._owner.sqlalchemy_fields:
+    #         logger.warning(f"Key {key} in misc_info conflicts with existing field name. Skipping.")
+    #         return
+    #     safe_value = self._owner.sanitize_obj_for_json(value) if self._owner else value
+    #     dict.__setitem__(self, key, safe_value)
 
     def __setitem__(self, key: str, value):
         """
