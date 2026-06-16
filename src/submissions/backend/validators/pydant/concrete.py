@@ -755,13 +755,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
             output['run'] = output['run'].name
-        for reagent in output.get('reagentlot', []):
-            try:
-                del reagent['reagentlotprocedureassociation']
-            except (TypeError, KeyError):
-                pass
         output['platemap'] = self.make_procedure_platemap()
-        # output['name'] = self.name
         return output
 
     def reorder_proceduretype_by_procedure(self):
