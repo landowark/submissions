@@ -149,7 +149,6 @@ class SubmissionFormContainer(QWidget):
         # NOTE: create sheetparser using excel sheet and context from gui
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
         self.pydclientsubmission = self.clientsubmission_manager.to_pydantic()
-        logger.debug(f"Submitted date: {self.pydclientsubmission.submitted_date}")
         # blank samples have no id here.
         checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.sample)
         if checker.exec():
@@ -176,7 +175,6 @@ class SubmissionFormWidget(QWidget):
             disable = []
         self.app = get_application_from_parent(parent)
         self.pyd = pyd
-        
         # NOTE: pyd contains run up to this point.
         self.missing_info = []
         self.submissiontype = SubmissionType.query(name=self.pyd.submissiontype.get('value'))
@@ -285,7 +283,6 @@ class SubmissionFormWidget(QWidget):
 
         def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
                      clientsubmission_object: ClientSubmission | None = None, disable: bool = False) -> None:
-            # logger.debug(f"Creating {self.__class__.__name__} for {key}: {value} of type {type(value)}")
             from backend.db.models import SubmissionType
             super().__init__(parent)
             if isinstance(submission_type, str):
@@ -540,7 +537,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         self.parse_form()
         output = self.pyd
         output.sample = [item for item in output.sample if PydSample.is_sample_id_valid(item)]
-        # logger.debug(pformat(output.sample))
         # No duplicates here
         return output
 
@@ -562,7 +558,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
             # re-create clean associations from the saved Sample SQL objects. This avoids
             # carrying over non-serializable _misc_info from pyd objects into the DB.
             sql.save()
-            self.app.table_widget.sub_wid.set_data()
+            # self.app.table_widget.sub_wid.set_data()
+            self.app.table_widget.sub_wid.upsert_submission(sql)
         finally:
             QApplication.restoreOverrideCursor()
             self.setParent(None)

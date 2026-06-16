@@ -92,7 +92,6 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, str, str, QVariant)
     @pyqtSlot(str, str, str, QVariant, bool)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
-        logger.debug(f"Updating equipment with role {equipmentrole}, equipment {equipment}, processversion {processversion}, tips {tips}, checked {checked}")
         self.procedure.update_equipment(equipmentrole=equipmentrole, equipment=equipment, processversion=processversion, tips=tips, checked=checked)
 
     @pyqtSlot(str, str)
@@ -114,7 +113,6 @@ class ProcedureCreation(DefaultWebDialog):
 
     @pyqtSlot(str, bool)
     def check_toggle(self, key: str, ischecked: bool):
-        logger.debug(f"Checkbox toggled: {key} set to {ischecked}")
         setattr(self.procedure, key, ischecked)
 
     @pyqtSlot(list)
@@ -129,12 +127,9 @@ class ProcedureCreation(DefaultWebDialog):
     def add_new_reagent(self, reagentrole: str, reagent: str, lot: str, expiry: str):
         from backend.validators.pydant import PydReagentLot
         from backend.db.models import ReagentLot
-        logger.debug(f"Adding new reagent with role {reagentrole}, reagent {reagent}, lot {lot}, expiry {expiry}")
         expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
         expiry = datetime.datetime.combine(expiry, datetime.datetime.max.time())
-
         pyd = PydReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
-
         # If the underlying SQL instance has not been saved yet, ensure a DB row exists.
         if getattr(pyd.sql_instance, "id", None) is None:
             existing_lot = ReagentLot.query(reagent=reagent, lot=lot, limit=1)
@@ -144,7 +139,6 @@ class ProcedureCreation(DefaultWebDialog):
                 new_lot = ReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
                 new_lot.save()
                 pyd.sql_instance = new_lot
-
         reagentrole_idx, rr_dummy = find_first_matching_dict(key="name", value_to_match=reagentrole, list_of_dicts=self.proceduretype_dict['reagentrole'], mode="index")
         reagent_idx, _ = find_first_matching_dict(key="name", value_to_match=reagent, list_of_dicts=rr_dummy['reagent'], mode="index")
         self.proceduretype_dict['reagentrole'][reagentrole_idx]['reagent'][reagent_idx]['reagentlot'].insert(0, pyd)
@@ -153,13 +147,11 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, str)
     @pyqtSlot(str, str, bool)
     def update_reagent(self, reagentrole: str, name_lot_expiry: str, checked:bool=True):
-        logger.debug(f"Updating reagent with role {reagentrole}, name_lot_expiry {name_lot_expiry}, checked {checked}")
         try:
             name, lot = name_lot_expiry.split(" - ", 1)
         except ValueError as e:
             raise ValueError(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
         self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, checked=checked)
-        # logger.debug(f"Reagent update complete. Current reagents: {pformat(self.procedure.reagentlot)}")
 
     @pyqtSlot(str, result=list)
     def get_reagent_names(self, reagentrole_name: str):
@@ -179,19 +171,15 @@ class ProcedureCreation(DefaultWebDialog):
 
     def return_sql(self, new: bool = False):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        logger.debug("Converting procedure to SQL...")
-        logger.debug(f"Current procedure state before to_sql: {pformat(self.procedure.__dict__)}")
         try:
             assert self.procedure.run is not None
             output = self.procedure.to_sql()
             if isinstance(output, tuple):
                 output = output[0]
-            # logger.debug(f"Output from to_sql: {pformat(output.to_pydantic().improved_dict)}")
             # self.run is a PydRun; rsl_plate_number is a SourcedField[str], not a bare str
             expected_plate = self.run.rsl_plate_number
             if isinstance(expected_plate, SourcedField):
                 expected_plate = expected_plate.value
-            
             assert output.run is not None, "Procedure has no run after to_sql()"
             assert output.run.rsl_plate_number == expected_plate, (
                 f"Run mismatch: got {output.run.rsl_plate_number!r}, expected {expected_plate!r}"

@@ -75,9 +75,6 @@
                 {% endif %}
             </div>
         </div>
-        <!-- {% with equipmentroles=proceduretype['equipmentrole'], child=True %}
-            {% include 'support/equipment_usage.html' %}
-        {% endwith %} -->
         <h1><u>Equipment</u></h1>
         <br><hr><br>
         {% for equipmentrole in proceduretype['equipmentrole'] %}
@@ -88,8 +85,6 @@
               {% set ename = equipmentrole %}
               {% set er_filled = True %}
             {% endif %}
-            {{ ename }}
-            {{ procedure['active_equipmentroles'] }}
             <div class="grid-container equipmentrole_container" id="{{ ename }}_container">
                 <div>
                     <input type="checkbox" class="procedure_checkbox" id="{{ ename }}_check" name="{{ ename }}" {% if ename in procedure['active_equipmentroles'] %}checked{% endif %}><label for="{{ ename }}">{{ ename }}:</label><br>

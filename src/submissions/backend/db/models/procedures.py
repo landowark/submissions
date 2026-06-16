@@ -770,6 +770,8 @@ class ReagentLot(BaseClass):
     @property
     def details_dict(self) -> dict:
         output = super().details_dict
+        for key in ("reagentlotprocedureassociation", "procedure", "procedures"):
+            output.pop(key, None)
         output['excluded'] += ["reagentlotprocedureassociation", "procedures"]
         output['reagent'] = output['reagent']
         return output
@@ -6285,7 +6287,6 @@ class Results(BaseClass):
         if value is None:
             value = False
         self._is_sample = int(value)
-
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)

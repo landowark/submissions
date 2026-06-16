@@ -59,12 +59,9 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        logger.debug(f"Updating selection to: {selection}")
         if selection == "--New--":
-            logger.debug("Creating new instance")
             self.pydant = self.object_type()
             self.pydant.new = True
-            logger.debug(f"New instance created: {self.pydant} with sql instance: {getattr(self.pydant, 'sql_instance', None)}")
         else:
             try:
                 sql_instance = self.object_type._sql_class.query(name=selection, limit=1)

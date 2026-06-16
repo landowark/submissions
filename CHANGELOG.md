@@ -1,3 +1,9 @@
+# 202606.03
+
+- Fixed issue with procedureequipmentassociation addition in procedure_creation.
+- Streamlined data update for the main window (much faster).
+
+
 # 202606.02
 
 - Date changer for procedure details.

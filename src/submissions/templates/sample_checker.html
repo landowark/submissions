@@ -18,7 +18,7 @@
         <p>Take a moment to verify sample names.</p>
         <br>
         <form>
-            &emsp;&emsp;Submitter ID<br/><!--&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Row&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Column<br/>-->
+            &emsp;&emsp;Submitter ID<br/>
             {% for sample in samples %}
                 {% if rsl_plate_number %}<input type="checkbox" id="{{ sample['rank'] }}_enabled" name="sample" value="blah" {% if sample['enabled'] %}checked{% endif %}>{% endif %}
                 {{ '%02d' % sample['rank'] }}

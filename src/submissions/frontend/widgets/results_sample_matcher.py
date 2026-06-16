@@ -3,8 +3,7 @@
 """
 from __future__ import annotations
 from datetime import datetime
-import json
-import logging, sys
+import logging, sys, json
 from pprint import pformat
 from typing import List, Generator
 from PyQt6.QtWidgets import (QDialog, QGridLayout, QDialogButtonBox)
@@ -93,4 +92,3 @@ class ResultsSampleMatcher(QDialog):
             logger.error(f"Couldn't find association for {result_text}")
             return
         result.sampleprocedureassociation = association
-        

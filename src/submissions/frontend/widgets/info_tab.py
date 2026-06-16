@@ -5,7 +5,7 @@ from datetime import date, datetime
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
-from tools import Report, report_result, Alert
+from tools import Report, Alert
 from .misc import CheckableComboBox, StartEndDatePicker
 from .functions import select_save_file, save_pdf
 import logging

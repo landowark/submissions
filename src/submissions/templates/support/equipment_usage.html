@@ -114,8 +114,6 @@
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
         var assoc_name = equipmentrole.name + "->" + equipment_name;
-        // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
-        // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
         var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
         if (!assoc) { return }
         var processes = assoc.process;
@@ -142,8 +140,6 @@
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
         var assoc_name = equipmentrole.name + "->" + equipment_name;
-        // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
-        // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
         var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
         if (!assoc) { return }
         var processes = assoc.process;

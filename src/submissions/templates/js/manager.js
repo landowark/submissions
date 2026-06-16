@@ -87,17 +87,7 @@ function get_association_form_data(association_form, field) {
     // Object.fromEntries only keeps the last value for duplicate keys.
     // Use this logic to ensure arrays stay as arrays:
     var formObject = {};
-    // formdata.forEach((value, key) => {
-    //     if (!formObject[key]) {
-    //         formObject[key] = value;
-    //         return;
-    //     }
-    //     if (!Array.isArray(formObject[key])) {
-    //         formObject[key] = [formObject[key]];
-    //     }
-    //     formObject[key].push(value);
-    // });
-
+    
     // Iterate unique keys to build the final object
     for (let key of new Set(formdata.keys())) {
         let allValues = formdata.getAll(key);
@@ -161,33 +151,3 @@ async function createAssociationForm(field, selectedValue) {
         backend.save_html()
     });
 }
-
-// Example usage for a button click
-// var addButtons = document.getElementsByClassName('addSelectedBtn');
-// var removeButtons = document.getElementsByClassName('removeSelectedBtn');
-
-// for (let i = 0; i < addButtons.length; i++) {
-//     addButtons[i].addEventListener('click', (e) => {
-//         e.preventDefault();
-//         console.log("Add button clicked:", addButtons[i].name);
-//         moveOptions(addButtons[i].name + '_availableOptions', addButtons[i].name + '_selectedOptions');
-//     });
-// };
-
-// for (let i = 0; i < removeButtons.length; i++) {
-//     removeButtons[i].addEventListener('click', (e) => {
-//         e.preventDefault();
-//         console.log("Remove button clicked:", removeButtons[i].name);
-//         moveOptions(removeButtons[i].name + '_selectedOptions', removeButtons[i].name + '_availableOptions');
-//     });
-// }
-
-// document.getElementById('addButton').addEventListener('click', () => {
-//   moveOptions('availableOptions', 'selectedOptions');
-// });
-
-// document.getElementById('removeButton').addEventListener('click', () => {
-//   moveOptions('selectedOptions', 'availableOptions');
-// });
-
-

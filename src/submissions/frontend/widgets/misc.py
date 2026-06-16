@@ -59,7 +59,6 @@ class CheckableComboBox(QComboBox):
 
     def itemChecked(self, index):
         item_obj = self.model().item(index, 0)
-        # return item.checkState() == Qt.CheckState.Checked
          # Check if the item actually has check state flags allocated
         if item_obj and item_obj.flags() & Qt.ItemFlag.ItemIsUserCheckable:
             return item_obj.checkState() == Qt.CheckState.Checked

@@ -29,18 +29,17 @@ gridContainer.addEventListener("drop", (e) => {
 
   if (
     targetItem &&
-    targetItem !== draggedItem //&&
-    //targetItem.classList.contains("well")
+    targetItem !== draggedItem
   ) {
-//    backend.log(targetItem.id);
+
     const draggedIndex = [...gridContainer.children].indexOf(draggedItem);
     const targetIndex = [...gridContainer.children].indexOf(targetItem);
     if (draggedIndex < targetIndex) {
-//      backend.log(draggedIndex.toString() + " " + targetIndex.toString() + " Lesser");
+
       gridContainer.insertBefore(draggedItem, targetItem.nextSibling);
 
     } else {
-//      backend.log(draggedIndex.toString() + " " + targetIndex.toString() + " Greater");
+
       gridContainer.insertBefore(draggedItem, targetItem);
 
     }
@@ -49,7 +48,7 @@ gridContainer.addEventListener("drop", (e) => {
     fullGrid.forEach(function(item, index) {
         output.push({sample_id: item.id, index: index + 1, class: item.className});
     });
-    // backend.rearrange_plate(output);
+   
     rearrange_plate();
   }
 });

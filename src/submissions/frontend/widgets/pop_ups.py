@@ -8,9 +8,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from tools import jinja_template_loading
 import logging
-from typing import Literal, Any, TYPE_CHECKING
-if TYPE_CHECKING:
-    from backend.db.models import BaseClass
+from typing import Literal, Any
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

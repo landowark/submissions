@@ -538,7 +538,12 @@ class ClientSubmission(BaseClass, LogMixin):
                 QApplication.restoreOverrideCursor()
         else:
             logger.warning("Run cancelled.")
-        obj.set_data()
+        # Incrementally refresh just this submission's row rather than rebuilding
+        # the whole tree. Fall back to a full refresh if the view predates upsert.
+        if hasattr(obj, "upsert_submission"):
+            obj.upsert_submission(self)
+        else:
+            obj.set_data()
 
     def edit(self, obj):
         logger.debug("Edit")
@@ -1340,7 +1345,12 @@ class Run(BaseClass, LogMixin):
             sql = dlg.return_sql(new=True)
             sql.update_last_useds()
             sql.save()
-        obj.set_data()
+        # Refresh only the parent submission's row instead of the entire tree.
+        # Here self is the Run, so the changed submission is self.clientsubmission.
+        if hasattr(obj, "upsert_submission"):
+            obj.upsert_submission(self.clientsubmission)
+        else:
+            obj.set_data()
 
     @check_authorization
     def delete(self, obj=None):

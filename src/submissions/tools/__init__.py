@@ -947,7 +947,6 @@ def handle_results(input_value:dict|str) -> str:
     return output
     
 
-
 def sanitize_object_for_json(input_obj):
 
     from backend.db.models import BaseClass
@@ -1085,10 +1084,7 @@ class Settings(BaseSettings, extra="allow"):
 
     """
     database: DotDict = Field(default_factory=DotDict)
-    
     directories: DotDict = Field(default_factory=DotDict)
-    # directory_path: Path | None = None
-    # backup_path: Path | str | None = None
     package: Any | None = None
     logging_enabled: bool = Field(default=False)
     
@@ -1332,16 +1328,7 @@ class Settings(BaseSettings, extra="allow"):
                 except AttributeError as e:
                     print(f"Couldn't set teardown function due to {e}")
                     pass
-        # NOTE: because Pydantic's model_extra is designed to be read-only by default during the serialization process. When you mutate the contents of model_extra 
-        # (or a DotDict inside it), you are changing the values inside the dictionary, but you aren't changing the reference that Pydantic's internal state tracker is watching.
-        # Since you didn't explicitly define d in the model, Pydantic doesn't "know" it needs to re-scan that object for changes when you call model_dump()
-        # Update the values in the internal storage directly
-        # if self.model_extra:
-        #     if 'startup_scripts' in self.model_extra:
-        #         self.model_extra['startup_scripts'] = self.startup_scripts
-        #     if 'teardown_scripts' in self.model_extra:
-        #         self.model_extra['teardown_scripts'] = self.teardown_scripts
-
+        
     @timer
     def run_startup(self):
         """

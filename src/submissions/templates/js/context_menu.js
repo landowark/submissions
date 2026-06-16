@@ -82,11 +82,8 @@ function menuItemListener( link ) {
             backend.log("default");
         break;
     }
-
     rearrange_plate();
-
     toggleMenuOff();
-
 }
 
 
@@ -120,17 +117,7 @@ function gatherWellsText() {
         setTimeout(function(){ printWindow.print(); }, 250);
     }
 
-    // document.addEventListener('DOMContentLoaded', function(){
-    // var btn = document.getElementById('print-wells-btn');
-    // if (!btn) return;
-    //     btn.addEventListener('click', function(){
-    //         var html = gatherWellsText();
-    //         if (!html) {
-    //         alert('No <p> content found in wells.');
-    //         return;
-    //         }
-    //         openPrintWindow(html);
-    //     });
+    
     };
 
 ///////////////////////////////////////
@@ -259,11 +246,8 @@ function insertEN( targetItem ) {
     elem.setAttribute("class", "well negativecontrol EN");
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + en_name + '</p>'
-    // gridC.insertBefore(elem, targetItem.nextSibling);
     gridC.insertBefore(elem, targetItem);
     // remove the target item (previous behavior: replace target with new element)
-    // targetItem.remove();
-
     // additionally: find and remove the next bare placeholder well by searching from the end
     try {
         const children = Array.from(gridC.children);
@@ -295,8 +279,6 @@ function insertPositive( targetItem ) {
     // insert the new positive control after the target item (keeps previous behavior)
     gridC.insertBefore(elem, targetItem);
     // remove the target item (previous behavior: replace target with new element)
-    // targetItem.remove();
-
     // additionally: find and remove the next bare placeholder well by searching from the end
     try {
         const children = Array.from(gridC.children);
@@ -325,11 +307,8 @@ function insertNegative( targetItem ) {
     elem.setAttribute("class", "well negativecontrol");
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + neg_name + '</p>'
-    // gridC.insertBefore(elem, targetItem.nextSibling);
     gridC.insertBefore(elem, targetItem);
     // remove the target item (previous behavior: replace target with new element)
-    // targetItem.remove();
-
     // additionally: find and remove the next bare placeholder well by searching from the end
     try {
         const children = Array.from(gridC.children);
@@ -360,7 +339,6 @@ function removeSample( targetItem ) {
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;"></p>'
     gridC.insertBefore(elem, targetItem);
-    // targetItem.remove();
     try {
         const children = Array.from(gridC.children);
         // find the index where the new element currently sits
@@ -373,11 +351,7 @@ function removeSample( targetItem ) {
         // defensive: if anything goes wrong, don't block the rest of the UI
         console.error('removeSample: error while removing next empty <p> element', e);
     }
-    // gridC.remove(targetItem);
 }
-
-
-
 
 
 /**

@@ -1,8 +1,3 @@
-
-
-
-
-
 var formchecks = document.getElementsByClassName('form_check');
 
 for(let i = 0; i < formchecks.length; i++) {
@@ -45,7 +40,6 @@ for(let i = 0; i < reagentRoles.length; i++) {
   var rr = reagentRoles[i].querySelector(".reagentrole");
   rr.addEventListener("change", async function() {
     if (rr.value.includes("--New--")) {
-        // alert("Create new reagent.")
         var br = document.createElement("br");
         var new_reg = document.getElementById("new_" + rr.id);
         var new_form = document.createElement("form");
@@ -97,11 +91,9 @@ for(let i = 0; i < reagentRoles.length; i++) {
             expiry = document.getElementById("new_" + rr.id + "_expiry").value;
             backend.add_new_reagent(rr.id, name, lot, expiry);
             new_form.remove();
-//            reagentRoles[i].dispatchEvent(changed_it);
         }
         new_reg.appendChild(new_form);
     } else {
-        // var checkbox = reagentRoles[i].querySelector(".procedure_checkbox"); 
         selector = rr.querySelector(".reagentrole");
         checkbox = rr.querySelector(".procedure_checkbox");
         console.log("Checkbox for reagent role:", selector.id, checkbox);  
@@ -151,7 +143,6 @@ window.addEventListener('load', function () {
                 // NOW it is safe to run your startup logic
                 equipment_json.forEach(equipment_startup);
                 Array.prototype.forEach.call(reagentRoles, reagentrole_startup)
-                // reagentRoles.forEach(reagentrole_startup);
             } else {
                 console.error("Backend object not found in channel objects.");
             }
@@ -164,7 +155,6 @@ window.addEventListener('load', function () {
 function reagentrole_startup(reagentrole) {
     selector = reagentrole.querySelector(".reagentrole");
     checkbox = reagentrole.querySelector(".procedure_checkbox");
-    // selector.disabled = !checkbox.checked;
     backend.update_reagent(selector.id, selector.value, checkbox.checked);
 }
 
@@ -213,8 +203,6 @@ function updateProcessChoices(equipmentrole) {
     dropdown_oi.json = equipmentrole;
     var equipment_name = document.getElementById(equipmentrole.name).value;
     var assoc_name = equipmentrole.name + "->" + equipment_name;
-    // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
-    // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
     var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
     if (!assoc) { return }
     var processes = assoc.process;
@@ -241,8 +229,6 @@ function updateTipChoices(equipmentrole) {
     dropdown_oi.json = equipmentrole;
     var equipment_name = document.getElementById(equipmentrole.name).value;
     var assoc_name = equipmentrole.name + "->" + equipment_name;
-    // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
-    // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
     var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
     if (!assoc) { return }
     var processes = assoc.process;
@@ -300,12 +286,3 @@ var dateInputs = document.querySelectorAll('input.date_change');
             backend.update_date(id, newValue);
         });
     });
-
-// window.onload = function() {
-//     for(let i = 0; i < reagentRoles.length; i++) {
-//         console.log("Updating reagent:", reagentRoles[i].id, reagentRoles[i].value)
-//         backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
-//     }
-
-// }
-

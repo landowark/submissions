@@ -3,7 +3,6 @@ Contains widgets specific to the procedure summary and procedure details.
 """
 from datetime import date
 import sys, logging
-from operator import itemgetter
 from pprint import pformat
 from PyQt6.QtWidgets import QMenu, QTreeView, QAbstractItemView
 from PyQt6.QtCore import QModelIndex, Qt, pyqtSignal, QAbstractItemModel
@@ -12,6 +11,50 @@ from typing import List
 from tools import datetime, get_application_from_parent
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
+def _date_sort_key(value) -> tuple:
+    """
+    Total-ordering key for submitted_date values that may be datetime, date or None.
+
+    Uses POSIX timestamps so tz-aware and tz-naive datetimes compare without
+    raising, and sorts None values last (they get the lowest key).
+    """
+    if isinstance(value, datetime):
+        return (1, value.timestamp())
+    if isinstance(value, date):
+        return (1, datetime(value.year, value.month, value.day).timestamp())
+    return (0, 0.0)
+
+
+def submission_row_data(submission) -> dict:
+    """
+    Lightweight projection of a ClientSubmission for the tree view.
+
+    Pulls ONLY the fields the tree renders - the top-level columns plus the
+    run/procedure names used for lazy child expansion. This deliberately avoids
+    ``ClientSubmission.to_pydantic().improved_dict``, which serialises every
+    sample association, contact, comment and cost through a recursive sanitiser
+    and full Pydantic validation, none of which the tree ever displays.
+
+    :param submission: A ClientSubmission instance.
+    :return: dict with submissiontype, submitter_plate_id, submitted_date,
+             clientlab, and run (list of {rsl_plate_number, procedure[names]}).
+    """
+    clientlab = getattr(submission, "clientlab", None)
+    runs = [
+        dict(
+            rsl_plate_number=run.rsl_plate_number,
+            procedure=[proc.name for proc in run.procedure],
+        )
+        for run in submission.run
+    ]
+    return dict(
+        submissiontype=submission.submissiontype_name,
+        submitter_plate_id=submission.submitter_plate_id,
+        submitted_date=submission.submitted_date,
+        clientlab=getattr(clientlab, "name", "") if clientlab is not None else "",
+        run=runs,
+    )
 
 
 class SubmissionsTree(QTreeView):
@@ -61,13 +104,10 @@ class SubmissionsTree(QTreeView):
         """Intercepts tree node expansion requests to build sub-items dynamically."""
         if not index.isValid():
             return
-
         item: TreeItem = index.internalPointer()
         if item.is_loaded or not item.has_children_placeholder:
             return # Data already present
-
         from backend.db.models import ClientSubmission, Run, Procedure
-        
         # 1. Handle Submission Node expansion -> Load Runs
         if item.item_type == ClientSubmission:
             runs_data = item.data_dict.get('raw_run_data', [])
@@ -84,7 +124,6 @@ class SubmissionsTree(QTreeView):
                 self.model.endInsertRows()
             else:
                 item.has_children_placeholder = False
-
         # 2. Handle Run Node expansion -> Load Procedures
         elif item.item_type == Run:
             procedures_data = item.data_dict.get('raw_procedure_data', [])
@@ -102,7 +141,6 @@ class SubmissionsTree(QTreeView):
                 self.model.endInsertRows()
             else:
                 item.has_children_placeholder = False
-
         item.is_loaded = True
 
     def contextMenuEvent(self, event: QContextMenuEvent):
@@ -117,17 +155,14 @@ class SubmissionsTree(QTreeView):
         if not sel.isValid():
             return
         target_index = sel.siblingAtColumn(0)
-
         # 2. Extract the data dictionary we stored in the UserRole namespace
         metadata = target_index.data(Qt.ItemDataRole.UserRole)
         if metadata and isinstance(metadata, dict):
             item_type = metadata.get('item_type')
             query_str = metadata.get('query_str')
-
             if item_type and query_str:
                 # 3. Perform your database lookup using the safely extracted fields
                 query_obj = item_type.query(name=query_str, limit=1)
-                
             else:
                 return
         else:
@@ -166,16 +201,38 @@ class SubmissionsTree(QTreeView):
 
     def set_data(self, page: int = 1, page_size: int = 250) -> None:
         """
-        sets data in model
+        Rebuild the whole tree (initial load and pagination).
+
+        For a single-submission change after a save, prefer
+        :meth:`upsert_submission`, which updates just the affected row instead of
+        re-querying and re-serialising the entire page.
         """
-        from backend.db.models import Run, ClientSubmission, Procedure
+        from backend.db.models import ClientSubmission
         self.model.clear()
-        subs = [item.to_pydantic().improved_dict
+        subs = [submission_row_data(item)
                 for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
-        sorted_subs = sorted(subs, key=itemgetter('submitted_date'), reverse=True)
+        sorted_subs = sorted(subs, key=lambda s: _date_sort_key(s.get('submitted_date')), reverse=True)
         self.model.add_top_level_submissions(sorted_subs)
-        # self.model.add_top_level_submissions(subs)
-        
+        for ii in range(len(self.model.headers)):
+            self.resizeColumnToContents(ii)
+
+    def upsert_submission(self, submission) -> None:
+        """
+        Incrementally insert or refresh a single submission's row.
+
+        Replaces the previous pattern of calling :meth:`set_data` after every
+        mutation, which rebuilt up to ``page_size`` rows from scratch. Falls back
+        to a full refresh only if the lightweight projection fails.
+
+        :param submission: The ClientSubmission that was created or changed.
+        """
+        try:
+            sub = submission_row_data(submission)
+        except Exception as e:
+            logger.error(f"Couldn't build row for submission; falling back to full refresh: {e}")
+            self.set_data()
+            return
+        self.model.upsert_top_level(sub)
         for ii in range(len(self.model.headers)):
             self.resizeColumnToContents(ii)
 
@@ -189,26 +246,21 @@ class SubmissionsTree(QTreeView):
     def clear(self):
         if self.model != None:
             self.model.setRowCount(0)  # works
-            # pass
 
     def show_details(self, sel: QModelIndex):
         if not sel.isValid():
             return
-
         # 1. Tree selection returns an index for each column in the row.
         # Force the index to point to Column 0 where our TreeItem pointer exists.
         target_index = sel.siblingAtColumn(0)
-
         # 2. Extract the data dictionary we stored in the UserRole namespace
         metadata = target_index.data(Qt.ItemDataRole.UserRole)
         if metadata and isinstance(metadata, dict):
             item_type = metadata.get('item_type')
             query_str = metadata.get('query_str')
-
             if item_type and query_str:
                 # 3. Perform your database lookup using the safely extracted fields
                 obj = item_type.query(name=query_str, limit=1)
-                
                 if obj:
                     obj.show_details(self)
 
@@ -217,20 +269,17 @@ class TreeItem:
     def __init__(self, data: dict = None, parent=None):
         self.parent_item = parent
         self.child_items = []
-        
         self.data_dict = data or {}
         self.name = self.data_dict.get('name', 'Unknown')
         self.item_type = self.data_dict.get('item_type')
         self.query_str = self.data_dict.get('query_str')
         self.client = self.data_dict.get('client', '')
         self.type_str = self.data_dict.get('type', '')
-        
         dt = self.data_dict.get('date', '')
         if isinstance(dt, (date, datetime)):
             self.date_str = dt.strftime("%Y-%m-%d")
         else:
             self.date_str = str(dt)
-
         # Lazy loading properties
         self.is_loaded = False
         # Procedures are leaf nodes (no children). Submissions & Runs have children.
@@ -239,6 +288,7 @@ class TreeItem:
 
 
 class ClientSubmissionRunModel(QAbstractItemModel):
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.root_item = TreeItem()
@@ -280,14 +330,11 @@ class ClientSubmissionRunModel(QAbstractItemModel):
         if not index.isValid():
             return None
         item = index.internalPointer()
-        
         if role == Qt.ItemDataRole.DisplayRole:
             if index.column() == 0: return item.name
             elif index.column() == 1: return item.type_str
             elif index.column() == 2: return item.client
             elif index.column() == 3: return item.date_str
-
-        # Replaces your original item.setData(..., 1) metadata lookups
         if role == Qt.ItemDataRole.UserRole:
             return {
                 'item_type': item.item_type,
@@ -305,22 +352,69 @@ class ClientSubmissionRunModel(QAbstractItemModel):
         self.root_item.child_items = []
         self.endResetModel()
 
+    def _make_child_dict(self, sub: dict) -> dict:
+        """Build the TreeItem payload for one top-level submission row."""
+        from backend.db.models import ClientSubmission
+        raw_date = sub.get('submitted_date')
+        if isinstance(raw_date, datetime):
+            date_label = raw_date.date().isoformat()
+        elif isinstance(raw_date, date):
+            date_label = raw_date.isoformat()
+        else:
+            date_label = str(raw_date)
+        group_str = f"{sub['submissiontype']}-{sub['submitter_plate_id']}-{date_label}"
+        return dict(
+            name=group_str,
+            client=sub['clientlab'],
+            date=raw_date,
+            type=sub['submissiontype'],
+            query_str=sub['submitter_plate_id'],
+            item_type=ClientSubmission,
+            raw_run_data=sub.get('run', []),  # Store temporarily for lazy step
+        )
+
     def add_top_level_submissions(self, submissions_list: list):
         """Populates root level submissions efficiently."""
-        from backend.db.models import ClientSubmission
+        if not submissions_list:
+            return
         self.beginInsertRows(QModelIndex(), 0, len(submissions_list) - 1)
         for sub in submissions_list:
-            group_str = f"{sub['submissiontype']}-{sub['submitter_plate_id']}-{sub['submitted_date']}"
-            child_dict = dict(
-                name=group_str,
-                client=sub['clientlab'],
-                date=sub['submitted_date'],
-                type=sub['submissiontype'],
-                query_str=sub['submitter_plate_id'],
-                item_type=ClientSubmission,
-                raw_run_data=sub.get('run', []) # Store temporarily for lazy step
-            )
-            self.root_item.child_items.append(TreeItem(child_dict, self.root_item))
+            self.root_item.child_items.append(TreeItem(self._make_child_dict(sub), self.root_item))
         self.endResetModel()
 
+    def _find_top_level_row(self, query_str) -> int:
+        """Return the index of the top-level row whose query_str matches, or -1."""
+        for i, child in enumerate(self.root_item.child_items):
+            if child.query_str == query_str:
+                return i
+        return -1
 
+    def remove_top_level(self, query_str) -> bool:
+        """Remove the top-level row identified by query_str. Returns True if removed."""
+        row = self._find_top_level_row(query_str)
+        if row < 0:
+            return False
+        self.beginRemoveRows(QModelIndex(), row, row)
+        self.root_item.child_items.pop(row)
+        self.endRemoveRows()
+        return True
+
+    def upsert_top_level(self, sub: dict) -> None:
+        """
+        Insert a submission row, or refresh it in place if already present.
+
+        Any existing row for the same submitter_plate_id is removed first so its
+        run/procedure children rebuild from fresh data on the next expand. The new
+        row is inserted at the position that keeps submitted_date descending.
+        """
+        self.remove_top_level(sub['submitter_plate_id'])
+        new_item = TreeItem(self._make_child_dict(sub), self.root_item)
+        new_key = _date_sort_key(sub.get('submitted_date'))
+        insert_row = len(self.root_item.child_items)
+        for i, child in enumerate(self.root_item.child_items):
+            if new_key > _date_sort_key(child.data_dict.get('date')):
+                insert_row = i
+                break
+        self.beginInsertRows(QModelIndex(), insert_row, insert_row)
+        self.root_item.child_items.insert(insert_row, new_item)
+        self.endInsertRows()
