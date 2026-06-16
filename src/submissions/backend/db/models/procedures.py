@@ -772,7 +772,7 @@ class ReagentLot(BaseClass):
         output = super().details_dict
         for key in ("reagentlotprocedureassociation", "procedure", "procedures"):
             output.pop(key, None)
-        output['excluded'] += ["reagentlotprocedureassociation", "procedures"]
+        # output['excluded'] += ["reagentlotprocedureassociation", "procedures"]
         output['reagent'] = output['reagent']
         return output
 

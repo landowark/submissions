@@ -701,7 +701,7 @@ def is_developer() -> bool:
     """
     try:
         check = getpass.getuser() in ctx.super_users
-    except:
+    except (ValueError, AttributeError, TypeError):
         check = False
     return check
 
@@ -715,7 +715,7 @@ def is_power_user() -> bool:
     """
     try:
         check = getpass.getuser() in ctx.power_users
-    except:
+    except (ValueError, AttributeError, TypeError):
         check = False
     return check
 

@@ -396,14 +396,14 @@ class SubmissionFormWidget(QWidget):
                             try:
                                 add_widget.setDate(value)
                             # NOTE: if not found, use today
-                            except:
+                            except (ValueError, TypeError):
                                 add_widget.setDate(date.today())
                             add_widget.setToolTip(f"Select date for {key}")
                         case "INTEGER":
                             add_widget = MyQSpinBox(scrollWidget=parent)
                             try:
                                 add_widget.setValue(value)
-                            except:
+                            except (ValueError, TypeError):
                                 add_widget.setValue(0)
                             add_widget.setToolTip(f"Set value for {key}")
                         case "RELATIONSHIPSCALAR":
@@ -434,7 +434,7 @@ class SubmissionFormWidget(QWidget):
                             add_widget = QLineEdit()
                             try:
                                 add_widget.setText(value)
-                            except:
+                            except (ValueError, TypeError):
                                 add_widget.setText("NA")
                             add_widget.setToolTip(f"Set value for {key}")
             if add_widget is not None:
@@ -453,10 +453,7 @@ class SubmissionFormWidget(QWidget):
 
             def __init__(self, key: str, value: dict, title: bool = True, label_name: str | None = None):
                 super().__init__()
-                try:
-                    check = not value['missing']
-                except:
-                    check = True
+                check = value.get('missing', True) if isinstance(value, dict) else True
                 if label_name is not None:
                     self.setObjectName(label_name)
                 else:

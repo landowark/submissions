@@ -3,7 +3,6 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from getpass import getuser
-from random import sample
 import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools, json
 from uuid import uuid4
 from inspect import isclass
@@ -591,29 +590,6 @@ class ClientSubmission(BaseClass, LogMixin):
         output = super().to_pydantic(filepath=filepath, **kwargs)
         return output
     
-    def completed_runs(self) -> Generator[Run, None, None]:
-        """
-        Gets list of runs associated with this submission that have a completed date.
-
-        Returns:
-            List[Run]: List of completed runs
-        """
-        return (run for run in self.run if run.completed_date is not None)
-
-    @property
-    def completed_date(self) -> datetime | None:
-        """
-        Gets the completed date of the run associated with this submission. If no run or completed_date, returns None.
-
-        Returns:
-            datetime | None: Completed date of the run or None if no run or completed_date
-        """
-        try:
-            run = next(self.completed_runs())
-            return run.completed_date
-        except (StopIteration, AttributeError):
-            return None
-
     @property
     def turnaround_time(self) -> int | None:
         """
