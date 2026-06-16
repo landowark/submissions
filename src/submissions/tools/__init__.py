@@ -15,7 +15,7 @@ from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader, Template
 from logging import handlers, Logger
 from pathlib import Path
-from sqlalchemy.orm import Session, InstrumentedAttribute, scoped_session, sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 from contextlib import contextmanager
 from sqlalchemy import create_engine, text, MetaData
 from pydantic import ValidationError, field_validator, BaseModel, Field
@@ -1035,6 +1035,12 @@ def get_well_index(cell_id:str, grid_height:int=8, grid_width:int=12, direction:
     else:
         # Horizontal: (Rows passed * columns per row) + current column
         return (row_idx * grid_width) + (col_idx + 1)
+
+
+def ensure_list(v: Any) -> List:
+    if isinstance(v, (Generator, filter, map)):
+        return list(v)
+    return v
 
 
 class classproperty(property):

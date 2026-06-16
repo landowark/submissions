@@ -149,3 +149,5 @@ class ControlsForm(QWidget):
             if label[0] not in [item['name'] for item in output]:
                 output.append(dicto)
         return output, self.comment_field.toPlainText()
+
+__all__ = ["GelBox", "ControlsForm"]

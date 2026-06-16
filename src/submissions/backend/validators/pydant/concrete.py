@@ -5,7 +5,7 @@ from pprint import pformat
 import csv, logging, re, sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Any, Generator, List, Tuple, TYPE_CHECKING
+from typing import Annotated, Generator, List, Tuple, TYPE_CHECKING
 from pydantic import AfterValidator, ConfigDict, Field, field_validator, computed_field, model_validator
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
@@ -13,16 +13,12 @@ from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, Report, find_first_matching_dict, row_keys, sort_dict_by_list
+from tools import Alert, Report, find_first_matching_dict, row_keys, sort_dict_by_list, ensure_list
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-def ensure_list(v: Any) -> List:
-    if isinstance(v, (Generator, filter, map)):
-        return list(v)
-    return v
 
 
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
@@ -850,7 +846,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         details = self.improved_dict
         output = super().to_html(**details)
         return output
-    
+
 
 class PydClientSubmission(PydConcrete):
 
@@ -1517,3 +1513,8 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
     sample: Annotated[str | dict | PydSample, RelationshipField(uselist=False)] = Field(default="NA")
     enabled: bool = Field(default=True)
     comment: list | None = Field(default_factory=list, repr=False)
+
+
+__all__ = ["PydResults", "PydReagentLot", "PydDiscount", "PydSample", "PydEquipment", "PydContact", "PydClientLab", 
+           "PydProcessVersion", "PydProcedure", "PydClientSubmission", "PydRun", "PydTipsLot", "PydProcedureSampleAssociation",
+            "PydProcedureEquipmentAssociation", "PydProcedureReagentLotAssociation", "PydClientSubmissionSampleAssociation"]

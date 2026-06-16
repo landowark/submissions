@@ -187,3 +187,5 @@ class ProcedureCreation(DefaultWebDialog):
         finally:
             QApplication.restoreOverrideCursor()
         return output
+
+__all__ = ["ProcedureCreation"]

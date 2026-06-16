@@ -41,5 +41,8 @@ class DefaultResultsSampleParser(DefaultTABLEParser):
         self._pyd_object = PydResults
 
 
-from .diomni_pcr_results_parser import DiomniPCRInfoParser, DiomniPCRSampleParser
-from .qubit_results_parser import QubitInfoParser, QubitSampleParser
+from .diomni_pcr_results_parser import *
+from .qubit_results_parser import *
+
+__all__ = ["DefaultResultsInfoParser", "DefaultResultsSampleParser", 
+           "DiomniPCRInfoParser", "DiomniPCRSampleParser", "QubitResultsInfoParser", "QubitResultsSampleParser"]

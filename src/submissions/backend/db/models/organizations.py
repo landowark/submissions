@@ -14,7 +14,7 @@ import logging
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.hybrid import hybrid_property
-from . import BaseClass
+from . import BaseClass, Base
 from tools import check_authorization, setup_lookup
 from typing import List
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 # NOTE: table containing clientlab/contact relationship
 clientlab_contact = Table(
     "_clientlab_contact",
-    BaseClass.__base__.metadata,
+    Base.metadata,
     Column("clientlab_id", INTEGER, ForeignKey("_clientlab.id")),
     Column("contact_id", INTEGER, ForeignKey("_contact.id")),
     extend_existing=True
@@ -467,3 +467,6 @@ class Contact(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
+
+
+__all__ = ["ClientLab", "Contact", "clientlab_contact"]

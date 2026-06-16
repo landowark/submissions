@@ -82,3 +82,6 @@ class SampleChecker(QDialog):
                 s['color'] = "black"
             output.append(s)
         return output
+
+
+__all__ = ["SampleChecker"]

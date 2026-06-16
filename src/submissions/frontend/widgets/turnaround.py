@@ -56,3 +56,5 @@ class TurnaroundTime(InfoPane):
             threshold = None
         self.fig = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[], threshold=threshold, months=months)
         self.webview.setHtml(self.fig.html)
+ 
+ __all__ = ["TurnaroundTime"]

@@ -29,3 +29,5 @@ class DefaultRunManager(DefaultManager):
             workbook: Workbook = procedure.write(workbook=workbook)
             self.procedures.append(procedure)
         return workbook
+
+__all__ = ["DefaultRunManager"]

@@ -209,3 +209,6 @@ class SearchResults(QTableView):
             logger.error(f"Error getting object function: {e}")
         self.doubleClicked.disconnect()
         self.parent.update_data()
+
+
+__all__ = ["SearchBox", "SearchResults", "FieldSearch"]

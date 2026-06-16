@@ -49,3 +49,6 @@ class Summary(InfoPane):
         else:
             self.save_pdf_button.setEnabled(False)
             self.save_excel_button.setEnabled(False)
+
+
+__all__ = ["Summary"]

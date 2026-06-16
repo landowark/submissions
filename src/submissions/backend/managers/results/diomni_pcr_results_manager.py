@@ -34,3 +34,4 @@ class DiomniPCRManager(DefaultResultsManager):
                 dict_[sample_name] = self.deep_merge(dict_[sample_name], soi[sample_name])
             self.samples.append(dict_)
             
+__all__ = ["DiomniPCRManager"]

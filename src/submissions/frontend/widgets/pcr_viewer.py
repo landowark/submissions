@@ -29,3 +29,5 @@ class PCRViewer(PosNegPane):
         self.fig = PCRFigure(df=self.report_obj.df, settings=self.chart_settings)
 
         self.webview.setHtml(self.fig.html)   
+
+__all__ = ["PCRViewer"]

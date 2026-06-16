@@ -66,3 +66,4 @@ class DiomniPCRSettings(DefaultSettings):
             writer.writerows(toplines)
             writer.writerows(samples)
             
+__all__ = ["DiomniPCRSettings"]

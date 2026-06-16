@@ -130,10 +130,10 @@ class DefaultTABLEParser(DefaultParser):
         return [self._pyd_object(**output) for output in self.parsed_info]
 
 
-from .procedure_parsers import ProcedureInfoParser, ProcedureSampleParser, ProcedureReagentParser, ProcedureEquipmentParser
-from .results_parsers import (
-    DefaultResultsInfoParser, DefaultResultsSampleParser,
-    DiomniPCRSampleParser, DiomniPCRInfoParser,
-    QubitInfoParser, QubitSampleParser
-)
-from .clientsubmission_parser import ClientSubmissionSampleParser, ClientSubmissionInfoParser
+from .procedure_parsers import *
+from .results_parsers import *
+from .clientsubmission_parser import *
+
+__all__ = ["DefaultKEYVALUEParser", "DefaultTABLEParser", "ProcedureInfoParser", "ProcedureSampleParser", "ProcedureReagentParser", "ProcedureEquipmentParser",
+           "DefaultResultsInfoParser", "DefaultResultsSampleParser", "DiomniPCRInfoParser", "DiomniPCRSampleParser", "QubitResultsInfoParser", "QubitResultsSampleParser",
+           "ClientSubmissionInfoParser", "ClientSubmissionSampleParser"]

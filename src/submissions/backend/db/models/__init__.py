@@ -1276,6 +1276,7 @@ class BaseClass(Base):
 
         return False
 
+
 class LogMixin(Base):
     """
     Mixin class to add audit logging tracking to SQLAlchemy models.
@@ -1369,15 +1370,15 @@ class ConfigItem(BaseClass):
 
 # NOTE: import order must go: orgs, procedure, submissions due to circular import issues
 from .audit import AuditLog
-from .organizations import (
-    ClientLab, Contact, BaseClass # NOTE: For some reason I  need to import BaseClass at this point for queries to work.
-)
-from .procedures import (
-    ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
-    ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,
-    Tips, TipsLot, ProcedureEquipmentAssociation, ProcedureTypeEquipmentRoleAssociation, Results, ReagentRoleReagentAssociation,
-    ResultsType, ProcedureEquipmentTipslotAssociation
-)
-from .submissions import (
-    ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation
-)
+from .organizations import *
+from .procedures import *
+from .submissions import *
+
+__all__ = ["LogMixin", "ConfigItem",
+    "AuditLog",
+    "ReagentRole", "Reagent", "ReagentLot", "Discount", "SubmissionType", "ProcedureType", "Procedure", "ProcedureTypeReagentRoleAssociation",
+    "ProcedureReagentLotAssociation", "EquipmentRole", "Equipment", "EquipmentRoleEquipmentAssociation", "Process", "ProcessVersion",
+    "Tips", "TipsLot", "ProcedureEquipmentAssociation",
+    "ProcedureTypeEquipmentRoleAssociation", "Results",
+    "ClientSubmission", "Run", "Sample", "ClientSubmissionSampleAssociation", "RunSampleAssociation", "ProcedureSampleAssociation",
+    "ClientLab", "Contact"]

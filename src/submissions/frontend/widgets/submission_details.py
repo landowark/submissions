@@ -179,3 +179,5 @@ class SubmissionComment(QDialog):
         dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
         full_comment = {"user": commenter, "time": dt, "text": comment}
         return full_comment
+
+__all__ = ["SubmissionDetails", "SubmissionComment"]

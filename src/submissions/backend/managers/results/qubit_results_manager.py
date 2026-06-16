@@ -56,3 +56,5 @@ class QubitManager(DefaultResultsManager):
         self.sample_parser = QubitSampleParser(worksheet=worksheet, procedure=self.procedure)
         self.info = {k:v for k, v in self.info_parser.parsed_info}
         self.samples = [item for item in self.sample_parser.parsed_info]
+
+__all__ = ["QubitManager"]

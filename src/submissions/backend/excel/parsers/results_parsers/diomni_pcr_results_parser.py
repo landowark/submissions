@@ -12,7 +12,7 @@ from functools import cached_property
 from openpyxl.worksheet.worksheet import Worksheet
 from tools import convert_well_to_row_column
 if TYPE_CHECKING:
-    from backend.db.models.procedures import Procedure
+    from submissions.backend.db.models.procedures import Procedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -100,3 +100,5 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
             if entry not in output:
                 output.append(entry)
         return output
+
+__all__ = ["DiomniPCRInfoParser", "DiomniPCRSampleParser"]

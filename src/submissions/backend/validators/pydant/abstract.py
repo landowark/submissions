@@ -355,3 +355,8 @@ class PydReagentRoleReagentAssociation(PydAbstract):
     @classproperty
     def aliases(cls) -> List[str]:
         return super().aliases + ["reagentreagentroleassociation"]
+
+
+__all__ = ["PydReagent", "PydTips", "PydReagentRole", "PydEquipmentRole", "PydProcess", "PydResultsType", "PydSubmissionType", 
+           "PydProcedureType", "PydProcedureTypeReagentRoleAssociation", "PydProcedureTypeEquipmentRoleAssociation", 
+           "PydEquipmentRoleEquipmentAssociation", "PydReagentRoleReagentAssociation"]

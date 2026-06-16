@@ -129,7 +129,7 @@ class DefaultManager(object):
                 raise TypeError(f"Invalid type for worksheet retrieval: {type(sheet)}")
 
 
-from .clientsubmissions import DefaultClientSubmissionManager
-from .procedures import DefaultProcedureManager
-from .results import DefaultResultsManager
-from .runs import DefaultRunManager
+from .clientsubmissions import *
+from .procedures import *
+from .results import *
+from .runs import *

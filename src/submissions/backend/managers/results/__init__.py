@@ -70,5 +70,7 @@ class DefaultResultsManager(DefaultManager):
                 yield self._pyd_object(sample=sample_name, procedure=procedure_name, is_sample=True, **sample_info)
     
 
-from .diomni_pcr_results_manager import DiomniPCRManager
-from .qubit_results_manager import QubitManager
+from .diomni_pcr_results_manager import *
+from .qubit_results_manager import *
+
+__all__ = ["DefaultResultsManager", "DiomniPCRManager", "QubitManager"]

@@ -32,18 +32,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 
-from .models import (
-    LogMixin, ConfigItem,
-    AuditLog,
-    ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
-    ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,
-    Tips, TipsLot, ProcedureEquipmentAssociation,
-    ProcedureTypeEquipmentRoleAssociation, Results,
-    ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation,
-    # ControlType, Control,
-    ClientLab, Contact
-)
-
+from .models import *
 
 def update_log(mapper, connection, target):
     """
@@ -89,3 +78,4 @@ def update_log(mapper, connection, target):
 
 event.listen(LogMixin, 'after_update', update_log, propagate=True)
 event.listen(LogMixin, 'after_insert', update_log, propagate=True)
+

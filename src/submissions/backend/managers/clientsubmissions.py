@@ -153,3 +153,5 @@ class DefaultClientSubmissionManager(DefaultManager):
         self.sample_writer = clientsubmission_writer.ClientSubmissionSampleWriter(pydant_obj=self.pyd)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.info_writer.worksheet.max_row + 1)
         return workbook
+
+__all__ = ["DefaultClientSubmissionManager"]

@@ -13,7 +13,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class DateTypePicker(QDialog):
     
     def __init__(self, parent):
-        from backend.db.models.procedures import SubmissionType
+        from submissions.backend.db.models.procedures import SubmissionType
         super().__init__(parent)
         self.layout = QVBoxLayout()
         self.setFixedWidth(500)
@@ -37,3 +37,5 @@ class DateTypePicker(QDialog):
         start_date = self.datepicker.start_date.date().toPyDate()
         end_date = self.datepicker.end_date.date().toPyDate()
         return dict(submissiontype=sub_types, start_date=start_date, end_date=end_date)
+
+__all__ = ["DateTypePicker"]

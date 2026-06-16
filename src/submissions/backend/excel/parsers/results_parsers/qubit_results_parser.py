@@ -34,3 +34,5 @@ class QubitSampleParser(DefaultResultsSampleParser):
         for item in super().parsed_info:
             item['date_analyzed'] = item['test_date']
             yield item
+
+__all__ = ["QubitInfoParser", "QubitSampleParser"]

@@ -94,3 +94,5 @@ def save_pdf(obj: QWebEngineView, filename: Path):
     page_layout.setOrientation(QPageLayout.Orientation.Portrait)
     page_layout.setMargins(QMarginsF(25, 25, 25, 25))
     obj.page().printToPdf(filename.absolute().__str__(), page_layout)
+
+__all__ = ["select_open_file", "select_save_file", "save_pdf"]

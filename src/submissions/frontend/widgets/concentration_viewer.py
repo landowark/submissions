@@ -35,3 +35,4 @@ class ConcentrationViewer(PosNegPane):
         self.fig = ConcentrationsChart(df=self.report_obj.df, settings=self.chart_settings)
         self.webview.setHtml(self.fig.html)
         
+__all__ = ["ConcentrationViewer"]

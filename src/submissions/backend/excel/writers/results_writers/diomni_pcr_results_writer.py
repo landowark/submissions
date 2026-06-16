@@ -79,3 +79,5 @@ class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
             df.caption = sheet
             logger.debug(df)
             yield df
+
+__all__ = ["DiomniPCRInfoWriter", "DiomniPCRSampleWriter"]

@@ -38,3 +38,5 @@ class ExcelSheetSelector(QDialog):
                 sheet = self.workbook[widget.text()]
                 selected_sheets.append(sheet)
         return selected_sheets
+
+__all__ = ["ExcelSheetSelector"]

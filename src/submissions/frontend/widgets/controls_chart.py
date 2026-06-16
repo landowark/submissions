@@ -119,3 +119,5 @@ class ControlsViewer(InfoPane):
         self.webview.setHtml(self.fig.html)
         self.webview.update()
         return report
+
+__all__ = ["ControlsViewer"]

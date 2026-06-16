@@ -418,3 +418,6 @@ class ClientSubmissionRunModel(QAbstractItemModel):
         self.beginInsertRows(QModelIndex(), insert_row, insert_row)
         self.root_item.child_items.insert(insert_row, new_item)
         self.endInsertRows()
+
+
+__all__ = ["SubmissionsTree", "TreeItem", "ClientSubmissionRunModel"]

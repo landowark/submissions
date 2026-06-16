@@ -104,3 +104,6 @@ class ObjectSelector(QDialog):
             str: KitType as str
         """
         return self.obj_type.query(name=self.widget.currentText())
+
+
+__all__ = ["QuestionAsker", "AlertPop", "HTMLPop", "ObjectSelector"]

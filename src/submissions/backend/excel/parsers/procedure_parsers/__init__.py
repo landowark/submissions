@@ -86,3 +86,5 @@ class ProcedureEquipmentParser(DefaultTABLEParser):
             item['tipslot'] = item.pop("tips_lot", None)
             item['equipmentrole'] = item.pop('equipment_role', None)
             yield item
+
+__all__ = ["ProcedureInfoParser", "ProcedureSampleParser", "ProcedureReagentParser", "ProcedureEquipmentParser"]

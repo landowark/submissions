@@ -560,3 +560,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         finally:
             QApplication.restoreOverrideCursor()
             self.setParent(None)
+
+
+__all__ = ["MyQComboBox", "MyQDateEdit", "MyQSpinBox", "MyQDoubleSpinBox", "SubmissionFormContainer", "SubmissionFormWidget", "ClientSubmissionFormWidget"]

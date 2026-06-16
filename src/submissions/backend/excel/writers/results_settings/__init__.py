@@ -70,4 +70,4 @@ class DefaultSettingsDialog(DefaultWebDialog):
     def update_settings(self, settings:dict):
         self.settings = settings
 
-from .diomni_pcr import DiomniPCRSettings
+from .diomni_pcr import *

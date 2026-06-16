@@ -75,3 +75,6 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
                 sample = PydClientSubmissionSampleAssociation(sample="", clientsubmission=self.pydant_obj.name, submission_rank=iii)
             output_samples.append(sample)
         return sorted(output_samples, key=lambda x: x.submission_rank)
+
+
+__all__ = ["ClientSubmissionInfoWriter", "ClientSubmissionSampleWriter"]

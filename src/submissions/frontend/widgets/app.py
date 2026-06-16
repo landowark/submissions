@@ -311,3 +311,6 @@ class AddSubForm(QWidget):
         # NOTE: add tabs to main widget
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)
+
+
+__all__ = ["App", "AddSubForm"]

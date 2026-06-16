@@ -103,3 +103,5 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
         
     def to_pydantic(self):
         return [self._pyd_object(**sample) for sample in self.parsed_info if sample.get('sample_id', None)]
+
+__all__ = ["ClientSubmissionInfoParser", "ClientSubmissionSampleParser"]

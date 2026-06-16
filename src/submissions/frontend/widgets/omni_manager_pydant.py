@@ -158,3 +158,6 @@ class OmniManager(QDialog):
             None
         """
         ...
+
+
+__all__ = ["OmniManager"]

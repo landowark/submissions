@@ -147,3 +147,5 @@ class DefaultProcedureManager(DefaultManager):
                 grouped_writer['sample'] = res_sample_writer
             self.result_writers.append(grouped_writer)
         return workbook
+
+__all__ = ["DefaultProcedureManager"]

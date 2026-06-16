@@ -92,3 +92,6 @@ class ResultsSampleMatcher(QDialog):
             logger.error(f"Couldn't find association for {result_text}")
             return
         result.sampleprocedureassociation = association
+
+
+__all__ = ["ResultsSampleMatcher"]
