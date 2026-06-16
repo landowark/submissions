@@ -5,13 +5,15 @@ from __future__ import annotations
 from datetime import datetime
 import logging, sys, json
 from pprint import pformat
-from typing import List, Generator
+from typing import List, Generator, TYPE_CHECKING
 from PyQt6.QtWidgets import (QDialog, QGridLayout, QDialogButtonBox)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import pyqtSlot
 from tools import render_details_template, row_keys
-from backend.db.models import Procedure, Results
+
+if TYPE_CHECKING:
+    from backend.db.models import Procedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -43,6 +45,7 @@ class ResultsSampleMatcher(QDialog):
 
     @pyqtSlot(bool, str, str, str)
     def set_match(self, enabled: bool, sample: str, result_text:str, result: str):
+        from backend.db.models import Results
         if ":" in sample:
             sample_id = sample.split(":")[0]
             well = sample.split(":")[1]

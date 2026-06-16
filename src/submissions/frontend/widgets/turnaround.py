@@ -4,7 +4,6 @@ Pane showing turnaround time summary.
 from PyQt6.QtWidgets import QWidget, QPushButton, QComboBox, QLabel
 from .info_tab import InfoPane
 from backend.excel.reports import TurnaroundMaker
-
 from frontend.visualizations.turnaround_chart import TurnaroundChart
 import logging
 
@@ -57,4 +56,4 @@ class TurnaroundTime(InfoPane):
         self.fig = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[], threshold=threshold, months=months)
         self.webview.setHtml(self.fig.html)
  
- __all__ = ["TurnaroundTime"]
+__all__ = ["TurnaroundTime"]

@@ -45,4 +45,4 @@ from .diomni_pcr_results_parser import *
 from .qubit_results_parser import *
 
 __all__ = ["DefaultResultsInfoParser", "DefaultResultsSampleParser", 
-           "DiomniPCRInfoParser", "DiomniPCRSampleParser", "QubitResultsInfoParser", "QubitResultsSampleParser"]
+           "DiomniPCRInfoParser", "DiomniPCRSampleParser", "QubitInfoParser", "QubitSampleParser"]

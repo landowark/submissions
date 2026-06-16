@@ -36,18 +36,20 @@ var changed_it = new Event('change');
 
 const reagentRoles = document.getElementsByClassName("reagentrole_container");
 
-for(let i = 0; i < reagentRoles.length; i++) {
-  var rr = reagentRoles[i].querySelector(".reagentrole");
-  rr.addEventListener("change", async function() {
-    if (rr.value.includes("--New--")) {
+for (let i = 0; i < reagentRoles.length; i++) {
+  let selector = reagentRoles[i].querySelector(".reagentrole");
+  console.log(i, selector.id)
+  let checkbox = reagentRoles[i].querySelector(".procedure_checkbox");
+  selector.addEventListener("change", async function() {
+    if (this.value.includes("--New--")) {
         var br = document.createElement("br");
-        var new_reg = document.getElementById("new_" + rr.id);
+        var new_reg = document.getElementById("new_" + this.id);
         var new_form = document.createElement("form");
         new_form.setAttribute("class", "new_reagent_form")
-        new_form.setAttribute("id", rr.id + "_addition")
+        new_form.setAttribute("id", this.id + "_addition")
         var rr_name = document.createElement("select");
-        rr_name.setAttribute("id", "new_" + rr.id + "_name");
-        var rr_options = await backend.get_reagent_names(rr.id).then(
+        rr_name.setAttribute("id", "new_" + this.id + "_name");
+        var rr_options = await backend.get_reagent_names(this.id).then(
             function(result) {
                 result.forEach( function(item) {
                     rr_name.options.add( new Option(item));
@@ -55,19 +57,19 @@ for(let i = 0; i < reagentRoles.length; i++) {
             }
         );
         var rr_name_label = document.createElement("label");
-        rr_name_label.setAttribute("for", "new_" + rr.id + "_name");
+        rr_name_label.setAttribute("for", "new_" + this.id + "_name");
         rr_name_label.innerHTML = "Name:";
         var rr_lot = document.createElement("input");
         rr_lot.setAttribute("type", "text");
-        rr_lot.setAttribute("id", "new_" + rr.id + "_lot");
+        rr_lot.setAttribute("id", "new_" + this.id + "_lot");
         var rr_lot_label = document.createElement("label");
-        rr_lot_label.setAttribute("for", "new_" + rr.id + "_lot");
+        rr_lot_label.setAttribute("for", "new_" + this.id + "_lot");
         rr_lot_label.innerHTML = "Lot:";
         var rr_expiry = document.createElement("input");
         rr_expiry.setAttribute("type", "date");
-        rr_expiry.setAttribute("id", "new_" + rr.id + "_expiry");
+        rr_expiry.setAttribute("id", "new_" + this.id + "_expiry");
         var rr_expiry_label = document.createElement("label");
-        rr_expiry_label.setAttribute("for", "new_" + rr.id + "_expiry");
+        rr_expiry_label.setAttribute("for", "new_" + this.id + "_expiry");
         rr_expiry_label.innerHTML = "Expiry:";
         var submit_btn = document.createElement("input");
         submit_btn.setAttribute("type", "submit");
@@ -86,19 +88,17 @@ for(let i = 0; i < reagentRoles.length; i++) {
         new_form.appendChild(br.cloneNode());
         new_form.onsubmit = function(event) {
             event.preventDefault();
-            name = document.getElementById("new_" + rr.id + "_name").value;
-            lot = document.getElementById("new_" + rr.id + "_lot").value;
-            expiry = document.getElementById("new_" + rr.id + "_expiry").value;
-            backend.add_new_reagent(rr.id, name, lot, expiry);
+            name = document.getElementById("new_" + this.id + "_name").value;
+            lot = document.getElementById("new_" + this.id + "_lot").value;
+            expiry = document.getElementById("new_" + this.id + "_expiry").value;
+            backend.add_new_reagent(this.id, name, lot, expiry);
             new_form.remove();
         }
         new_reg.appendChild(new_form);
     } else {
-        selector = rr.querySelector(".reagentrole");
-        checkbox = rr.querySelector(".procedure_checkbox");
-        console.log("Checkbox for reagent role:", selector.id, checkbox);  
-        backend.update_reagent(selector.id, selector.value, checkbox.checked);
-        newregform = document.getElementById(rr.id + "_addition");
+        console.log("Checkbox for reagent role: " +  this.id + " " + checkbox);  
+        backend.update_reagent(this.id, this.value, checkbox.checked);
+        var newregform = document.getElementById(this.id + "_addition");
         try {
             newregform.remove();
         }

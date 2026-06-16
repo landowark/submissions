@@ -135,5 +135,5 @@ from .results_parsers import *
 from .clientsubmission_parser import *
 
 __all__ = ["DefaultKEYVALUEParser", "DefaultTABLEParser", "ProcedureInfoParser", "ProcedureSampleParser", "ProcedureReagentParser", "ProcedureEquipmentParser",
-           "DefaultResultsInfoParser", "DefaultResultsSampleParser", "DiomniPCRInfoParser", "DiomniPCRSampleParser", "QubitResultsInfoParser", "QubitResultsSampleParser",
+           "DefaultResultsInfoParser", "DefaultResultsSampleParser", "DiomniPCRInfoParser", "DiomniPCRSampleParser", "QubitInfoParser", "QubitSampleParser",
            "ClientSubmissionInfoParser", "ClientSubmissionSampleParser"]
