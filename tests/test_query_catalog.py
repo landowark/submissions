@@ -145,8 +145,8 @@ class TestTipsQuery:
         # PINNED QUIRK: manufacturer does not force a single result.
         tips = f.make_tips(seed)
         result = M.Tips.query(manufacturer="Rainin")
-        assert isinstance(result, list)
-        assert [t.id for t in result] == [tips["t1"].id]
+        assert not isinstance(result, list)
+        assert result.id == tips["t1"].id
 
 
 # --------------------------------------------------------------------------- #

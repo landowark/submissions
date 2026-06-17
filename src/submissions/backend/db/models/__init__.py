@@ -8,7 +8,7 @@ from dateutil.parser import parse
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
-from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
+from sqlalchemy.orm import CompositeProperty, DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
@@ -140,7 +140,7 @@ class BaseClass(Base):
 
     __table_args__ = {'extend_existing': True}  #: NOTE Will only add new columns
 
-    singles = ['id']
+    # singles = ['id', 'name']
 
     _misc_info = Column(MutableDict.as_mutable(JSON))
 
@@ -584,6 +584,27 @@ class BaseClass(Base):
         return fields
 
     @classmethod
+    def _query_or_create_sample_link(cls, *, parent, parent_model, parent_lookup,
+                                 query_kwarg, ctor_kwarg, sample, id=None, **kwargs):
+        if isinstance(parent, str):
+            parent = parent_model.query(**{parent_lookup: parent})
+        if parent is None:
+            raise ValueError(f"{cls.__name__} requires a valid parent.")
+        if isinstance(sample, str):
+            sample = Sample.query(sample_id=sample)
+        if sample is None:
+            raise ValueError(f"{cls.__name__} requires a valid sample.")
+        try:
+            instance = cls.query(limit=1, sample=sample,
+                                row=kwargs.get("row"), column=kwargs.get("column"),
+                                **{query_kwarg: parent})
+        except StatementError:
+            instance = None
+        if instance is None:
+            instance = cls(sample=sample, id=id, **{ctor_kwarg: parent}, **kwargs)
+        return instance
+
+    @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
         """
         Find an existing row matching `kwargs`, or create one, then write every
@@ -630,6 +651,29 @@ class BaseClass(Base):
         return instance, new
 
     @classmethod
+    def _filter_relationship(cls, query, column, value, model, lookup="name"):
+        if value is None:
+            return query
+        if isinstance(value, int) and not isinstance(value, bool):   # id lookup
+            value = model.query(id=value)
+        elif isinstance(value, str):                                 # name lookup
+            resolved = model.query(**{lookup: value})
+            if isinstance(resolved, list):        # e.g. Reagent.query(name=) returns a list
+                resolved = resolved[0] if resolved else None
+            value = resolved
+        query = query.filter(column == value) if value is not None else query
+        return query
+
+    @classmethod
+    def _filter_scalar(cls, query, column, value, *, match=None):
+        # `match` lets callers keep non-equality comparisons (e.g. startswith).
+        if value is None:
+            return query
+        condition = match(value) if match else (column == value)
+        query = query.filter(condition)
+        return query
+
+    @classmethod
     def query(cls, **kwargs) -> Any | List[Any]:
         """
         Query the database for objects of this model type.
@@ -645,8 +689,6 @@ class BaseClass(Base):
         :return: Single result if limit=1 or name search, list otherwise.
         :rtype: any | list[any]
         """
-        if "name" in kwargs.keys():
-            kwargs['limit'] = 1
         return cls.execute_query(**kwargs)
 
     @classmethod
@@ -681,13 +723,23 @@ class BaseClass(Base):
         if query is None:
             query: Query = cls.__database_session__.query(cls)
             # NOTE: determine which fields to limit to 1.
-        singles = cls.get_default_info('singles')
+        # singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
             try:
                 attr = getattr(cls, k)
             except (ArgumentError, AttributeError) as e:
                 logger.error(f"Attribute {k} unavailable due to:\n\t{e}\n.")
                 continue
+            # >>> INSERT HERE (new block) <
+            prop = getattr(attr, "property", None)
+            if isinstance(prop, RelationshipProperty) and isinstance(v, (str, int)) and not isinstance(v, bool):
+                related_cls = prop.mapper.class_
+                resolved = related_cls.query(**{"id" if isinstance(v, int) else "name": v})
+                if isinstance(resolved, list):
+                    resolved = resolved[0] if resolved else None
+                if resolved is None:
+                    continue
+                v = resolved
             # NOTE: account for attrs that use list.
             try:
                 check = attr.property.uselist
@@ -753,19 +805,24 @@ class BaseClass(Base):
                         query = query.filter(attr == v)
                     except ArgumentError:
                         continue
-            if k in singles:
+            if k in cls.singles:
                 logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
         if offset:
             query = query.offset(offset)
         with query.session.no_autoflush:
-            match limit:
-                case 0:
-                    return query.all()
-                case 1:
-                    return query.first()
-                case _:
-                    return query.limit(limit).all()
+            if query.count() == 1:
+                return query.first()
+            elif query.count() == 0:
+                return None
+            else:
+                match limit:
+                    case 0:
+                        return query.all()
+                    case 1:
+                        return query.first()
+                    case _:
+                        return query.limit(limit).all()
 
     @classmethod
     def get_primary_keys(cls):
@@ -1275,6 +1332,63 @@ class BaseClass(Base):
                 return True
 
         return False
+
+    @classproperty
+    def singles(cls) -> List[str]:
+        """
+        Field names that uniquely identify at most one row, so a ``query()`` filtering
+        on them should return a single object rather than a list.
+
+        Included:
+        * primary-key columns and any column carrying its own UNIQUE constraint
+            (e.g. ``id``, a unique ``name``);
+        * to-one relationships from the queried object's perspective — one-to-many
+            (filtering a parent by one of its children yields that one parent) and
+            one-to-one (a many-to-one whose local foreign key is itself unique).
+
+        Excluded (these can match many rows):
+        * ordinary many-to-one relationships (many rows share the related object);
+        * many-to-many relationships;
+        * individual columns of a composite primary key, none of which is unique
+            on its own.
+
+        Names are returned without a single leading underscore so they line up with
+        the keys callers pass to ``query()`` (``clientlab``, not ``_clientlab``).
+        """
+        from sqlalchemy import UniqueConstraint
+
+        mapper = getattr(cls, "__mapper__", None)
+        table = getattr(cls, "__table__", None)
+        if mapper is None or table is None:
+            return []
+        def _public(key: str) -> str:
+            return key[1:] if key.startswith("_") else key
+        def _columns_are_unique(columns) -> bool:
+            cols = set(columns)
+            if not cols:
+                return False
+            # The exact primary key (e.g. a sole 'id' column).
+            if cols == set(table.primary_key.columns):
+                return True
+            # Each column carries its own unique=True.
+            if all(getattr(col, "unique", False) for col in cols):
+                return True
+            # The columns exactly match a declared UNIQUE constraint.
+            for constraint in table.constraints:
+                if isinstance(constraint, UniqueConstraint) and set(constraint.columns) == cols:
+                    return True
+            return False
+        fields = set(["name", "id"])
+        for column in mapper.columns:
+            if _columns_are_unique({column}):
+                fields.add(_public(column.key))
+        for rel in mapper.relationships:
+            direction = rel.direction.name  # ONETOMANY | MANYTOONE | MANYTOMANY
+            if direction == "ONETOMANY":
+                fields.add(_public(rel.key))
+            elif direction == "MANYTOONE" and not rel.uselist and _columns_are_unique(rel.local_columns):
+                fields.add(_public(rel.key))  # genuine one-to-one (unique local FK)
+        return sorted(fields)
 
 
 class LogMixin(Base):

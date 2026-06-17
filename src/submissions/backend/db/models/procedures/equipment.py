@@ -188,61 +188,61 @@ class EquipmentRole(BaseClass):
                 continue
         self.equipmentroleproceduretypeassociation = list_
 
-    @classmethod
-    def query_or_create(cls, **kwargs) -> Tuple[EquipmentRole, bool]:
-        """
-        Find an EquipmentRole by kwargs or create a new one.
+    # @classmethod
+    # def query_or_create(cls, **kwargs) -> Tuple[EquipmentRole, bool]:
+    #     """
+    #     Find an EquipmentRole by kwargs or create a new one.
 
-        :param kwargs: Attributes used to query or set on the EquipmentRole.
-        :type kwargs: dict
-        :return: Tuple of (EquipmentRole instance, created flag).
-        :rtype: Tuple[EquipmentRole, bool]
-        """
-        new = False
-        disallowed = ['expiry']
-        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-        instance = cls.query(**sanitized_kwargs)
-        if not instance or isinstance(instance, list):
-            instance = cls()
-            new = True
-        for k, v in sanitized_kwargs.items():
-            setattr(instance, k, v)
-        return instance, new
+    #     :param kwargs: Attributes used to query or set on the EquipmentRole.
+    #     :type kwargs: dict
+    #     :return: Tuple of (EquipmentRole instance, created flag).
+    #     :rtype: Tuple[EquipmentRole, bool]
+    #     """
+    #     new = False
+    #     disallowed = ['expiry']
+    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+    #     instance = cls.query(**sanitized_kwargs)
+    #     if not instance or isinstance(instance, list):
+    #         instance = cls()
+    #         new = True
+    #     for k, v in sanitized_kwargs.items():
+    #         setattr(instance, k, v)
+    #     return instance, new
 
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              name: str | None = None,
-              id: int | None = None,
-              limit: int = 0,
-              **kwargs
-              ) -> EquipmentRole | List[EquipmentRole]:
-        """
-        Lookup equipment roles.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           name: str | None = None,
+    #           id: int | None = None,
+    #           limit: int = 0,
+    #           **kwargs
+    #           ) -> EquipmentRole | List[EquipmentRole]:
+    #     """
+    #     Lookup equipment roles.
 
-        :param name: EquipmentRole name. Defaults to None.
-        :type name: str | None
-        :param id: EquipmentRole id. Defaults to None.
-        :type id: int | None
-        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-        :type limit: int
-        :return: EquipmentRole or list of EquipmentRole objects matching filter.
-        :rtype: EquipmentRole | List[EquipmentRole]
-        """
-        query = cls.__database_session__.query(cls)
-        match id:
-            case int():
-                query = query.filter(cls.id == id)
-                limit = 1
-            case _:
-                pass
-        match name:
-            case str():
-                query = query.filter(cls.name == name)
-                limit = 1
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit)
+    #     :param name: EquipmentRole name. Defaults to None.
+    #     :type name: str | None
+    #     :param id: EquipmentRole id. Defaults to None.
+    #     :type id: int | None
+    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+    #     :type limit: int
+    #     :return: EquipmentRole or list of EquipmentRole objects matching filter.
+    #     :rtype: EquipmentRole | List[EquipmentRole]
+    #     """
+    #     query = cls.__database_session__.query(cls)
+    #     match id:
+    #         case int():
+    #             query = query.filter(cls.id == id)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     match name:
+    #         case str():
+    #             query = query.filter(cls.name == name)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit)
 
 
 class Equipment(BaseClass, LogMixin):
@@ -439,58 +439,58 @@ class Equipment(BaseClass, LogMixin):
         value = output.replace(tzinfo=timezone)
         self._calibration_date = value
 
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              id: int | None = None,
-              name: str | None = None,
-              nickname: str | None = None,
-              asset_number: str | None = None,
-              limit: int = 0,
-              **kwargs
-              ) -> Equipment | List[Equipment]:
-        """
-        Lookup equipment by id, name, nickname, or asset number.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           id: int | None = None,
+    #           name: str | None = None,
+    #           nickname: str | None = None,
+    #           asset_number: str | None = None,
+    #           limit: int = 0,
+    #           **kwargs
+    #           ) -> Equipment | List[Equipment]:
+    #     """
+    #     Lookup equipment by id, name, nickname, or asset number.
 
-        :param id: Equipment id. Defaults to None.
-        :type id: int | None
-        :param name: Equipment name. Defaults to None.
-        :type name: str | None
-        :param nickname: Equipment nickname. Defaults to None.
-        :type nickname: str | None
-        :param asset_number: Equipment asset number. Defaults to None.
-        :type asset_number: str | None
-        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-        :type limit: int
-        :return: Equipment or list of Equipment matching filter.
-        :rtype: Equipment | List[Equipment]
-        """
-        query = cls.__database_session__.query(cls)
-        match id:
-            case int():
-                query = query.filter(cls.id == id)
-                limit = 1
-            case _:
-                pass
-        match name:
-            case str():
-                query = query.filter(cls.name == name)
-                limit = 1
-            case _:
-                pass
-        match nickname:
-            case str():
-                query = query.filter(cls.nickname == nickname)
-                limit = 1
-            case _:
-                pass
-        match asset_number:
-            case str():
-                query = query.filter(cls.asset_number == asset_number)
-                limit = 1
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit)
+    #     :param id: Equipment id. Defaults to None.
+    #     :type id: int | None
+    #     :param name: Equipment name. Defaults to None.
+    #     :type name: str | None
+    #     :param nickname: Equipment nickname. Defaults to None.
+    #     :type nickname: str | None
+    #     :param asset_number: Equipment asset number. Defaults to None.
+    #     :type asset_number: str | None
+    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+    #     :type limit: int
+    #     :return: Equipment or list of Equipment matching filter.
+    #     :rtype: Equipment | List[Equipment]
+    #     """
+    #     query = cls.__database_session__.query(cls)
+    #     match id:
+    #         case int():
+    #             query = query.filter(cls.id == id)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     match name:
+    #         case str():
+    #             query = query.filter(cls.name == name)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     match nickname:
+    #         case str():
+    #             query = query.filter(cls.nickname == nickname)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     match asset_number:
+    #         case str():
+    #             query = query.filter(cls.asset_number == asset_number)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit)
     
     @classmethod
     def manufacturer_regex(cls) -> re.Pattern:
@@ -707,54 +707,54 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         """
         return super().aliases + ["equipmentequipmentroleassociation"]
     
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              equipment: str | Equipment | None = None,
-              equipmentrole: str | EquipmentRole | None = None,
-              process: str | Process | None = None,
-              limit: int = 0,
-              **kwargs) -> EquipmentRoleEquipmentAssociation | List[EquipmentRoleEquipmentAssociation]:
-        """
-        Lookup equipment role associations by equipment, role, or process.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           equipment: str | Equipment | None = None,
+    #           equipmentrole: str | EquipmentRole | None = None,
+    #           process: str | Process | None = None,
+    #           limit: int = 0,
+    #           **kwargs) -> EquipmentRoleEquipmentAssociation | List[EquipmentRoleEquipmentAssociation]:
+    #     """
+    #     Lookup equipment role associations by equipment, role, or process.
 
-        :param equipment: Equipment name or object. Defaults to None.
-        :type equipment: str | Equipment | None
-        :param equipmentrole: EquipmentRole name or object. Defaults to None.
-        :type equipmentrole: str | EquipmentRole | None
-        :param process: Process name or object. Defaults to None.
-        :type process: str | Process | None
-        :param limit: Maximum number of results to return (0=all). Defaults to 0.
-        :type limit: int
-        :return: EquipmentRoleEquipmentAssociation or list matching filter.
-        :rtype: EquipmentRoleEquipmentAssociation | List[EquipmentRoleEquipmentAssociation]
-        """
-        query = cls.__database_session__.query(cls)
-        match equipment:
-            case str():
-                equipment = Equipment.query(name=equipment)
-                query = query.filter(cls._equipment == equipment)
-            case Equipment():
-                query = query.filter(cls._equipment == equipment)
-            case _:
-                pass
-        match equipmentrole:
-            case str():
-                equipmentrole = EquipmentRole.query(name=equipmentrole)
-                query = query.filter(cls._equipmentrole == equipmentrole)
-            case EquipmentRole():
-                query = query.filter(cls._equipmentrole == equipmentrole)
-            case _:
-                pass
-        match process:
-            case str():
-                process = Process.query(name=process)
-                query = query.filter(cls._process == process)
-            case Process():
-                query = query.filter(cls._process == process)
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit, **kwargs)
+    #     :param equipment: Equipment name or object. Defaults to None.
+    #     :type equipment: str | Equipment | None
+    #     :param equipmentrole: EquipmentRole name or object. Defaults to None.
+    #     :type equipmentrole: str | EquipmentRole | None
+    #     :param process: Process name or object. Defaults to None.
+    #     :type process: str | Process | None
+    #     :param limit: Maximum number of results to return (0=all). Defaults to 0.
+    #     :type limit: int
+    #     :return: EquipmentRoleEquipmentAssociation or list matching filter.
+    #     :rtype: EquipmentRoleEquipmentAssociation | List[EquipmentRoleEquipmentAssociation]
+    #     """
+    #     query = cls.__database_session__.query(cls)
+    #     match equipment:
+    #         case str():
+    #             equipment = Equipment.query(name=equipment)
+    #             query = query.filter(cls._equipment == equipment)
+    #         case Equipment():
+    #             query = query.filter(cls._equipment == equipment)
+    #         case _:
+    #             pass
+    #     match equipmentrole:
+    #         case str():
+    #             equipmentrole = EquipmentRole.query(name=equipmentrole)
+    #             query = query.filter(cls._equipmentrole == equipmentrole)
+    #         case EquipmentRole():
+    #             query = query.filter(cls._equipmentrole == equipmentrole)
+    #         case _:
+    #             pass
+    #     match process:
+    #         case str():
+    #             process = Process.query(name=process)
+    #             query = query.filter(cls._process == process)
+    #         case Process():
+    #             query = query.filter(cls._process == process)
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit, **kwargs)
 
 
 class Process(BaseClass):
@@ -937,61 +937,61 @@ class Process(BaseClass):
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._tips")
         self._tips = list_
 
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              name: str | None = None,
-              id: int | None = None,
-              proceduretype: str | ProcedureType | None = None,
-              equipmentrole: str | EquipmentRole | None = None,
-              limit: int = 0,
-              **kwargs) -> Process | List[Process]:
-        """
-        Lookup processes by name, ID, procedure type, or equipment role.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           name: str | None = None,
+    #           id: int | None = None,
+    #           proceduretype: str | ProcedureType | None = None,
+    #           equipmentrole: str | EquipmentRole | None = None,
+    #           limit: int = 0,
+    #           **kwargs) -> Process | List[Process]:
+    #     """
+    #     Lookup processes by name, ID, procedure type, or equipment role.
 
-        :param name: Process name. Defaults to None.
-        :type name: str | None
-        :param id: Process id. Defaults to None.
-        :type id: int | None
-        :param proceduretype: ProcedureType name or object. Defaults to None.
-        :type proceduretype: str | ProcedureType | None
-        :param equipmentrole: EquipmentRole name or object. Defaults to None.
-        :type equipmentrole: str | EquipmentRole | None
-        :param limit: Maximum number of results to return (0=all). Defaults to 0.
-        :type limit: int
-        :return: Process or list of processes matching filter.
-        :rtype: Process | List[Process]
-        """
-        query = cls.__database_session__.query(cls)
-        match proceduretype:
-            case str():
-                proceduretype = ProcedureType.query(name=proceduretype)
-                query = query.filter(cls.proceduretype.contains(proceduretype))
-            case ProcedureType():
-                query = query.filter(cls.proceduretype.contains(proceduretype))
-            case _:
-                pass
-        match equipmentrole:
-            case str():
-                equipmentrole = EquipmentRole.query(name=equipmentrole)
-                query = query.filter(cls.equipmentrole.contains(equipmentrole))
-            case EquipmentRole():
-                query = query.filter(cls.equipmentrole.contains(equipmentrole))
-            case _:
-                pass
-        match name:
-            case str():
-                query = query.filter(cls.name == name)
-                limit = 1
-            case _:
-                pass
-        match id:
-            case int():
-                query = query.filter(cls.id == id)
-                limit = 1
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit)
+    #     :param name: Process name. Defaults to None.
+    #     :type name: str | None
+    #     :param id: Process id. Defaults to None.
+    #     :type id: int | None
+    #     :param proceduretype: ProcedureType name or object. Defaults to None.
+    #     :type proceduretype: str | ProcedureType | None
+    #     :param equipmentrole: EquipmentRole name or object. Defaults to None.
+    #     :type equipmentrole: str | EquipmentRole | None
+    #     :param limit: Maximum number of results to return (0=all). Defaults to 0.
+    #     :type limit: int
+    #     :return: Process or list of processes matching filter.
+    #     :rtype: Process | List[Process]
+    #     """
+    #     query = cls.__database_session__.query(cls)
+    #     match proceduretype:
+    #         case str():
+    #             proceduretype = ProcedureType.query(name=proceduretype)
+    #             query = query.filter(cls.proceduretype.contains(proceduretype))
+    #         case ProcedureType():
+    #             query = query.filter(cls.proceduretype.contains(proceduretype))
+    #         case _:
+    #             pass
+    #     match equipmentrole:
+    #         case str():
+    #             equipmentrole = EquipmentRole.query(name=equipmentrole)
+    #             query = query.filter(cls.equipmentrole.contains(equipmentrole))
+    #         case EquipmentRole():
+    #             query = query.filter(cls.equipmentrole.contains(equipmentrole))
+    #         case _:
+    #             pass
+    #     match name:
+    #         case str():
+    #             query = query.filter(cls.name == name)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     match id:
+    #         case int():
+    #             query = query.filter(cls.id == id)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit)
     
     @check_authorization
     def save(self):
@@ -1202,41 +1202,41 @@ class ProcessVersion(BaseClass):
             [[lot.details_dict for lot in tips.tipslot if bool(lot.active)] for tips in self.process.tips])
         return output
 
-    @classmethod
-    def query(cls,
-              version: str | float | None = None,
-              name: str | None = None,
-              limit: int = 0,
-              active: bool | int | None = None,
-              **kwargs) -> ProcessVersion | List[ProcessVersion]:
-        """
-        Lookup process versions by version, name, or active status.
+    # @classmethod
+    # def query(cls,
+    #           version: str | float | None = None,
+    #           name: str | None = None,
+    #           limit: int = 0,
+    #           active: bool | int | None = None,
+    #           **kwargs) -> ProcessVersion | List[ProcessVersion]:
+    #     """
+    #     Lookup process versions by version, name, or active status.
 
-        :param version: Process version number or string. Defaults to None.
-        :type version: str | float | None
-        :param name: Process version name. Defaults to None.
-        :type name: str | None
-        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-        :type limit: int
-        :param active: Active flag to filter versions. Defaults to None.
-        :type active: bool | int | None
-        :return: ProcessVersion or list of ProcessVersion objects matching filter.
-        :rtype: ProcessVersion | List[ProcessVersion]
-        """
-        query: Query = cls.__database_session__.query(cls)
-        match name:
-            case str():
-                query = query.filter(cls.name == name)
-            case _:
-                pass
-        match version:
-            case str() | float():
-                query = query.filter(cls.version == float(version))
-            case _:
-                pass
-        if active is not None:
-            query = query.filter(cls._active == int(active))
-        return cls.execute_query(query=query, limit=limit)
+    #     :param version: Process version number or string. Defaults to None.
+    #     :type version: str | float | None
+    #     :param name: Process version name. Defaults to None.
+    #     :type name: str | None
+    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+    #     :type limit: int
+    #     :param active: Active flag to filter versions. Defaults to None.
+    #     :type active: bool | int | None
+    #     :return: ProcessVersion or list of ProcessVersion objects matching filter.
+    #     :rtype: ProcessVersion | List[ProcessVersion]
+    #     """
+    #     query: Query = cls.__database_session__.query(cls)
+    #     match name:
+    #         case str():
+    #             query = query.filter(cls.name == name)
+    #         case _:
+    #             pass
+    #     match version:
+    #         case str() | float():
+    #             query = query.filter(cls.version == float(version))
+    #         case _:
+    #             pass
+    #     if active is not None:
+    #         query = query.filter(cls._active == int(active))
+    #     return cls.execute_query(query=query, limit=limit)
 
     
 class Tips(BaseClass):
@@ -1436,55 +1436,55 @@ class Tips(BaseClass):
     def name(cls):
         return func.concat(cls.manufacturer, ' - ', cls.ref, "(", cast(cls.capacity, String), "uL)")
 
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              name: str | None = None,
-              manufacturer: str | None = None,
-              capacity: str | None = None,
-              ref: str | None = None,
-              limit: int = 0,
-              **kwargs) -> Tips | List[Tips]:
-        """
-        Lookup tip types by name, manufacturer, capacity, or reference.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           name: str | None = None,
+    #           manufacturer: str | None = None,
+    #           capacity: str | None = None,
+    #           ref: str | None = None,
+    #           limit: int = 0,
+    #           **kwargs) -> Tips | List[Tips]:
+    #     """
+    #     Lookup tip types by name, manufacturer, capacity, or reference.
 
-        :param name: Tip type display name. Defaults to None.
-        :type name: str | None
-        :param manufacturer: Tip manufacturer name. Defaults to None.
-        :type manufacturer: str | None
-        :param capacity: Tip capacity string. Defaults to None.
-        :type capacity: str | None
-        :param ref: Tip reference code. Defaults to None.
-        :type ref: str | None
-        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-        :type limit: int
-        :return: Tips or list of Tips matching filter.
-        :rtype: Tips | List[Tips]
-        """
-        query = cls.__database_session__.query(cls)
-        match name:
-            case str():
-                query = query.filter(cls.name == name)
-                limit = 1
-            case _:
-                pass
-        match manufacturer:
-            case str():
-                query = query.filter(cls.manufacturer == manufacturer)
-            case _:
-                pass
-        match capacity:
-            case int():
-                query = query.filter(cls.capacity == capacity)
-            case _:
-                pass
-        match ref:
-            case str():
-                query = query.filter(cls.ref == ref)
-                limit = 1
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit)
+    #     :param name: Tip type display name. Defaults to None.
+    #     :type name: str | None
+    #     :param manufacturer: Tip manufacturer name. Defaults to None.
+    #     :type manufacturer: str | None
+    #     :param capacity: Tip capacity string. Defaults to None.
+    #     :type capacity: str | None
+    #     :param ref: Tip reference code. Defaults to None.
+    #     :type ref: str | None
+    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+    #     :type limit: int
+    #     :return: Tips or list of Tips matching filter.
+    #     :rtype: Tips | List[Tips]
+    #     """
+    #     query = cls.__database_session__.query(cls)
+    #     match name:
+    #         case str():
+    #             query = query.filter(cls.name == name)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     match manufacturer:
+    #         case str():
+    #             query = query.filter(cls.manufacturer == manufacturer)
+    #         case _:
+    #             pass
+    #     match capacity:
+    #         case int():
+    #             query = query.filter(cls.capacity == capacity)
+    #         case _:
+    #             pass
+    #     match ref:
+    #         case str():
+    #             query = query.filter(cls.ref == ref)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit)
 
     @check_authorization
     def save(self):
@@ -1768,56 +1768,57 @@ class TipsLot(BaseClass, LogMixin):
                 raise TypeError(f"Unsupported type: {type(value)} for {self.__class__.__qualname__}._active")
         self._active = output
 
-    @classmethod
-    def query(cls,
-              name: str | None = None,
-              manufacturer: str | None = None,
-              ref: str | None = None,
-              lot: str | None = None,
-              limit: int = 0,
-              **kwargs) -> Tips | List[Tips]:
-        """
-        Lookup tips by name, manufacturer, reference, or lot.
+    
+    # @classmethod
+    # def query(cls,
+    #           name: str | None = None,
+    #           manufacturer: str | None = None,
+    #           ref: str | None = None,
+    #           lot: str | None = None,
+    #           limit: int = 0,
+    #           **kwargs) -> Tips | List[Tips]:
+    #     """
+    #     Lookup tips by name, manufacturer, reference, or lot.
 
-        :param name: Tips name. Defaults to None.
-        :type name: str | None
-        :param manufacturer: Tips manufacturer. Defaults to None.
-        :type manufacturer: str | None
-        :param ref: Tips reference. Defaults to None.
-        :type ref: str | None
-        :param lot: Tips lot number. Defaults to None.
-        :type lot: str | None
-        :param limit: Maximum number of results to return (0=all). Defaults to 0.
-        :type limit: int
-        :return: Tips or list of Tips matching filter.
-        :rtype: Tips | List[Tips]
-        """
-        query = cls.__database_session__.query(cls)
-        match name:
-            case str():
-                query = query.filter(cls.name == name)
-                limit = 1
-            case _:
-                pass
-        if manufacturer is not None and ref is not None:
-            manufacturer = None
-        match manufacturer:
-            case str():
-                query = query.join(Tips).filter(Tips.manufacturer == manufacturer)
-            case _:
-                pass
-        match ref:
-            case str():
-                query = query.join(Tips).filter(Tips.ref == ref)
-            case _:
-                pass
-        match lot:
-            case str():
-                query = query.filter(cls.lot == lot)
-                limit = 1
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit)
+    #     :param name: Tips name. Defaults to None.
+    #     :type name: str | None
+    #     :param manufacturer: Tips manufacturer. Defaults to None.
+    #     :type manufacturer: str | None
+    #     :param ref: Tips reference. Defaults to None.
+    #     :type ref: str | None
+    #     :param lot: Tips lot number. Defaults to None.
+    #     :type lot: str | None
+    #     :param limit: Maximum number of results to return (0=all). Defaults to 0.
+    #     :type limit: int
+    #     :return: Tips or list of Tips matching filter.
+    #     :rtype: Tips | List[Tips]
+    #     """
+    #     query = cls.__database_session__.query(cls)
+    #     match name:
+    #         case str():
+    #             query = query.filter(cls.name == name)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     if manufacturer is not None and ref is not None:
+    #         manufacturer = None
+    #     match manufacturer:
+    #         case str():
+    #             query = query.join(Tips).filter(Tips.manufacturer == manufacturer)
+    #         case _:
+    #             pass
+    #     match ref:
+    #         case str():
+    #             query = query.join(Tips).filter(Tips.ref == ref)
+    #         case _:
+    #             pass
+    #     match lot:
+    #         case str():
+    #             query = query.filter(cls.lot == lot)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit)
     
     @check_authorization
     def save(self):
@@ -2416,50 +2417,50 @@ class ProcedureEquipmentAssociation(BaseClass):
         output = PydProcedureEquipmentAssociation(**self.details_dict)
         return output
     
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              equipment: int | Equipment | None = None,
-              procedure: int | Procedure | None = None,
-              equipmentrole: str | None = None,
-              limit: int = 0, **kwargs) \
-            -> Any | List[Any]:
-        """
-        Lookup procedure-equipment association records.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           equipment: int | Equipment | None = None,
+    #           procedure: int | Procedure | None = None,
+    #           equipmentrole: str | None = None,
+    #           limit: int = 0, **kwargs) \
+    #         -> Any | List[Any]:
+    #     """
+    #     Lookup procedure-equipment association records.
 
-        :param equipment: The associated equipment of interest. Defaults to None.
-        :type equipment: int | Equipment | None
-        :param procedure: The associated procedure of interest. Defaults to None.
-        :type procedure: int | Procedure | None
-        :param equipmentrole: The associated equipment role. Defaults to None.
-        :type equipmentrole: str | None
-        :param limit: Maximum number of results to return (0=all). Defaults to 0.
-        :type limit: int
-        :return: ProcedureEquipmentAssociation or list matching filter.
-        :rtype: Any | List[Any]
-        """
-        query: Query = cls.__database_session__.query(cls)
-        match equipment:
-            case int():
-                query = query.filter(cls.equipment_id == equipment)
-            case Equipment():
-                query = query.filter(cls.equipment == equipment)
-            case str():
-                query = query.filter(cls._equipment.has(Equipment.name == equipment))
-            case _:
-                pass
-        match procedure:
-            case int():
-                query = query.filter(cls.procedure_id == procedure)
-            case Procedure():
-                query = query.filter(cls.procedure == procedure)
-            case str():
-                query = query.filter(cls._procedure.has(Procedure.name == procedure))
-            case _:
-                pass
-        if equipmentrole is not None:
-            query = query.filter(cls.equipmentrole == equipmentrole)
-        return cls.execute_query(query=query, limit=limit, **kwargs)
+    #     :param equipment: The associated equipment of interest. Defaults to None.
+    #     :type equipment: int | Equipment | None
+    #     :param procedure: The associated procedure of interest. Defaults to None.
+    #     :type procedure: int | Procedure | None
+    #     :param equipmentrole: The associated equipment role. Defaults to None.
+    #     :type equipmentrole: str | None
+    #     :param limit: Maximum number of results to return (0=all). Defaults to 0.
+    #     :type limit: int
+    #     :return: ProcedureEquipmentAssociation or list matching filter.
+    #     :rtype: Any | List[Any]
+    #     """
+    #     query: Query = cls.__database_session__.query(cls)
+    #     match equipment:
+    #         case int():
+    #             query = query.filter(cls.equipment_id == equipment)
+    #         case Equipment():
+    #             query = query.filter(cls.equipment == equipment)
+    #         case str():
+    #             query = query.filter(cls._equipment.has(Equipment.name == equipment))
+    #         case _:
+    #             pass
+    #     match procedure:
+    #         case int():
+    #             query = query.filter(cls.procedure_id == procedure)
+    #         case Procedure():
+    #             query = query.filter(cls.procedure == procedure)
+    #         case str():
+    #             query = query.filter(cls._procedure.has(Procedure.name == procedure))
+    #         case _:
+    #             pass
+    #     if equipmentrole is not None:
+    #         query = query.filter(cls.equipmentrole == equipmentrole)
+    #     return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @property
     def details_dict(self) -> dict:
@@ -2655,43 +2656,43 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
         """
         super().save()
     
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              proceduretype: str | ProcedureType | None = None,
-              equipmentrole: str | EquipmentRole | None = None,
-              limit: int = 0,
-              **kwargs) -> ProcedureTypeEquipmentRoleAssociation | List[ProcedureTypeEquipmentRoleAssociation]:
-        """
-        Lookup procedure type / equipment role associations.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           proceduretype: str | ProcedureType | None = None,
+    #           equipmentrole: str | EquipmentRole | None = None,
+    #           limit: int = 0,
+    #           **kwargs) -> ProcedureTypeEquipmentRoleAssociation | List[ProcedureTypeEquipmentRoleAssociation]:
+    #     """
+    #     Lookup procedure type / equipment role associations.
 
-        :param proceduretype: ProcedureType name or object. Defaults to None.
-        :type proceduretype: str | ProcedureType | None
-        :param equipmentrole: EquipmentRole name or object. Defaults to None.
-        :type equipmentrole: str | EquipmentRole | None
-        :param limit: Maximum number of results to return (0=all). Defaults to 0.
-        :type limit: int
-        :return: ProcedureTypeEquipmentRoleAssociation or list matching filter.
-        :rtype: ProcedureTypeEquipmentRoleAssociation | List[ProcedureTypeEquipmentRoleAssociation]
-        """
-        query = cls.__database_session__.query(cls)
-        match proceduretype:
-            case str():
-                proceduretype = ProcedureType.query(name=proceduretype)
-                query = query.filter(cls._proceduretype == proceduretype)
-            case ProcedureType():
-                query = query.filter(cls._proceduretype == proceduretype)
-            case _:
-                pass
-        match equipmentrole:
-            case str():
-                equipmentrole = EquipmentRole.query(name=equipmentrole)
-                query = query.filter(cls._equipmentrole == equipmentrole)
-            case EquipmentRole():
-                query = query.filter(cls._equipmentrole == equipmentrole)
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit, **kwargs)
+    #     :param proceduretype: ProcedureType name or object. Defaults to None.
+    #     :type proceduretype: str | ProcedureType | None
+    #     :param equipmentrole: EquipmentRole name or object. Defaults to None.
+    #     :type equipmentrole: str | EquipmentRole | None
+    #     :param limit: Maximum number of results to return (0=all). Defaults to 0.
+    #     :type limit: int
+    #     :return: ProcedureTypeEquipmentRoleAssociation or list matching filter.
+    #     :rtype: ProcedureTypeEquipmentRoleAssociation | List[ProcedureTypeEquipmentRoleAssociation]
+    #     """
+    #     query = cls.__database_session__.query(cls)
+    #     match proceduretype:
+    #         case str():
+    #             proceduretype = ProcedureType.query(name=proceduretype)
+    #             query = query.filter(cls._proceduretype == proceduretype)
+    #         case ProcedureType():
+    #             query = query.filter(cls._proceduretype == proceduretype)
+    #         case _:
+    #             pass
+    #     match equipmentrole:
+    #         case str():
+    #             equipmentrole = EquipmentRole.query(name=equipmentrole)
+    #             query = query.filter(cls._equipmentrole == equipmentrole)
+    #         case EquipmentRole():
+    #             query = query.filter(cls._equipmentrole == equipmentrole)
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit, **kwargs)
 
 
 __all__ = ["EquipmentRole", "Equipment", "EquipmentRoleEquipmentAssociation", "Process", "ProcessVersion", 

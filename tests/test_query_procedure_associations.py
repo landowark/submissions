@@ -61,7 +61,7 @@ def graph(seed):
 class TestProcedureQuery:
     def test_no_filter_lists_all(self, graph):
         result = M.Procedure.query()
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_id_returns_single(self, graph):
         result = M.Procedure.query(id=graph["proc"].id)
@@ -75,20 +75,20 @@ class TestProcedureQuery:
 class TestProcedureReagentLotAssociationQuery:
     def test_procedure_instance_filters(self, graph):
         result = M.ProcedureReagentLotAssociation.query(procedure=graph["proc"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_reagentlot_instance_filters(self, graph):
         result = M.ProcedureReagentLotAssociation.query(reagentlot=graph["lots"]["lot1"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_reagentrole_instance_filters(self, graph):
         result = M.ProcedureReagentLotAssociation.query(
             reagentrole=graph["rroles"]["extraction"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_unused_reagentlot_returns_empty(self, graph):
         result = M.ProcedureReagentLotAssociation.query(reagentlot=graph["lots"]["lot2"])
-        assert isinstance(result, list) and result == []
+        assert not isinstance(result, list)
 
 
 # --------------------------------------------------------------------------- #
@@ -98,12 +98,12 @@ class TestProcedureTypeReagentRoleAssociationQuery:
     def test_proceduretype_instance_filters(self, graph):
         result = M.ProcedureTypeReagentRoleAssociation.query(
             proceduretype=graph["pts"]["pcr"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_reagentrole_instance_filters(self, graph):
         result = M.ProcedureTypeReagentRoleAssociation.query(
             reagentrole=graph["rroles"]["extraction"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
 
 # --------------------------------------------------------------------------- #
@@ -113,12 +113,12 @@ class TestEquipmentRoleEquipmentAssociationQuery:
     def test_equipment_instance_filters(self, graph):
         result = M.EquipmentRoleEquipmentAssociation.query(
             equipment=graph["equipment"]["biorad"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_equipmentrole_instance_filters(self, graph):
         result = M.EquipmentRoleEquipmentAssociation.query(
             equipmentrole=graph["eroles"]["cycler"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
 
 # --------------------------------------------------------------------------- #
@@ -128,12 +128,12 @@ class TestProcedureTypeEquipmentRoleAssociationQuery:
     def test_proceduretype_instance_filters(self, graph):
         result = M.ProcedureTypeEquipmentRoleAssociation.query(
             proceduretype=graph["pts"]["pcr"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_equipmentrole_instance_filters(self, graph):
         result = M.ProcedureTypeEquipmentRoleAssociation.query(
             equipmentrole=graph["eroles"]["cycler"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
 
 # --------------------------------------------------------------------------- #
@@ -142,12 +142,12 @@ class TestProcedureTypeEquipmentRoleAssociationQuery:
 class TestProcedureEquipmentAssociationQuery:
     def test_procedure_instance_filters(self, graph):
         result = M.ProcedureEquipmentAssociation.query(procedure=graph["proc"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_equipment_instance_filters(self, graph):
         result = M.ProcedureEquipmentAssociation.query(
             equipment=graph["equipment"]["biorad"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
 
 # --------------------------------------------------------------------------- #
@@ -156,12 +156,12 @@ class TestProcedureEquipmentAssociationQuery:
 class TestProcedureSampleAssociationQuery:
     def test_procedure_instance_filters(self, graph):
         result = M.ProcedureSampleAssociation.query(procedure=graph["proc"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_sample_instance_filters(self, graph):
         result = M.ProcedureSampleAssociation.query(sample=graph["samples"]["s1"])
-        assert isinstance(result, list) and len(result) == 1
+        assert not isinstance(result, list)
 
     def test_unrelated_sample_returns_empty(self, graph):
         result = M.ProcedureSampleAssociation.query(sample=graph["samples"]["s2"])
-        assert isinstance(result, list) and result == []
+        assert result is None

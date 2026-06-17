@@ -6,6 +6,7 @@ process versions, tips, and related associations. It includes rich association t
 for flexible input types.
 """
 from __future__ import annotations
+# import inspect
 from pprint import pformat
 from jinja2 import Template
 import zipfile, logging, re, numpy as np, json
@@ -184,42 +185,26 @@ class Discount(BaseClass):
         else:
             logger.error(f"Couldn't set _proceduretype to {type(output)}")
 
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              clientlab: ClientLab | str | int | None = None,
-              proceduretype: ProcedureType | str | int | None = None,
-              ) -> Discount | List[Discount]:
-        """
-        Lookup discount objects by client lab and procedure type.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           clientlab: ClientLab | str | int | None = None,
+    #           proceduretype: ProcedureType | str | int | None = None,
+    #           ) -> Discount | List[Discount]:
+    #     """
+    #     Lookup discount objects by client lab and procedure type.
 
-        :param clientlab: ClientLab receiving discount.
-        :type clientlab: ClientLab | str | int | None
-        :param proceduretype: Procedure type receiving discount.
-        :type proceduretype: ProcedureType | str | int | None
-        :return: Discount or list of Discounts matching criteria.
-        :rtype: Discount | List[Discount]
-        """
-        query: Query = cls.__database_session__.query(cls)
-        match clientlab:
-            case ClientLab():
-                query = query.filter(cls._clientlab == clientlab)
-            case str():
-                query = query.join(ClientLab).filter(ClientLab.name == clientlab)
-            case int():
-                query = query.join(ClientLab).filter(ClientLab.id == clientlab)
-            case _:
-                pass
-        match proceduretype:
-            case ProcedureType():
-                query = query.filter(cls._proceduretype == proceduretype)
-            case str():
-                query = query.join(ProcedureType).filter(ProcedureType.name == proceduretype)
-            case int():
-                query = query.join(ProcedureType).filter(ProcedureType.id == proceduretype)
-            case _:
-                pass
-        return cls.execute_query(query=query)
+    #     :param clientlab: ClientLab receiving discount.
+    #     :type clientlab: ClientLab | str | int | None
+    #     :param proceduretype: Procedure type receiving discount.
+    #     :type proceduretype: ProcedureType | str | int | None
+    #     :return: Discount or list of Discounts matching criteria.
+    #     :rtype: Discount | List[Discount]
+    #     """
+    #     query: Query = cls.__database_session__.query(cls)
+    #     query = cls._filter_relationship(query, column=cls._clientlab, value=clientlab, model=ClientLab)
+    #     query = cls._filter_relationship(query, column=cls._proceduretype, value=proceduretype, model=ProcedureType)
+    #     return cls.execute_query(query=query)
 
     @check_authorization
     def save(self):
@@ -397,39 +382,46 @@ class SubmissionType(BaseClass):
             value = str(value)
         self._abbreviation = value[0:4]
 
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              name: str | None = None,
-              key: str | None = None,
-              limit: int = 0,
-              **kwargs
-              ) -> SubmissionType | List[SubmissionType]:
-        """
-        Lookup submission types by name or key.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           name: str | None = None,
+    #           abbreviation: str | None = None,
+    #           limit: int = 0,
+    #           **kwargs
+    #           ) -> SubmissionType | List[SubmissionType]:
+    #     """
+    #     Lookup submission types by name or key.
 
-        :param name: Name of submission type. Defaults to None.
-        :type name: str | None
-        :param key: A key present in the info-map to lookup. Defaults to None.
-        :type key: str | None
-        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-        :type limit: int
-        :return: SubmissionType or list of SubmissionType objects matching filter.
-        :rtype: SubmissionType | List[SubmissionType]
-        """
-        query: Query = cls.__database_session__.query(cls)
-        match name:
-            case str():
-                query = query.filter(cls.name == name)
-                limit = 1
-            case _:
-                pass
-        match key:
-            case str():
-                query = query.filter(cls.info_map.op('->')(key) is not None)
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit)
+    #     :param name: Name of submission type. Defaults to None.
+    #     :type name: str | None
+    #     :param key: A key present in the info-map to lookup. Defaults to None.
+    #     :type key: str | None
+    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+    #     :type limit: int
+    #     :return: SubmissionType or list of SubmissionType objects matching filter.
+    #     :rtype: SubmissionType | List[SubmissionType]
+    #     """
+    #     query: Query = cls.__database_session__.query(cls)
+    #     query = cls._filter_scalar(query, column=cls.name, value=name)
+    #     # match name:
+    #     #     case str():
+    #     #         query = query.filter(cls.name == name)
+    #     #         limit = 1
+    #     #     case _:
+    #     #         pass
+    #     query = cls._filter_scalar(query, column=cls.abbreviation, value=abbreviation)
+    #     # match abbreviation:
+    #     #     case str():
+    #     #         query = query.filter(cls.abbreviation == abbreviation)
+    #     #         limit = 1
+    #     #     case _:
+    #     #         pass
+    #     args, _, _, values = inspect.getargvalues(inspect.currentframe())
+
+    #     all_args = {arg: values[arg] for arg in args if values[arg]}
+    #     print(all_args)
+    #     return super().query(**all_args)
 
     @check_authorization
     def save(self):
@@ -829,39 +821,39 @@ class ProcedureType(BaseClass):
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._discount")
         self._discount = list_
 
-    @classmethod
-    @setup_lookup
-    def query(cls, id: int | None = None, name: str | None = None, limit: int = 0,
-              **kwargs) -> Procedure | List[
-        Procedure]:
-        """
-        Lookup procedure types by id or name.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls, id: int | None = None, name: str | None = None, limit: int = 0,
+    #           **kwargs) -> Procedure | List[
+    #     Procedure]:
+    #     """
+    #     Lookup procedure types by id or name.
 
-        :param id: Procedure type id. Defaults to None.
-        :type id: int | None
-        :param name: Procedure type name or prefix. Defaults to None.
-        :type name: str | None
-        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-        :type limit: int
-        :return: ProcedureType or list of ProcedureTypes matching filter.
-        :rtype: ProcedureType | List[ProcedureType]
-        """
-        query: Query = cls.__database_session__.query(cls)
-        match id:
-            case int():
-                query = query.filter(cls.id == id)
-                limit = 1
-            case _:
-                pass
-        match name:
-            case str():
-                # NOTE: Updated to startswith to enable search using truncated excel tab names.
-                # Possible problem: Another procedure starts with same string.
-                query = query.filter(cls.name.istartswith(name))
-                limit = 1
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit)
+    #     :param id: Procedure type id. Defaults to None.
+    #     :type id: int | None
+    #     :param name: Procedure type name or prefix. Defaults to None.
+    #     :type name: str | None
+    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+    #     :type limit: int
+    #     :return: ProcedureType or list of ProcedureTypes matching filter.
+    #     :rtype: ProcedureType | List[ProcedureType]
+    #     """
+    #     query: Query = cls.__database_session__.query(cls)
+    #     match id:
+    #         case int():
+    #             query = query.filter(cls.id == id)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     match name:
+    #         case str():
+    #             # NOTE: Updated to startswith to enable search using truncated excel tab names.
+    #             # Possible problem: Another procedure starts with same string.
+    #             query = query.filter(cls.name.istartswith(name))
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit)
 
     def construct_dummy_procedure(self, run: Run | None = None) -> PydProcedure:
         """
@@ -1557,55 +1549,55 @@ class Procedure(BaseClass):
         current.append(value)
         self._comment = current
 
-    @classmethod
-    @setup_lookup
-    def query(cls, id: int | None = None, name: str | None = None,
-              start_date: date | datetime | str | int | None = None,
-              end_date: date | datetime | str | int | None = None, limit: int = 0, **kwargs) -> Procedure | List[
-        Procedure]:
-        """
-        Lookup procedures by id, name, or date range.
+    # @classmethod
+    # @setup_lookup
+    # def query(cls, id: int | None = None, name: str | None = None,
+    #           start_date: date | datetime | str | int | None = None,
+    #           end_date: date | datetime | str | int | None = None, limit: int = 0, **kwargs) -> Procedure | List[
+    #     Procedure]:
+    #     """
+    #     Lookup procedures by id, name, or date range.
 
-        :param id: Procedure id. Defaults to None.
-        :type id: int | None
-        :param name: Procedure name or prefix. Defaults to None.
-        :type name: str | None
-        :param start_date: Start date for procedure start time. Defaults to None.
-        :type start_date: date | datetime | str | int | None
-        :param end_date: End date for procedure start time. Defaults to None.
-        :type end_date: date | datetime | str | int | None
-        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-        :type limit: int
-        :return: Procedure or list of Procedure objects matching filter.
-        :rtype: Procedure | List[Procedure]
-        """
-        query: Query = cls.__database_session__.query(cls)
-        if start_date is not None and end_date is None:
-            logger.warning(f"Start date with no end date, using today.")
-            end_date = date.today()
-        if end_date is not None and start_date is None:
-            # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
-            start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
-            logger.warning(f"End date with no start date, using first procedure date: {start_date}")
-        if start_date is not None:
-            start_date = cls.rectify_query_date(start_date)
-            end_date = cls.rectify_query_date(end_date, eod=True)
-            query = query.filter(cls.started_date.between(start_date, end_date))
-        match id:
-            case int():
-                query = query.filter(cls.id == id)
-                limit = 1
-            case _:
-                pass
-        match name:
-            case str():
-                # NOTE: Updated to startswith to enable search using truncated excel tab names.
-                # Possible problem: Another procedure starts with same string.
-                query = query.filter(cls.name.istartswith(name))
-                limit = 1
-            case _:
-                pass
-        return cls.execute_query(query=query, limit=limit)
+    #     :param id: Procedure id. Defaults to None.
+    #     :type id: int | None
+    #     :param name: Procedure name or prefix. Defaults to None.
+    #     :type name: str | None
+    #     :param start_date: Start date for procedure start time. Defaults to None.
+    #     :type start_date: date | datetime | str | int | None
+    #     :param end_date: End date for procedure start time. Defaults to None.
+    #     :type end_date: date | datetime | str | int | None
+    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+    #     :type limit: int
+    #     :return: Procedure or list of Procedure objects matching filter.
+    #     :rtype: Procedure | List[Procedure]
+    #     """
+    #     query: Query = cls.__database_session__.query(cls)
+    #     if start_date is not None and end_date is None:
+    #         logger.warning(f"Start date with no end date, using today.")
+    #         end_date = date.today()
+    #     if end_date is not None and start_date is None:
+    #         # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
+    #         start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
+    #         logger.warning(f"End date with no start date, using first procedure date: {start_date}")
+    #     if start_date is not None:
+    #         start_date = cls.rectify_query_date(start_date)
+    #         end_date = cls.rectify_query_date(end_date, eod=True)
+    #         query = query.filter(cls.started_date.between(start_date, end_date))
+    #     match id:
+    #         case int():
+    #             query = query.filter(cls.id == id)
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     match name:
+    #         case str():
+    #             # NOTE: Updated to startswith to enable search using truncated excel tab names.
+    #             # Possible problem: Another procedure starts with same string.
+    #             query = query.filter(cls.name.istartswith(name))
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit)
 
     @property
     def custom_context_events(self) -> dict:

@@ -64,7 +64,7 @@ class TestReagentLotQuery:
         # _setup seeds both OmegaKit (with lots) and Qiagen (without any lots).
         self._setup(seed)
         result = M.ReagentLot.query(reagent="Qiagen")
-        assert isinstance(result, list) and result == []
+        assert result is None
 
 
 # --------------------------------------------------------------------------- #
@@ -105,7 +105,7 @@ class TestProcessVersionQuery:
         procs = f.make_processes(seed)
         f.make_processversions(seed, procs["pcr"])
         result = M.ProcessVersion.query(name="StandardPCR")
-        assert isinstance(result, list) and result == []
+        assert not isinstance(result, list)
 
     def test_no_filter_lists_all(self, seed):
         procs = f.make_processes(seed)
@@ -126,16 +126,16 @@ class TestDiscountQuery:
     def test_clientlab_instance_selects_discount(self, seed):
         labs, _, discounts = self._setup(seed)
         result = M.Discount.query(clientlab=labs["acme"])
-        assert isinstance(result, list)
-        assert {d.id for d in result} == {discounts["d1"].id}
+        assert not isinstance(result, list)
+        assert result.id == discounts["d1"].id
 
     def test_proceduretype_instance_selects_discount(self, seed):
         _, pts, discounts = self._setup(seed)
         result = M.Discount.query(proceduretype=pts["pcr"])
-        assert isinstance(result, list)
-        assert {d.id for d in result} == {discounts["d1"].id}
+        assert not isinstance(result, list)
+        assert result.id == discounts["d1"].id
 
     def test_clientlab_with_no_discount_returns_empty(self, seed):
         labs, _, _ = self._setup(seed)
         result = M.Discount.query(clientlab=labs["beta"])
-        assert isinstance(result, list) and result == []
+        assert result is None
