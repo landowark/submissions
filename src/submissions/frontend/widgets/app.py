@@ -124,14 +124,14 @@ class App(QMainWindow):
         """
         toolbar = QToolBar("My main toolbar")
         self.addToolBar(toolbar)
-        toolbar.addAction(self.addReagentAction)
+        # toolbar.addAction(self.addReagentAction)
 
     def _createActions(self):
         """
         creates actions
         """
         self.importAction = QAction("&Import Submission", self)
-        self.addReagentAction = QAction("Add Reagent", self)
+        # self.addReagentAction = QAction("Add Reagent", self)
         self.joinExtractionAction = QAction("Link Extraction Logs")
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)

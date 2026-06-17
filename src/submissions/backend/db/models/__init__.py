@@ -725,6 +725,8 @@ class BaseClass(Base):
             # NOTE: determine which fields to limit to 1.
         # singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
+            if v is None:
+                continue
             try:
                 attr = getattr(cls, k)
             except (ArgumentError, AttributeError) as e:

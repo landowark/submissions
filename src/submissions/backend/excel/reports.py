@@ -166,6 +166,7 @@ class TurnaroundMaker(ReportArchetype):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
+        print(submission_types)
         self.subs = ClientSubmission.query(start_date=start_date, end_date=end_date,
                                    submissiontype=submission_types, page_size=0)
         records = [self.build_record(sub) for sub in self.subs]

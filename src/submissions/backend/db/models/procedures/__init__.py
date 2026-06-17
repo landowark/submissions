@@ -1549,13 +1549,11 @@ class Procedure(BaseClass):
         current.append(value)
         self._comment = current
 
-    # @classmethod
+    @classmethod
     # @setup_lookup
-    # def query(cls, id: int | None = None, name: str | None = None,
-    #           start_date: date | datetime | str | int | None = None,
-    #           end_date: date | datetime | str | int | None = None, limit: int = 0, **kwargs) -> Procedure | List[
-    #     Procedure]:
-    #     """
+    def query(cls, start_date: date | datetime | str | int | None = None,
+              end_date: date | datetime | str | int | None = None, **kwargs) -> Procedure | List[Procedure]:
+        """
     #     Lookup procedures by id, name, or date range.
 
     #     :param id: Procedure id. Defaults to None.
@@ -1571,18 +1569,18 @@ class Procedure(BaseClass):
     #     :return: Procedure or list of Procedure objects matching filter.
     #     :rtype: Procedure | List[Procedure]
     #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     if start_date is not None and end_date is None:
-    #         logger.warning(f"Start date with no end date, using today.")
-    #         end_date = date.today()
-    #     if end_date is not None and start_date is None:
-    #         # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
-    #         start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
-    #         logger.warning(f"End date with no start date, using first procedure date: {start_date}")
-    #     if start_date is not None:
-    #         start_date = cls.rectify_query_date(start_date)
-    #         end_date = cls.rectify_query_date(end_date, eod=True)
-    #         query = query.filter(cls.started_date.between(start_date, end_date))
+        query: Query = cls.__database_session__.query(cls)
+        if start_date is not None and end_date is None:
+            logger.warning(f"Start date with no end date, using today.")
+            end_date = date.today()
+        if end_date is not None and start_date is None:
+            # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
+            start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
+            logger.warning(f"End date with no start date, using first procedure date: {start_date}")
+        if start_date is not None:
+            start_date = cls.rectify_query_date(start_date)
+            end_date = cls.rectify_query_date(end_date, eod=True)
+            query = query.filter(cls.started_date.between(start_date, end_date))
     #     match id:
     #         case int():
     #             query = query.filter(cls.id == id)
@@ -1597,7 +1595,7 @@ class Procedure(BaseClass):
     #             limit = 1
     #         case _:
     #             pass
-    #     return cls.execute_query(query=query, limit=limit)
+        return super().query(query=query, **kwargs)
 
     @property
     def custom_context_events(self) -> dict:

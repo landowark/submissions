@@ -368,21 +368,21 @@ class ClientSubmission(BaseClass, LogMixin):
             return 0
 
     # TODO: get chronologic working
-    # @classmethod
+    @classmethod
     # @setup_lookup
-    # def query(cls,
+    def query(cls,
     #           submissiontype: str | SubmissionType | list[str | SubmissionType] | None = None,
     #           clientlab: str | ClientLab | None = None,
     #           id: int | str | None = None,
     #           submitter_plate_id: str | None = None,
-    #           start_date: date | datetime | str | int | None = None,
-    #           end_date: date | datetime | str | int | None = None,
-    #           chronologic: bool = False,
+              start_date: date | datetime | str | int | None = None,
+              end_date: date | datetime | str | int | None = None,
+            #   chronologic: bool = False,
     #           limit: int = 0,
-    #           page: int = 1,
+            #   page: int = 1,
     #           page_size: None | int = 250,
-    #           **kwargs
-    #           ) -> ClientSubmission | List[ClientSubmission]:
+              **kwargs
+              ) -> ClientSubmission | List[ClientSubmission]:
     #     """
     #     Lookup procedure based on a number of parameters. Overrides parent.
 
@@ -401,19 +401,19 @@ class ClientSubmission(BaseClass, LogMixin):
     #     """
     #     # from ... import RunReagentAssociation
     #     # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
-    #     query: Query = cls.__database_session__.query(cls)
-    #     if start_date is not None and end_date is None:
-    #         logger.warning(f"Start date with no end date, using today.")
-    #         end_date = date.today()
-    #     if end_date is not None and start_date is None:
-    #         # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
-    #         start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
-    #         logger.warning(f"End date with no start date, using first procedure date: {start_date}")
-    #     if start_date is not None:
-    #         start_date = cls.rectify_query_date(start_date)
-    #         end_date = cls.rectify_query_date(end_date, eod=True)
-    #         query = query.filter(cls.submitted_date.between(start_date, end_date))
-    #     # NOTE: by rsl number (returns only a single value)
+        query: Query = cls.__database_session__.query(cls)
+        if start_date is not None and end_date is None:
+            logger.warning(f"Start date with no end date, using today.")
+            end_date = date.today()
+        if end_date is not None and start_date is None:
+            # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
+            start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
+            logger.warning(f"End date with no start date, using first procedure date: {start_date}")
+        if start_date is not None:
+            start_date = cls.rectify_query_date(start_date)
+            end_date = cls.rectify_query_date(end_date, eod=True)
+            query = query.filter(cls.submitted_date.between(start_date, end_date))
+        # NOTE: by rsl number (returns only a single value)
     #     match submitter_plate_id:
     #         case str():
     #             query = query.filter(cls.submitter_plate_id == submitter_plate_id)
@@ -464,6 +464,7 @@ class ClientSubmission(BaseClass, LogMixin):
     #     if chronologic:
     #         query = query.order_by(cls.submitted_date.desc())
     #     return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
+        return super().query(query=query, **kwargs)
 
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
