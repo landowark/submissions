@@ -472,7 +472,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         if len(fields) == 0:
             fields = self.improved_dict.keys()
         dict_ = self.improved_dict
+                
         for field in fields:
+            
             match field:
                 case str():
                     key = field
@@ -624,7 +626,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # re-running query_or_create, which would overwrite sql_instance and
         # break callers that are mid-execution (e.g. circular PRLA -> Procedure refs).
         if self.new:
-            # logger.debug("Creating new SQL instance with lookup kwargs: " + pformat(self._sql_lookup_kwargs))
+            if self.__class__.__name__ == "PydSample":
+                logger.debug("Creating new Sample instance with lookup kwargs: " + pformat(self._sql_lookup_kwargs))
             instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs)
             # logger.debug(f"Got SQL instance {instance} for {self.__class__.__name__} with kwargs {self._sql_lookup_kwargs}")
             self.sql_instance = instance

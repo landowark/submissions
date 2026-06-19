@@ -199,40 +199,40 @@ class ClientLab(BaseClass):
 
     ##### Query Function #####
     
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           id: int | None = None,
-    #           name: str | None = None,
-    #           limit: int = 0,
-    #           **kwargs) -> ClientLab | List[ClientLab]:
-    #     """
-    #     Lookup client labs in the database by various parameters.
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              id: int | None = None,
+              name: str | None = None,
+              limit: int = 0,
+              **kwargs) -> ClientLab | List[ClientLab]:
+        """
+        Lookup client labs in the database by various parameters.
 
-    #     :param id: ID integer of the client lab
-    #     :type id: int | None
-    #     :param name: Name of the client lab (partial match)
-    #     :type name: str | None
-    #     :param limit: Maximum number of results to return (0 = all)
-    #     :type limit: int
-    #     :param kwargs: Additional keyword arguments
-    #     :return: Single ClientLab if id/name specified, otherwise list of ClientLab objects
-    #     :rtype: ClientLab | List[ClientLab]
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     match id:
-    #         case int():
-    #             query = query.filter(cls.id == id)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     match name:
-    #         case str():
-    #             query = query.filter(cls.name.startswith(name))
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     return cls.execute_query(query=query, limit=limit)
+        :param id: ID integer of the client lab
+        :type id: int | None
+        :param name: Name of the client lab (partial match)
+        :type name: str | None
+        :param limit: Maximum number of results to return (0 = all)
+        :type limit: int
+        :param kwargs: Additional keyword arguments
+        :return: Single ClientLab if id/name specified, otherwise list of ClientLab objects
+        :rtype: ClientLab | List[ClientLab]
+        """
+        query: Query = cls.__database_session__.query(cls)
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case _:
+                pass
+        match name:
+            case str():
+                query = query.filter(cls.name.startswith(name))
+                limit = 1
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
 
     @check_authorization
     def save(self):
@@ -416,57 +416,57 @@ class Contact(BaseClass):
 
     ##### Query Function #####
 
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           id: int | None = None,
-    #           name: str | None = None,
-    #           email: str | None = None,
-    #           tel: str | None = None, # Named tel to setup javascript compatibility, but this is the phone number of the contact
-    #           limit: int = 0,
-    #           ) -> Contact | List[Contact]:
-    #     """
-    #     Lookup contacts in the database by various parameters.
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              id: int | None = None,
+              name: str | None = None,
+              email: str | None = None,
+              tel: str | None = None, # Named tel to setup javascript compatibility, but this is the phone number of the contact
+              limit: int = 0,
+              ) -> Contact | List[Contact]:
+        """
+        Lookup contacts in the database by various parameters.
 
-    #     :param id: ID integer of the contact
-    #     :type id: int | None
-    #     :param name: Name of the contact (exact match, title case)
-    #     :type name: str | None
-    #     :param email: Email address of the contact (exact match)
-    #     :type email: str | None
-    #     :param tel: Phone number of the contact (exact match)
-    #     :type tel: str | None
-    #     :param limit: Maximum number of results to return (0 = all)
-    #     :type limit: int
-    #     :return: Single Contact if specific parameters match, otherwise list of Contact objects
-    #     :rtype: Contact | List[Contact]
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     match id:
-    #         case int():
-    #             query = query.filter(cls.id == id)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     match name:
-    #         case str():
-    #             query = query.filter(cls.name == name.title())
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     match email:
-    #         case str():
-    #             query = query.filter(cls.email == email)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     match tel:
-    #         case str():
-    #             query = query.filter(cls.tel == tel)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     return cls.execute_query(query=query, limit=limit)
+        :param id: ID integer of the contact
+        :type id: int | None
+        :param name: Name of the contact (exact match, title case)
+        :type name: str | None
+        :param email: Email address of the contact (exact match)
+        :type email: str | None
+        :param tel: Phone number of the contact (exact match)
+        :type tel: str | None
+        :param limit: Maximum number of results to return (0 = all)
+        :type limit: int
+        :return: Single Contact if specific parameters match, otherwise list of Contact objects
+        :rtype: Contact | List[Contact]
+        """
+        query: Query = cls.__database_session__.query(cls)
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case _:
+                pass
+        match name:
+            case str():
+                query = query.filter(cls.name == name.title())
+                limit = 1
+            case _:
+                pass
+        match email:
+            case str():
+                query = query.filter(cls.email == email)
+                limit = 1
+            case _:
+                pass
+        match tel:
+            case str():
+                query = query.filter(cls.tel == tel)
+                limit = 1
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
 
 
 __all__ = ["ClientLab", "Contact", "clientlab_contact"]

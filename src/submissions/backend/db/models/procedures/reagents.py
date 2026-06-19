@@ -665,48 +665,48 @@ class ReagentLot(BaseClass):
         return regeant_subquery + " - " + cls.lot
 
     
-    # @classmethod
-    # def query(cls,
-    #           lot: str | None = None,
-    #           name: str | None = None,
-    #           reagent: str | Reagent | None = None,
-    #           limit: int = 0,
-    #           **kwargs) -> ReagentLot | List[ReagentLot]:
-    #     """
-    #     Lookup reagent lots by lot number, reagent name, or display name.
+    @classmethod
+    def query(cls,
+              lot: str | None = None,
+              name: str | None = None,
+              reagent: str | Reagent | None = None,
+              limit: int = 0,
+              **kwargs) -> ReagentLot | List[ReagentLot]:
+        """
+        Lookup reagent lots by lot number, reagent name, or display name.
 
-    #     :param lot: Lot number of this reagent instance. Defaults to None.
-    #     :type lot: str | None
-    #     :param name: Display name of this reagent lot. Defaults to None.
-    #     :type name: str | None
-    #     :param reagent: Parent reagent or reagent name. Defaults to None.
-    #     :type reagent: Reagent | str | None
-    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-    #     :type limit: int
-    #     :return: ReagentLot or list of ReagentLots matching filter.
-    #     :rtype: ReagentLot | List[ReagentLot]
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     match lot:
-    #         case str():
-    #             query = query.filter(cls.lot == lot)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     match reagent:
-    #         case str():
-    #             query = query.join(Reagent).filter(Reagent.name==reagent)
-    #         case Reagent():
-    #             query = query.filter(cls._reagent==reagent)
-    #         case _:
-    #             pass
-    #     match name:
-    #         case str():
-    #             query = query.filter(cls.name == name)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     return cls.execute_query(query=query, limit=limit)
+        :param lot: Lot number of this reagent instance. Defaults to None.
+        :type lot: str | None
+        :param name: Display name of this reagent lot. Defaults to None.
+        :type name: str | None
+        :param reagent: Parent reagent or reagent name. Defaults to None.
+        :type reagent: Reagent | str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: ReagentLot or list of ReagentLots matching filter.
+        :rtype: ReagentLot | List[ReagentLot]
+        """
+        query: Query = cls.__database_session__.query(cls)
+        match lot:
+            case str():
+                query = query.filter(cls.lot == lot)
+                limit = 1
+            case _:
+                pass
+        match reagent:
+            case str():
+                query = query.join(Reagent).filter(Reagent.name==reagent)
+            case Reagent():
+                query = query.filter(cls._reagent==reagent)
+            case _:
+                pass
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+                limit = 1
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
 
     @property
     def details_dict(self) -> dict:
@@ -1052,51 +1052,51 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         # NOTE: Can't use f strings for this.
         return proceduretype_subquery + "->" + reagentrole_subquery
 
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           reagentrole: ReagentRole | str | None = None,
-    #           proceduretype: ProcedureType | str | None = None,
-    #           name: str | None = None,
-    #           limit: int = 0,
-    #           **kwargs
-    #           ) -> ProcedureTypeReagentRoleAssociation | List[ProcedureTypeReagentRoleAssociation]:
-    #     """
-    #     Lookup procedure type / reagent role associations.
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              reagentrole: ReagentRole | str | None = None,
+              proceduretype: ProcedureType | str | None = None,
+              name: str | None = None,
+              limit: int = 0,
+              **kwargs
+              ) -> ProcedureTypeReagentRoleAssociation | List[ProcedureTypeReagentRoleAssociation]:
+        """
+        Lookup procedure type / reagent role associations.
 
-    #     :param reagentrole: ReagentRole of interest. Defaults to None.
-    #     :type reagentrole: ReagentRole | str | None
-    #     :param proceduretype: ProcedureType of interest. Defaults to None.
-    #     :type proceduretype: ProcedureType | str | None
-    #     :param name: Association name. Defaults to None.
-    #     :type name: str | None
-    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-    #     :type limit: int
-    #     :return: ProcedureTypeReagentRoleAssociation or list matching filter.
-    #     :rtype: ProcedureTypeReagentRoleAssociation | List[ProcedureTypeReagentRoleAssociation]
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     match reagentrole:
-    #         case ReagentRole():
-    #             query = query.filter(cls.reagentrole == reagentrole)
-    #         case str():
-    #             query = query.join(ReagentRole).filter(ReagentRole.name == reagentrole)
-    #         case _:
-    #             pass
-    #     match proceduretype:
-    #         case ProcedureType():
-    #             query = query.filter(cls.proceduretype == proceduretype)
-    #         case str():
-    #             query = query.join(ProcedureType).filter(ProcedureType.name == proceduretype)
-    #         case _:
-    #             pass
-    #     match name:
-    #         case str():
-    #             query = query.filter(cls.name == name)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     return cls.execute_query(query=query, limit=limit)
+        :param reagentrole: ReagentRole of interest. Defaults to None.
+        :type reagentrole: ReagentRole | str | None
+        :param proceduretype: ProcedureType of interest. Defaults to None.
+        :type proceduretype: ProcedureType | str | None
+        :param name: Association name. Defaults to None.
+        :type name: str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: ProcedureTypeReagentRoleAssociation or list matching filter.
+        :rtype: ProcedureTypeReagentRoleAssociation | List[ProcedureTypeReagentRoleAssociation]
+        """
+        query: Query = cls.__database_session__.query(cls)
+        match reagentrole:
+            case ReagentRole():
+                query = query.filter(cls.reagentrole == reagentrole)
+            case str():
+                query = query.join(ReagentRole).filter(ReagentRole.name == reagentrole)
+            case _:
+                pass
+        match proceduretype:
+            case ProcedureType():
+                query = query.filter(cls.proceduretype == proceduretype)
+            case str():
+                query = query.join(ProcedureType).filter(ProcedureType.name == proceduretype)
+            case _:
+                pass
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+                limit = 1
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
 
     def update_last_used(self, reagentlot: ReagentLot):
         self._last_used = reagentlot
@@ -1281,57 +1281,57 @@ class ProcedureReagentLotAssociation(BaseClass):
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
 
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           name: str | None = None,
-    #           procedure: Procedure | str | int | None = None,
-    #           reagentlot: ReagentLot | str | None = None,
-    #           reagentrole: str | ReagentRole | None = None,
-    #           limit: int = 0) -> ProcedureReagentLotAssociation | List[ProcedureReagentLotAssociation]:
-    #     """
-    #     Lookup procedure/reagent lot associations.
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              name: str | None = None,
+              procedure: Procedure | str | int | None = None,
+              reagentlot: ReagentLot | str | None = None,
+              reagentrole: str | ReagentRole | None = None,
+              limit: int = 0) -> ProcedureReagentLotAssociation | List[ProcedureReagentLotAssociation]:
+        """
+        Lookup procedure/reagent lot associations.
 
-    #     :param name: Association name. Defaults to None.
-    #     :type name: str | None
-    #     :param procedure: Identifier of joined procedure. Defaults to None.
-    #     :type procedure: Procedure | str | int | None
-    #     :param reagentlot: Identifier of joined reagent lot. Defaults to None.
-    #     :type reagentlot: ReagentLot | str | None
-    #     :param reagentrole: Identifier of joined reagent role. Defaults to None.
-    #     :type reagentrole: ReagentRole | str | None
-    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-    #     :type limit: int
-    #     :return: ProcedureReagentLotAssociation or list matching filter.
-    #     :rtype: ProcedureReagentLotAssociation | List[ProcedureReagentLotAssociation]
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     match name:
-    #         case str():
-    #             query = query.filter(cls.name == name)
-    #         case _:
-    #             pass
-    #     match reagentlot:
-    #         case ReagentLot() | str():
-    #             if isinstance(reagentlot, str):
-    #                 reagentlot = ReagentLot.query(lot=reagentlot)
-    #             query = query.filter(cls.reagentlot == reagentlot)
-    #         case _:
-    #             pass
-    #     match procedure:
-    #         case Procedure() | str():
-    #             if isinstance(procedure, str):
-    #                 procedure = Procedure.query(name=procedure)
-    #             query = query.filter(cls.procedure == procedure)
-    #         case int():
-    #             query = query.join(Procedure).filter(Procedure.id == procedure)
-    #         case _:
-    #             pass
-    #     if reagentrole:
-    #         if isinstance(reagentrole, str):
-    #             reagentrole = ReagentRole.query(name=reagentrole)
-    #         query = query.filter(cls.reagentrole == reagentrole)
-    #     return cls.execute_query(query=query, limit=limit)
+        :param name: Association name. Defaults to None.
+        :type name: str | None
+        :param procedure: Identifier of joined procedure. Defaults to None.
+        :type procedure: Procedure | str | int | None
+        :param reagentlot: Identifier of joined reagent lot. Defaults to None.
+        :type reagentlot: ReagentLot | str | None
+        :param reagentrole: Identifier of joined reagent role. Defaults to None.
+        :type reagentrole: ReagentRole | str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: ProcedureReagentLotAssociation or list matching filter.
+        :rtype: ProcedureReagentLotAssociation | List[ProcedureReagentLotAssociation]
+        """
+        query: Query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+            case _:
+                pass
+        match reagentlot:
+            case ReagentLot() | str():
+                if isinstance(reagentlot, str):
+                    reagentlot = ReagentLot.query(lot=reagentlot)
+                query = query.filter(cls.reagentlot == reagentlot)
+            case _:
+                pass
+        match procedure:
+            case Procedure() | str():
+                if isinstance(procedure, str):
+                    procedure = Procedure.query(name=procedure)
+                query = query.filter(cls.procedure == procedure)
+            case int():
+                query = query.join(Procedure).filter(Procedure.id == procedure)
+            case _:
+                pass
+        if reagentrole:
+            if isinstance(reagentrole, str):
+                reagentrole = ReagentRole.query(name=reagentrole)
+            query = query.filter(cls.reagentrole == reagentrole)
+        return cls.execute_query(query=query, limit=limit)
 
     @property
     def details_dict(self) -> dict:

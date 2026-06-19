@@ -569,7 +569,6 @@ def setup_lookup(func):
         for k, v in locals()['kwargs'].items():
             match v:
                 case dict():
-            # if isinstance(v, dict):
                     if not v:
                         continue
                     try:
@@ -581,10 +580,10 @@ def setup_lookup(func):
                         sanitized_kwargs[k] = v.value
                     except AttributeError:
                         raise AttributeError(f"Could not sanitize SourcedField {v} in query. Make sure you parse it first.")
-
-            # elif v is not None:
                 case _:
                     sanitized_kwargs[k] = v
+        if set(sanitized_kwargs.keys()) & set(["name", "id"]):
+            sanitized_kwargs['limit'] = 1
         return func(*args, **sanitized_kwargs)
     return wrapper
 

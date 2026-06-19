@@ -190,6 +190,10 @@ class RSLNamer(object):
                 except (AttributeError, KeyError):
                     submitted_date = datetime.now()
         previous = Run.query(start_date=submitted_date, end_date=submitted_date, submissiontype_name=data['submissiontype'])
+        if previous:
+            if not isinstance(previous, list):
+                previous = [previous]
+        previous = previous or []
         plate_number = len(previous) + 1
         return f"RSL-{data['abbreviation']}-{submitted_date.year}{str(submitted_date.month).zfill(2)}{str(submitted_date.day).zfill(2)}-{plate_number}"
 

@@ -13,7 +13,7 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.exc import ArgumentError, IntegrityError, OperationalError
+from sqlalchemy.exc import ArgumentError, IntegrityError, OperationalError, StatementError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
 from tools import report_result, Report, Alert, ctx
@@ -618,7 +618,7 @@ class BaseClass(Base):
 
         :return: (instance, is_new)
         """
-        logger.debug(f"query_or_create called on {cls.__name__} with kwargs: {kwargs}")
+        # logger.debug(f"query_or_create called on {cls.__name__} with kwargs: {kwargs}")
         valid = cls._mapped_fields()
         fields = {k: v for k, v in kwargs.items() if k in valid}
 
@@ -808,7 +808,7 @@ class BaseClass(Base):
                     except ArgumentError:
                         continue
             if k in cls.singles:
-                logger.warning(f"{k} is in singles. Returning only one value.")
+                # logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
         if offset:
             query = query.offset(offset)

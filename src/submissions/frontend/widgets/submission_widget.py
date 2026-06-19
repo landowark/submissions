@@ -542,9 +542,13 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             pyd = self.to_pydantic()
+            # As of here, pyd.sample is as it is supposed to be
+            logger.debug(f"Pyd.sample: {pformat(pyd.sample)}")
             sql: ClientSubmission = pyd.to_sql()
             if isinstance(sql, tuple):
                 sql = sql[0]
+            # As of here, sql.sample is empty
+            logger.debug(f"SQL.sample: {pformat(sql.sample)}")
             # Remove any sample info accidentally left in misc_info by pyd.to_sql
             try:
                 del sql._misc_info['sample']

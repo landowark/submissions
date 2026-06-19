@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 from functools import cached_property
+import json
 from pprint import pformat
 import csv, logging, re, sys
 from datetime import date, datetime, timedelta
@@ -243,18 +244,15 @@ class PydSample(PydConcrete):
         # first. If none exists, populate the sql_instance.sample_id so
         # that downstream association objects don't try to insert NULL.
         # logger.debug(f"Initial sql_instance: {self.sql_instance}")
-        self.sql_instance = super().to_sql(update=update)
-        try:
+        if not self.is_sample_id_valid(self.sample_id):
             # Only set the SQL sample_id when the pydantic sample_id is valid.
             # Blank/NA/placeholder IDs (e.g. "", "NA", "None") are not valid
             # and would violate the UNIQUE constraint if multiple blank sample
             # rows are created. Use the helper validator to decide.
-            if not self.is_sample_id_valid(self.sample_id):
-                logger.warning(f"Sample id {self.sample_id} is not valid. Skipping")
-                return None, None
-        except Exception as e:
-            # Fallback: nothing we can do, return sql as-is
-            raise e
+            logger.warning(f"Sample id {self.sample_id} is not valid. Skipping")
+            return None, None
+        self.sql_instance = super().to_sql(update=update)
+        logger.debug(f"self.sql_instance after super set: {self.sql_instance}")
         if not update:
             # Try to use an existing SQL Sample if present in DB
             try:
@@ -829,6 +827,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             and not bool(repeat_regex.match(item.name))
         ]
         proceduretype_dict['platemap'] = procedure_dict['platemap']
+        with open("procedure_reordered.json", "w") as f:
+            json.dump(proceduretype_dict, f, default=str, indent=4)
         return proceduretype_dict
     
     def make_procedure_platemap(self):

@@ -17,7 +17,7 @@ from PyQt6.QtCore import Qt
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, cast, func, select, or_
 from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
-from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
+from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (check_authorization, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
                    is_power_user, row_map, timezone, Report)
@@ -138,12 +138,14 @@ class ClientSubmission(BaseClass, LogMixin):
 
     @submissiontype.setter
     def submissiontype(self, value):
-        from backend.validators.pydant import PydSubmissionType
+        from backend.validators import PydSubmissionType, SourcedField
         match value:
             case str():
                 output = SubmissionType.query(name=value, limit=1)
             case dict():
                 output = SubmissionType.query_or_create(**value)
+            case SourcedField():
+                output = SubmissionType.query(name=value.value)
             case PydSubmissionType():
                 output = value.to_sql(update=False)
             case SubmissionType():
@@ -223,12 +225,14 @@ class ClientSubmission(BaseClass, LogMixin):
 
     @clientlab.setter
     def clientlab(self, value):
-        from backend.validators.pydant import PydClientLab
+        from backend.validators.pydant import PydClientLab, SourcedField
         match value:
             case str():
                 output = ClientLab.query(name=value, limit=1)
             case dict():
                 output = ClientLab.query_or_create(**value)
+            case SourcedField():
+                output = ClientLab.query(name=value.value)
             case PydClientLab():
                 output = value.to_sql(update=False)
             case ClientLab():
@@ -252,9 +256,11 @@ class ClientSubmission(BaseClass, LogMixin):
         from backend.validators.pydant.concrete import PydSample
         if not isinstance(value, list) and not isinstance(value, _AssociationList):
             value = [value]
+        samples = []
         for item in value:
             if item is None:
                 continue
+            logger.debug(f"Incoming {item.__class__.__name__}: {item}")
             match item:
                 case str():
                     try:
@@ -277,11 +283,12 @@ class ClientSubmission(BaseClass, LogMixin):
             if isinstance(output, ClientSubmissionSampleAssociation):
                 logger.debug(f"Checking: {output.sample.sample_id}")
                 try:
-                    check = output.sample.sample_id.lower().startswith(("blank", "na", "none", ""))
+                    # check = output.sample.sample_id.lower().startswith(("blank", "na", "none")) or output.sample.sample_id == ""
+                    check = PydSample.is_sample_id_valid(output.sample.sample_id)
                 except AttributeError as e:
                     logger.error(f"Couldn't get sample_id due to {e}")
                     check = True
-                if check:
+                if not check:
                     continue
                 # Check for existing association by comparing all primary key values
                 is_duplicate = any(
@@ -289,12 +296,15 @@ class ClientSubmission(BaseClass, LogMixin):
                         getattr(existing, pk) == getattr(output, pk)
                         for pk in output.get_primary_keys()
                     )
-                    for existing in self.clientsubmissionsampleassociation
+                    for existing in samples
                 )
-                if not is_duplicate and output.sample not in (s.sample for s in self.clientsubmissionsampleassociation):
-                    self.clientsubmissionsampleassociation.append(output)
+                if not is_duplicate and output.sample not in (s.sample for s in samples):
+                    samples.append(output)
             else:
                 logger.error(f"Could not add {output} to {self.__class__.__qualname__}._sample")
+        # As of here, samples is empty.
+        logger.debug(pformat(samples))
+        self.clientsubmissionsampleassociation = samples
 
     @hybrid_property
     def submitted_date(self):
@@ -369,38 +379,38 @@ class ClientSubmission(BaseClass, LogMixin):
 
     # TODO: get chronologic working
     @classmethod
-    # @setup_lookup
+    @setup_lookup
     def query(cls,
-    #           submissiontype: str | SubmissionType | list[str | SubmissionType] | None = None,
-    #           clientlab: str | ClientLab | None = None,
-    #           id: int | str | None = None,
-    #           submitter_plate_id: str | None = None,
+              submissiontype: str | SubmissionType | list[str | SubmissionType] | None = None,
+              clientlab: str | ClientLab | None = None,
+              id: int | str | None = None,
+              submitter_plate_id: str | None = None,
               start_date: date | datetime | str | int | None = None,
               end_date: date | datetime | str | int | None = None,
-            #   chronologic: bool = False,
-    #           limit: int = 0,
-            #   page: int = 1,
-    #           page_size: None | int = 250,
+              chronologic: bool = False,
+              limit: int = 0,
+              page: int = 1,
+              page_size: None | int = 250,
               **kwargs
               ) -> ClientSubmission | List[ClientSubmission]:
-    #     """
-    #     Lookup procedure based on a number of parameters. Overrides parent.
+        """
+        Lookup procedure based on a number of parameters. Overrides parent.
 
-    #     Args:
-    #         submissiontype (str | SubmissionType | list[str | SubmissionType] | None, optional): Submission type(s) of interest. Defaults to None.
-    #         id (int | str | None, optional): Submission id in the database (limits results to 1). Defaults to None.
-    #         rsl_plate_number (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
-    #         start_date (date | str | int | None, optional): Beginning date to search by. Defaults to None.
-    #         end_date (date | str | int | None, optional): Ending date to search by. Defaults to None.
-    #         reagent (models.Reagent | str | None, optional): A reagent used in the procedure. Defaults to None.
-    #         chronologic (bool, optional): Return results in chronologic order. Defaults to False.
-    #         limit (int, optional): Maximum number of results to return. Defaults to 0.
+        Args:
+            submissiontype (str | SubmissionType | list[str | SubmissionType] | None, optional): Submission type(s) of interest. Defaults to None.
+            id (int | str | None, optional): Submission id in the database (limits results to 1). Defaults to None.
+            rsl_plate_number (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
+            start_date (date | str | int | None, optional): Beginning date to search by. Defaults to None.
+            end_date (date | str | int | None, optional): Ending date to search by. Defaults to None.
+            reagent (models.Reagent | str | None, optional): A reagent used in the procedure. Defaults to None.
+            chronologic (bool, optional): Return results in chronologic order. Defaults to False.
+            limit (int, optional): Maximum number of results to return. Defaults to 0.
 
-    #     Returns:
-    #         models.Run | List[models.Run]: Submission(s) of interest
-    #     """
-    #     # from ... import RunReagentAssociation
-    #     # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
+        Returns:
+            models.Run | List[models.Run]: Submission(s) of interest
+        """
+        # from ... import RunReagentAssociation
+        # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
         query: Query = cls.__database_session__.query(cls)
         if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")
@@ -414,57 +424,56 @@ class ClientSubmission(BaseClass, LogMixin):
             end_date = cls.rectify_query_date(end_date, eod=True)
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         # NOTE: by rsl number (returns only a single value)
-    #     match submitter_plate_id:
-    #         case str():
-    #             query = query.filter(cls.submitter_plate_id == submitter_plate_id)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     match submissiontype:
-    #         case list():
-    #             submission_filters = []
-    #             for st in submissiontype:
-    #                 if isinstance(st, SubmissionType):
-    #                     submission_filters.append(cls.submissiontype == st)
-    #                 elif isinstance(st, str):
-    #                     submission_filters.append(cls.submissiontype_name == st)
-    #             if submission_filters:
-    #                 query = query.filter(or_(*submission_filters))
-    #         case SubmissionType():
-    #             query = query.filter(cls.submissiontype == submissiontype)
-    #         case str():
-    #             query = query.filter(cls.submissiontype_name == submissiontype)
-    #         case _:
-    #             pass
-    #     match clientlab:
-    #         case ClientLab():
-    #             query = query.filter(cls.clientlab == clientlab)
-    #         case str():
-    #             query = query.join(ClientLab).filter(ClientLab.name == clientlab)
-    #         case _:
-    #             pass
-    #     # NOTE: by id (returns only a single value)
-    #     match id:
-    #         case int():
-    #             query = query.filter(cls.id == id)
-    #             limit = 1
-    #         case str():
-    #             query = query.filter(cls.id == int(id))
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     # NOTE: Split query results into pages of size {page_size}
-    #     if page_size > 0 and limit == 0:
-    #         limit = page_size
-    #     page = page - 1
-    #     if page is not None:
-    #         offset = page * page_size
-    #     else:
-    #         offset = None
-    #     if chronologic:
-    #         query = query.order_by(cls.submitted_date.desc())
-    #     return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
-        return super().query(query=query, **kwargs)
+        match submitter_plate_id:
+            case str():
+                query = query.filter(cls.submitter_plate_id == submitter_plate_id)
+                limit = 1
+            case _:
+                pass
+        match submissiontype:
+            case list():
+                submission_filters = []
+                for st in submissiontype:
+                    if isinstance(st, SubmissionType):
+                        submission_filters.append(cls.submissiontype == st)
+                    elif isinstance(st, str):
+                        submission_filters.append(cls.submissiontype_name == st)
+                if submission_filters:
+                    query = query.filter(or_(*submission_filters))
+            case SubmissionType():
+                query = query.filter(cls.submissiontype == submissiontype)
+            case str():
+                query = query.filter(cls.submissiontype_name == submissiontype)
+            case _:
+                pass
+        match clientlab:
+            case ClientLab():
+                query = query.filter(cls.clientlab == clientlab)
+            case str():
+                query = query.join(ClientLab).filter(ClientLab.name == clientlab)
+            case _:
+                pass
+        # NOTE: by id (returns only a single value)
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case str():
+                query = query.filter(cls.id == int(id))
+                limit = 1
+            case _:
+                pass
+        # NOTE: Split query results into pages of size {page_size}
+        if page_size > 0 and limit == 0:
+            limit = page_size
+        page = page - 1
+        if page is not None:
+            offset = page * page_size
+        else:
+            offset = None
+        if chronologic:
+            query = query.order_by(cls.submitted_date.desc())
+        return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
@@ -1212,86 +1221,86 @@ class Run(BaseClass, LogMixin):
         self.set_cost()
         return super().save()
 
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           submissiontype_name: str | None = None,
-    #           id: int | str | None = None,
-    #           name: str | None = None,
-    #           start_date: date | datetime | str | int | None = None,
-    #           end_date: date | datetime | str | int | None = None,
-    #           chronologic: bool = False,
-    #           limit: int = 0,
-    #           page: int = 1,
-    #           page_size: None | int = 250,
-    #           **kwargs
-    #           ) -> Run | List[Run]:
-    #     """
-    #     Lookup procedure based on a number of parameters. Overrides parent.
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              submissiontype_name: str | None = None,
+              id: int | str | None = None,
+              name: str | None = None,
+              start_date: date | datetime | str | int | None = None,
+              end_date: date | datetime | str | int | None = None,
+              chronologic: bool = False,
+              limit: int = 0,
+              page: int = 1,
+              page_size: None | int = 250,
+              **kwargs
+              ) -> Run | List[Run]:
+        """
+        Lookup procedure based on a number of parameters. Overrides parent.
 
-    #     Args:
-    #         submission_type (str | models.SubmissionType | None, optional): Submission type of interest. Defaults to None.
-    #         id (int | str | None, optional): Submission id in the database (limits results to 1). Defaults to None.
-    #         name (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
-    #         start_date (date | str | int | None, optional): Beginning date to search by. Defaults to None.
-    #         end_date (date | str | int | None, optional): Ending date to search by. Defaults to None.
-    #         reagent (models.Reagent | str | None, optional): A reagent used in the procedure. Defaults to None.
-    #         chronologic (bool, optional): Return results in chronologic order. Defaults to False.
-    #         limit (int, optional): Maximum number of results to return. Defaults to 0.
+        Args:
+            submission_type (str | models.SubmissionType | None, optional): Submission type of interest. Defaults to None.
+            id (int | str | None, optional): Submission id in the database (limits results to 1). Defaults to None.
+            name (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
+            start_date (date | str | int | None, optional): Beginning date to search by. Defaults to None.
+            end_date (date | str | int | None, optional): Ending date to search by. Defaults to None.
+            reagent (models.Reagent | str | None, optional): A reagent used in the procedure. Defaults to None.
+            chronologic (bool, optional): Return results in chronologic order. Defaults to False.
+            limit (int, optional): Maximum number of results to return. Defaults to 0.
 
-    #     Returns:
-    #         models.Run | List[models.Run]: Run(s) of interest
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     if start_date is not None and end_date is None:
-    #         logger.warning(f"Start date with no end date, using today.")
-    #         end_date = date.today()
-    #     if end_date is not None and start_date is None:
-    #         # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
-    #         start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
-    #         logger.warning(f"End date with no start date, using first procedure date: {start_date}")
-    #     if start_date is not None:
-    #         start_date = cls.rectify_query_date(start_date)
-    #         end_date = cls.rectify_query_date(end_date, eod=True)
-    #         query = query.join(ClientSubmission).filter(ClientSubmission.submitted_date.between(start_date, end_date))
-    #     # NOTE: by rsl number (returns only a single value)
-    #     match name:
-    #         case str():
-    #             query = query.filter(cls.name == name)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     match submissiontype_name:
-    #         case str():
-    #             if not start_date:
-    #                 query = query.join(ClientSubmission)
-    #             query = query.filter(ClientSubmission.submissiontype_name == submissiontype_name)
-    #         case _:
-    #             pass
-    #     # NOTE: by id (returns only a single value)
-    #     match id:
-    #         case int():
-    #             query = query.filter(cls.id == id)
-    #             limit = 1
-    #         case str():
-    #             query = query.filter(cls.id == int(id))
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     # NOTE: Split query results into pages of size {page_size}
-    #     # Do not apply .limit()/.offset() directly on the Query here because
-    #     # execute_query will add filters afterwards. Applying limit/offset
-    #     # before filters causes SQLAlchemy to raise when filters are added.
-    #     if page_size > 0:
-    #         offset = (page - 1) * page_size if page is not None else None
-    #         # If no explicit limit was set, limit the results to the page size
-    #         if limit == 0:
-    #             limit = page_size
-    #     else:
-    #         offset = None
-    #     if chronologic:
-    #         query = query.order_by(cls.started_date.desc)
-    #     return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
+        Returns:
+            models.Run | List[models.Run]: Run(s) of interest
+        """
+        query: Query = cls.__database_session__.query(cls)
+        if start_date is not None and end_date is None:
+            logger.warning(f"Start date with no end date, using today.")
+            end_date = date.today()
+        if end_date is not None and start_date is None:
+            # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
+            start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
+            logger.warning(f"End date with no start date, using first procedure date: {start_date}")
+        if start_date is not None:
+            start_date = cls.rectify_query_date(start_date)
+            end_date = cls.rectify_query_date(end_date, eod=True)
+            query = query.join(ClientSubmission).filter(ClientSubmission.submitted_date.between(start_date, end_date))
+        # NOTE: by rsl number (returns only a single value)
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+                limit = 1
+            case _:
+                pass
+        match submissiontype_name:
+            case str():
+                if not start_date:
+                    query = query.join(ClientSubmission)
+                query = query.filter(ClientSubmission.submissiontype_name == submissiontype_name)
+            case _:
+                pass
+        # NOTE: by id (returns only a single value)
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case str():
+                query = query.filter(cls.id == int(id))
+                limit = 1
+            case _:
+                pass
+        # NOTE: Split query results into pages of size {page_size}
+        # Do not apply .limit()/.offset() directly on the Query here because
+        # execute_query will add filters afterwards. Applying limit/offset
+        # before filters causes SQLAlchemy to raise when filters are added.
+        if page_size > 0:
+            offset = (page - 1) * page_size if page is not None else None
+            # If no explicit limit was set, limit the results to the page size
+            if limit == 0:
+                limit = page_size
+        else:
+            offset = None
+        if chronologic:
+            query = query.order_by(cls.started_date.desc)
+        return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
     # NOTE: Custom context events for the ui
 
@@ -1747,31 +1756,31 @@ class Sample(BaseClass, LogMixin):
         output.results = [result.to_pydantic() for result in flatten_list([assoc.results for assoc in self.sampleprocedureassociation])]
         return output
 
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           sample_id: str | None = None,
-    #           limit: int = 0,
-    #           **kwargs
-    #           ) -> Sample | List[Sample]:
-    #     """
-    #     Lookup sample in the database by a number of parameters.
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              sample_id: str | None = None,
+              limit: int = 0,
+              **kwargs
+              ) -> Sample | List[Sample]:
+        """
+        Lookup sample in the database by a number of parameters.
 
-    #     Args:
-    #         sample_id (str | None, optional): Name of the sample (limits results to 1). Defaults to None.
-    #         limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+        Args:
+            sample_id (str | None, optional): Name of the sample (limits results to 1). Defaults to None.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
-    #     Returns:
-    #         models.Sample|List[models.Sample]: Sample(s) of interest.
-    #     """
-    #     query = cls.__database_session__.query(cls)
-    #     match sample_id:
-    #         case str():
-    #             query = query.filter(cls.sample_id == sample_id)
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     return cls.execute_query(query=query, limit=limit, **kwargs)
+        Returns:
+            models.Sample|List[models.Sample]: Sample(s) of interest.
+        """
+        query = cls.__database_session__.query(cls)
+        match sample_id:
+            case str():
+                query = query.filter(cls.sample_id == sample_id)
+                limit = 1
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit, **kwargs)
 
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
@@ -1838,7 +1847,6 @@ class Sample(BaseClass, LogMixin):
             self.save(original=False)
 
 # NOTE: Submission to Sample Associations
-
 
 class ClientSubmissionSampleAssociation(BaseClass):
     """
@@ -1931,6 +1939,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
                 output = Sample.query_or_create(**value)
             case PydSample():
                 output = value.to_sql(update=False)
+                logger.debug(f"Output from ClientSubmissionSampleAssociation.sample.setter: {output}")
             case Sample():
                 output = value
             case _:
@@ -2001,68 +2010,70 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output['comment'] = self.comment
         return output
 
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           clientsubmission: ClientSubmission | str | None = None,
-    #           exclude_submission_type: str | None = None,
-    #           sample: Sample | str | None = None,
-    #           row: int = 0,
-    #           column: int = 0,
-    #           limit: int = 0,
-    #           chronologic: bool = False,
-    #           reverse: bool = False,
-    #           **kwargs
-    #           ) -> ClientSubmissionSampleAssociation | List[ClientSubmissionSampleAssociation]:
-    #     """
-    #     Lookup junction of Submission and Sample in the database
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              clientsubmission: ClientSubmission | str | None = None,
+              exclude_submission_type: str | None = None,
+              sample: Sample | str | None = None,
+              row: int = 0,
+              column: int = 0,
+              limit: int = 0,
+              chronologic: bool = False,
+              reverse: bool = False,
+              **kwargs
+              ) -> ClientSubmissionSampleAssociation | List[ClientSubmissionSampleAssociation]:
+        """
+        Lookup junction of Submission and Sample in the database
 
-    #     Args:
-    #         clientsubmission (models.ClientSubmission | str | None, optional): Submission of interest. Defaults to None.
-    #         exclude_submission_type ( str | None, optional): Name of submissiontype to exclude. Defaults to None.
-    #         sample (models.Sample | str | None, optional): Sample of interest. Defaults to None.
-    #         row (int, optional): Row of the sample location on procedure plate. Defaults to 0.
-    #         column (int, optional): Column of the sample location on the procedure plate. Defaults to 0.
-    #         limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-    #         chronologic (bool, optional): Return results in chronologic order. Defaults to False.
-    #         reverse (bool, optional): Whether or not to reverse order of list. Defaults to False.
+        Args:
+            clientsubmission (models.ClientSubmission | str | None, optional): Submission of interest. Defaults to None.
+            exclude_submission_type ( str | None, optional): Name of submissiontype to exclude. Defaults to None.
+            sample (models.Sample | str | None, optional): Sample of interest. Defaults to None.
+            row (int, optional): Row of the sample location on procedure plate. Defaults to 0.
+            column (int, optional): Column of the sample location on the procedure plate. Defaults to 0.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+            chronologic (bool, optional): Return results in chronologic order. Defaults to False.
+            reverse (bool, optional): Whether or not to reverse order of list. Defaults to False.
 
-    #     Returns:
-    #         models.ClientSubmissionSampleAssociation|List[models.ClientSubmissionSampleAssociation]: Junction(s) of interest
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     match clientsubmission:
-    #         case ClientSubmission():
-    #             query = query.filter(cls.clientsubmission == clientsubmission)
-    #         case str():
-    #             query = query.join(ClientSubmission).filter(ClientSubmission.submitter_plate_id == clientsubmission)
-    #         case _:
-    #             pass
-    #     match sample:
-    #         case Sample():
-    #             query = query.filter(cls.sample == sample)
-    #         case str():
-    #             query = query.join(Sample).filter(Sample.sample_id == sample)
-    #         case _:
-    #             pass
-    #     if row > 0:
-    #         query = query.filter(cls.row == row)
-    #     if column > 0:
-    #         query = query.filter(cls.column == column)
-    #     match exclude_submission_type:
-    #         case str():
-    #             query = query.join(ClientSubmission).filter(
-    #                 ClientSubmission.submissiontype_name != exclude_submission_type)
-    #         case _:
-    #             pass
-    #     if reverse and not chronologic:
-    #         query = query.order_by(ClientSubmission.id.desc())
-    #     if chronologic:
-    #         if reverse:
-    #             query = query.order_by(ClientSubmission.submitted_date.desc())
-    #         else:
-    #             query = query.order_by(ClientSubmission.submitted_date)
-    #     return cls.execute_query(query=query, limit=limit, **kwargs)
+        Returns:
+            models.ClientSubmissionSampleAssociation|List[models.ClientSubmissionSampleAssociation]: Junction(s) of interest
+        """
+        row = row or 0
+        column = column or 0
+        query: Query = cls.__database_session__.query(cls)
+        match clientsubmission:
+            case ClientSubmission():
+                query = query.filter(cls.clientsubmission == clientsubmission)
+            case str():
+                query = query.join(ClientSubmission).filter(ClientSubmission.submitter_plate_id == clientsubmission)
+            case _:
+                pass
+        match sample:
+            case Sample():
+                query = query.filter(cls.sample == sample)
+            case str():
+                query = query.join(Sample).filter(Sample.sample_id == sample)
+            case _:
+                pass
+        if row > 0:
+            query = query.filter(cls.row == row)
+        if column > 0:
+            query = query.filter(cls.column == column)
+        match exclude_submission_type:
+            case str():
+                query = query.join(ClientSubmission).filter(
+                    ClientSubmission.submissiontype_name != exclude_submission_type)
+            case _:
+                pass
+        if reverse and not chronologic:
+            query = query.order_by(ClientSubmission.id.desc())
+        if chronologic:
+            if reverse:
+                query = query.order_by(ClientSubmission.submitted_date.desc())
+            else:
+                query = query.order_by(ClientSubmission.submitted_date)
+        return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @classmethod
     def query_or_create(cls,
@@ -2337,68 +2348,70 @@ class RunSampleAssociation(BaseClass):
         sample.update(dict(Name=self.sample.sample_id[:10], tooltip=tooltip_text, background_color=background))
         return sample
 
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           run: Run | str | None = None,
-    #           exclude_submission_type: str | None = None,
-    #           sample: Sample | str | None = None,
-    #           row: int = 0,
-    #           column: int = 0,
-    #           limit: int = 0,
-    #           chronologic: bool = False,
-    #           reverse: bool = False,
-    #           **kwargs
-    #           ) -> ClientSubmissionSampleAssociation | List[ClientSubmissionSampleAssociation]:
-    #     """
-    #     Lookup junction of Submission and Sample in the database
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              run: Run | str | None = None,
+              exclude_submission_type: str | None = None,
+              sample: Sample | str | None = None,
+              row: int = 0,
+              column: int = 0,
+              limit: int = 0,
+              chronologic: bool = False,
+              reverse: bool = False,
+              **kwargs
+              ) -> ClientSubmissionSampleAssociation | List[ClientSubmissionSampleAssociation]:
+        """
+        Lookup junction of Submission and Sample in the database
 
-    #     Args:
-    #         run (models.Run | str | None, optional): Submission of interest. Defaults to None.
-    #         exclude_submission_type ( str | None, optional): Name of submissiontype to exclude. Defaults to None.
-    #         sample (models.Sample | str | None, optional): Sample of interest. Defaults to None.
-    #         row (int, optional): Row of the sample location on procedure plate. Defaults to 0.
-    #         column (int, optional): Column of the sample location on the procedure plate. Defaults to 0.
-    #         limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-    #         chronologic (bool, optional): Return results in chronologic order. Defaults to False.
-    #         reverse (bool, optional): Whether or not to reverse order of list. Defaults to False.
+        Args:
+            run (models.Run | str | None, optional): Submission of interest. Defaults to None.
+            exclude_submission_type ( str | None, optional): Name of submissiontype to exclude. Defaults to None.
+            sample (models.Sample | str | None, optional): Sample of interest. Defaults to None.
+            row (int, optional): Row of the sample location on procedure plate. Defaults to 0.
+            column (int, optional): Column of the sample location on the procedure plate. Defaults to 0.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+            chronologic (bool, optional): Return results in chronologic order. Defaults to False.
+            reverse (bool, optional): Whether or not to reverse order of list. Defaults to False.
 
-    #     Returns:
-    #         models.ClientSubmissionSampleAssociation|List[models.ClientSubmissionSampleAssociation]: Junction(s) of interest
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     match run:
-    #         case Run():
-    #             query = query.filter(cls.run == run)
-    #         case str():
-    #             query = query.join(Run).filter(Run.rsl_plate_number == run)
-    #         case _:
-    #             pass
-    #     match sample:
-    #         case Sample():
-    #             query = query.filter(cls.sample == sample)
-    #         case str():
-    #             query = query.join(Sample).filter(Sample.sample_id == sample)
-    #         case _:
-    #             pass
-    #     if row > 0:
-    #         query = query.filter(cls.row == row)
-    #     if column > 0:
-    #         query = query.filter(cls.column == column)
-    #     match exclude_submission_type:
-    #         case str():
-    #             query = query.join(Run).join(ClientSubmission).filter(
-    #                 ClientSubmission.submissiontype_name != exclude_submission_type)
-    #         case _:
-    #             pass
-    #     if reverse and not chronologic:
-    #         query = query.order_by(Run.id.desc())
-    #     if chronologic:
-    #         if reverse:
-    #             query = query.order_by(Run.submitted_date.desc())
-    #         else:
-    #             query = query.order_by(Run.submitted_date)
-    #     return cls.execute_query(query=query, limit=limit, **kwargs)
+        Returns:
+            models.ClientSubmissionSampleAssociation|List[models.ClientSubmissionSampleAssociation]: Junction(s) of interest
+        """
+        row = row or 0
+        column = column or 0
+        query: Query = cls.__database_session__.query(cls)
+        match run:
+            case Run():
+                query = query.filter(cls.run == run)
+            case str():
+                query = query.join(Run).filter(Run.rsl_plate_number == run)
+            case _:
+                pass
+        match sample:
+            case Sample():
+                query = query.filter(cls.sample == sample)
+            case str():
+                query = query.join(Sample).filter(Sample.sample_id == sample)
+            case _:
+                pass
+        if row > 0:
+            query = query.filter(cls.row == row)
+        if column > 0:
+            query = query.filter(cls.column == column)
+        match exclude_submission_type:
+            case str():
+                query = query.join(Run).join(ClientSubmission).filter(
+                    ClientSubmission.submissiontype_name != exclude_submission_type)
+            case _:
+                pass
+        if reverse and not chronologic:
+            query = query.order_by(Run.id.desc())
+        if chronologic:
+            if reverse:
+                query = query.order_by(Run.submitted_date.desc())
+            else:
+                query = query.order_by(Run.submitted_date)
+        return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @classmethod
     def query_or_create(cls,
@@ -2716,27 +2729,27 @@ class ProcedureSampleAssociation(BaseClass):
         else:
             return None
 
-    # @classmethod
-    # def query(cls, sample: Sample | str | None = None, procedure: Procedure | str | None = None, limit: int = 0,
-    #           **kwargs):
-    #     query = cls.__database_session__.query(cls)
-    #     match sample:
-    #         case Sample():
-    #             query = query.filter(cls.sample == sample)
-    #         case str():
-    #             query = query.join(Sample).filter(Sample.sample_id == sample)
-    #         case _:
-    #             pass
-    #     match procedure:
-    #         case Procedure():
-    #             query = query.filter(cls.procedure == procedure)
-    #         case str():
-    #             query = query.join(Procedure).filter(Procedure.name == procedure)
-    #         case _:
-    #             pass
-    #     if sample and procedure:
-    #         limit = 1
-    #     return cls.execute_query(query=query, limit=limit, **kwargs)
+    @classmethod
+    def query(cls, sample: Sample | str | None = None, procedure: Procedure | str | None = None, limit: int = 0,
+              **kwargs):
+        query = cls.__database_session__.query(cls)
+        match sample:
+            case Sample():
+                query = query.filter(cls.sample == sample)
+            case str():
+                query = query.join(Sample).filter(Sample.sample_id == sample)
+            case _:
+                pass
+        match procedure:
+            case Procedure():
+                query = query.filter(cls.procedure == procedure)
+            case str():
+                query = query.join(Procedure).filter(Procedure.name == procedure)
+            case _:
+                pass
+        if sample and procedure:
+            limit = 1
+        return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @classmethod
     def autoincrement_id(cls, procedure_rank: int = 1) -> int:
