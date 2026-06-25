@@ -61,10 +61,11 @@ class SubmissionDetails(QDialog):
         self.channel.registerObject('backend', self)
         self.webview.page().setWebChannel(self.channel)
         # NOTE: Used to maintain javascript functions.
-        logger.debug(f"Object details for {object_} - {pformat(object_.comment or dict())}")
+        
         self.object_details(object_=self.object_)
 
     def object_details(self, object_):
+        logger.debug(f"Object type: {object_.__class__.__name__}")
         html = object_.to_html()
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object_.__class__.__name__} Details - {object_.name}")

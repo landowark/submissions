@@ -4,8 +4,16 @@ Module for pcr results from Design and Analysis Studio
 from __future__ import annotations
 import logging
 from pprint import pformat
+from pathlib import Path
+from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from backend.excel.parsers.results_parsers.diomni_pcr_results_parser import DiomniPCRSampleParser, DiomniPCRInfoParser
+from tools import get_application_from_parent
+from frontend.widgets import select_open_file
 from . import DefaultResultsManager
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.db.models import Procedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -13,8 +21,10 @@ class DiomniPCRManager(DefaultResultsManager):
 
     resultstype = "Diomni PCR"
 
-    # def __init__(self, procedure: Procedure, parent, input_object: Path | str | None = None):
-    #     super().__init__(procedure=procedure, parent=parent, input_object=input_object)
+    def __init__(self, procedure: Procedure, parent, input_object: Path | str | Workbook | Worksheet | None = None):
+        if input_object is None:
+            input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
+        super().__init__(procedure=procedure, parent=parent, input_object=input_object)
         
    
     def parse(self):

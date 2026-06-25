@@ -19,7 +19,7 @@ from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
 from frontend.widgets.submission_details import SubmissionComment
 from tools import check_authorization, setup_lookup, flatten_list, timezone
-from typing import Iterator, List, TYPE_CHECKING
+from typing import Any, Iterator, List, TYPE_CHECKING
 from .. import BaseClass, Base, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
@@ -1471,16 +1471,21 @@ class Procedure(BaseClass):
 
     @property
     def info_results(self) -> dict[str, dict]:
-        grouped_results: dict[str, dict] = {}
-        for result in self._results:
-            if result.is_sample or result.assoc_id is not None:
-                continue
-            try:
-                resultstype = result.resultstype.name
-            except AttributeError:
-                resultstype = "Unassigned ResultsType"
+        resultstypes = list(set([result.resultstype.name for result in self._results]))
+        grouped_results: dict[str, Any] = {
+            rt: [result.to_pydantic() for result in self._results 
+                 if (not result.is_sample) and (result.assoc_id is None) and (result.resultstype.name == rt)] 
+                 for rt in resultstypes
+            }
+        # for resultstype in resultstypes:
+        #     if result.is_sample or result.assoc_id is not None:
+        #         continue
+        #     try:
+        #         resultstype = result.resultstype.name
+        #     except AttributeError:
+        #         resultstype = "Unassigned ResultsType"
             
-            grouped_results[resultstype] = result.to_pydantic()
+        #     grouped_results[resultstype] = result.to_pydantic()
         return grouped_results
 
     @property
@@ -1640,6 +1645,7 @@ class Procedure(BaseClass):
         procedure = self.construct_pyd_procedure_for_creation()
         procedure.active_reagentroles = [assoc.reagentrole.name for assoc in self.procedurereagentlotassociation]
         procedure.active_equipmentroles = [assoc.equipmentrole.name for assoc in self.procedureequipmentassociation]
+        procedure.used_tips = {ass.equipmentrole.name: [tipslot.name for tipslot in ass.tipslot] for ass in self.procedureequipmentassociation} or {}
         dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
         if dlg.exec():
             sql: Procedure = dlg.return_sql()
@@ -2106,7 +2112,7 @@ class Results(BaseClass):
 
     @hybrid_property
     def resultstype(self):
-        return self._resultstype
+        return self._resultstype or "Unassigned ResultsType"
 
     @resultstype.setter
     def resultstype(self, value):

@@ -45,8 +45,8 @@ for (let i = 0; i < reagentRoles.length; i++) {
         var br = document.createElement("br");
         var new_reg = document.getElementById("new_" + this.id);
         var new_form = document.createElement("form");
-        new_form.setAttribute("class", "new_reagent_form")
-        new_form.setAttribute("id", this.id + "_addition")
+        new_form.setAttribute("class", "new_reagent_form");
+        new_form.setAttribute("id", this.id + "_addition");
         var rr_name = document.createElement("select");
         rr_name.setAttribute("id", "new_" + this.id + "_name");
         var rr_options = await backend.get_reagent_names(this.id).then(
@@ -88,10 +88,11 @@ for (let i = 0; i < reagentRoles.length; i++) {
         new_form.appendChild(br.cloneNode());
         new_form.onsubmit = function(event) {
             event.preventDefault();
-            name = document.getElementById("new_" + this.id + "_name").value;
-            lot = document.getElementById("new_" + this.id + "_lot").value;
-            expiry = document.getElementById("new_" + this.id + "_expiry").value;
-            backend.add_new_reagent(this.id, name, lot, expiry);
+            console.log("new_" + selector.id + "_name");
+            name = document.getElementById("new_" + selector.id + "_name").value;
+            lot = document.getElementById("new_" + selector.id + "_lot").value;
+            expiry = document.getElementById("new_" + selector.id + "_expiry").value;
+            backend.add_new_reagent(selector.id, name, lot, expiry);
             new_form.remove();
         }
         new_reg.appendChild(new_form);
@@ -231,6 +232,10 @@ function updateTipChoices(equipmentrole) {
     var assoc_name = equipmentrole.name + "->" + equipment_name;
     var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
     if (!assoc) { return }
+
+    // Check if the key exists in used_tips to prevent "undefined" errors
+    var has_used_tips = Object.prototype.hasOwnProperty.call(used_tips, equipmentrole.name);
+
     var processes = assoc.process;
     for (let iii = 0; iii < processes.length; iii++) {
         for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
@@ -239,6 +244,10 @@ function updateTipChoices(equipmentrole) {
                 var opt = document.createElement('option');
                 opt.value = output.name;
                 opt.innerHTML = output.name;
+                // Only evaluate selection if the top-level key exists
+                if (has_used_tips && used_tips[equipmentrole.name].includes(opt.value)) {
+                    opt.selected = true;
+                }
                 dropdown_oi.appendChild(opt);
             }
         }

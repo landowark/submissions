@@ -333,6 +333,10 @@ class PydEquipment(PydConcrete):
             value = values.data['name']
         return value
 
+    # @property
+    # def improved_dict(self) -> dict:
+    #     return {k:v for k, v in super().improved_dict.items() if k not in ['procedure', "equipmentprocedureassociation"]}
+
 
 class PydContact(PydConcrete):
 
@@ -390,7 +394,11 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
         process = self.process or "Unassigned"
         return f"{process} - v{str(self.version)}"
 
+    @property
+    def improved_dict(self) -> dict:
+        return {k: v for k, v in super().improved_dict.items() if k not in ["procedure", "procedureequipmentassociation"]}
         
+
 class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     
     proceduretype: Annotated[str | PydProcedureType | None, RelationshipField(uselist=False)] = Field(default=None)
@@ -410,7 +418,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     model_config = ConfigDict(
         json_schema_extra = {"excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits', 'comment',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
-               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results", 
+               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results", "info_results",
                "active_reagentroles", "active_equipmentroles"]},
     )
 
@@ -745,10 +753,15 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @property
     def improved_dict(self) -> dict:
         output = super().improved_dict
+        try:
+            del output['results']
+        except KeyError:
+            pass
         if isinstance(output['proceduretype'], PydProcedureType):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
             output['run'] = output['run'].name
+        output['info_results'] = {k: [item.improved_dict.get("result", {}) for item in v] for k, v in self.info_results.items()}
         output['platemap'] = self.make_procedure_platemap()
         return output
 
@@ -768,7 +781,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         procedure_dict = self.improved_dict_expand_fields([
                 "procedurereagentlotassociation",
                 "procedureequipmentassociation"
-            ])
+            ], include_procedures=True)
         for assoc in procedure_dict["procedurereagentlotassociation"]:
             reagentrole = assoc['reagentrole']
             reagent = assoc['reagent']
@@ -827,8 +840,9 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             and not bool(repeat_regex.match(item.name))
         ]
         proceduretype_dict['platemap'] = procedure_dict['platemap']
-        with open("procedure_reordered.json", "w") as f:
-            json.dump(proceduretype_dict, f, default=str, indent=4)
+        self.proceduretype = self._strip_procedure_refs(proceduretype_dict)
+        # with open("procedure_reordered.json", "w") as f:
+        #     json.dump(proceduretype_dict, f, default=str, indent=4)
         return proceduretype_dict
     
     def make_procedure_platemap(self):
@@ -841,11 +855,12 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
 
-    def to_html(self, **kwargs) -> str:
-        # details = self.reorder_proceduretype_by_procedure()
-        details = self.improved_dict
-        output = super().to_html(**details)
-        return output
+    # def to_html(self, **kwargs) -> str:
+    #     # details = self.reorder_proceduretype_by_procedure()
+    #     details = self.improved_dict
+    #     # output = super().to_html(**details)
+    #     output = super().to_html(**details)
+    #     return output
 
 
 class PydClientSubmission(PydConcrete):
@@ -1468,6 +1483,10 @@ class PydProcedureEquipmentAssociation(PydConcrete):
         if not self.tipslot:
             self.sql_instance.tipslot = []
         return self.sql_instance        # single instance — symmetric with the reagentlot child
+
+    # @property
+    # def improved_dict(self) -> dict:
+    #     return {k:v for k, v in super().improved_dict.items() if k not in ['procedure']}
 
 
 class PydProcedureReagentLotAssociation(PydConcrete):

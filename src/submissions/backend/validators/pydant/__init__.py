@@ -3,7 +3,7 @@ Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
 from pathlib import Path
-import logging, sys, string, inspect, re
+import logging, sys, string, inspect, re, json
 from pprint import pformat
 from jinja2 import Template, TemplateNotFound
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator, ConfigDict, field_validator
@@ -453,7 +453,31 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 return None
         return value
 
-    def improved_dict_expand_fields(self, fields: List[str | dict] | dict | str, **kwargs) -> dict:
+    @staticmethod
+    def _is_procedure_ref_key(key: str) -> bool:
+        """
+        True for keys that carry Procedure objects or procedure-side association
+        objects (e.g. ``procedure``, ``equipmentprocedureassociation``,
+        ``procedurereagentlotassociation``). ProcedureType-side associations
+        (``proceduretype…association``) are deliberately kept.
+        """
+        kl = key.lower()
+        if kl in ("procedure", "procedures"):
+            return True
+        return ("procedure" in kl and "association" in kl
+                and not kl.startswith("proceduretype"))
+
+    @classmethod
+    def _strip_procedure_refs(cls, obj):
+        """Recursively drop procedure / procedure-association keys from a dict tree."""
+        if isinstance(obj, dict):
+            return {k: cls._strip_procedure_refs(v)
+                    for k, v in obj.items() if not cls._is_procedure_ref_key(k)}
+        if isinstance(obj, list):
+            return [cls._strip_procedure_refs(item) for item in obj]
+        return obj
+
+    def improved_dict_expand_fields(self, fields: List[str | dict] | dict | str, include_procedures: bool = False, **kwargs) -> dict:
         """
         Expands fields in the improved dict for use in forms.
 
@@ -474,10 +498,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         dict_ = self.improved_dict
                 
         for field in fields:
-            
             match field:
                 case str():
                     key = field
+                    
                     try:
                         value = getattr(self.sql_instance, key)
                     except AttributeError as e:
@@ -504,6 +528,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             continue
                 case dict():
                     key = list(field.keys())[0]
+                    
                     new_fields = list(field.values())[0]
                     
                     value = getattr(self.sql_instance, key)
@@ -520,6 +545,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case _:
                     continue
             dict_[key] = output
+        if not include_procedures:
+            return self._strip_procedure_refs(dict_)
         return dict_
     
     @property
@@ -1027,8 +1054,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     def to_html(self, css_in: List[str| Path] | str = [], js_in: List[str | Path] | str = [],
                             **kwargs) -> str:
         details_name = self.details_template.name.lower().replace("_details.html", "")
-        details = {details_name: self.clean_details_for_render(self.improved_dict), **kwargs}
-        logger.debug(f"Excluded: {details.get('excluded', [])}")
+        details = {details_name: self.clean_details_for_render(self.improved_dict | kwargs)}
         if isinstance(css_in, str | Path):
             css_in = [css_in]
         env = jinja_template_loading()
@@ -1073,24 +1099,24 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case SourcedField():
                     # Unwrap directly — no key guessing needed
                     value = value.value
-                    if value is None:
-                        continue
                 case datetime() | date():
                     value = value.isoformat(timespec="milliseconds")
-
                 case bytes():
                     continue
                 case dict():
-                    try:
-                        value = value['value']
-                    except KeyError:
+                    if "_results" in k:
+                        value = value
+                    else:
                         try:
-                            value = value['name']
+                            value = value['value']
                         except KeyError:
-                            if k == "_misc_info" or k == "misc_info":
-                                value = value
-                            else:
-                                continue
+                            try:
+                                value = value['name']
+                            except KeyError:
+                                if k == "_misc_info" or k == "misc_info":
+                                    value = value
+                                else:
+                                    continue
                 case _ if issubclass(value.__class__, BaseClass): 
                     try:
                         value = value.name
@@ -1111,6 +1137,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         value = value.name
                     except AttributeError:
                         continue
+            if value is None:
+                continue
             output[k] = value
         return output
 
@@ -1171,6 +1199,12 @@ class PydAbstract(PydBaseClass):
             if len(class_.described_fields) > 0:
                 yield class_
 
+    
+    
+    
+    @property
+    def improved_dict(self) -> dict:
+        return self._strip_procedure_refs(super().improved_dict)
 
 class PydConcrete(PydBaseClass):
 
