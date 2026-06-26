@@ -1326,6 +1326,9 @@ class BaseClass(Base):
                             and getattr(existing, "procedure_rank", None) == obj_rank):
                         return True
             return False
+        if obj.__class__.__qualname__ == "Results":
+            if obj.result in [item.result for item in collection]:
+                return True
 
         for existing in collection:
             if existing is obj:

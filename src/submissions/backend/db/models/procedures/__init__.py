@@ -1412,7 +1412,7 @@ class Procedure(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        
+        list_ = []
         for item in value:
             match item:
                 case str():
@@ -1428,11 +1428,13 @@ class Procedure(BaseClass):
                     continue
             if isinstance(output, tuple):
                 output = output[0]
+            logger.debug(f"\n{output.__class__.__name__}\n")
             if isinstance(output, Results):
-                if not self.already_in_collection(output, self._results):
-                    self._results.append(output)
+                if not self.already_in_collection(output, built):
+                    list_.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")
+        self._results = list_
     
     @hybrid_property
     def repeat_of(self):

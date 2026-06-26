@@ -2696,7 +2696,7 @@ class ProcedureSampleAssociation(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        list_ = self.results
+        list_ = []
         for item in value:
             match item:
                 case str():
@@ -2714,7 +2714,8 @@ class ProcedureSampleAssociation(BaseClass):
                 output = output[0]
             if isinstance(output, Results):
                 output.result.update(dict(sample_id=self.sample.sample_id))
-                list_.append(output)
+                if not self.already_in_collection(output, list_):
+                    list_.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")
         self._results = list_
