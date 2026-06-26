@@ -24,6 +24,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
+    id: int | None = Field(default=None)
     result: dict = Field(default={}, repr=False)
     resultstype: Annotated[str | PydResultsType, RelationshipField(uselist=False)] = Field(default="NA")
     image: None | bytes = Field(default=None, repr=False)
@@ -72,7 +73,10 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
     def to_sql(self):
         from backend.db.models import Results
-        sql, _ = Results.query_or_create(resultstype=self.resultstype, result=self.result)
+        lookup = dict(resultstype=self.resultstype, result=self.result)
+        if self.id is not None:
+            lookup = dict(id=self.id)          # PK lookup is exact and cheap
+        sql, _ = Results.query_or_create(**lookup)
         try:
             check = sql.image
         except FileNotFoundError:

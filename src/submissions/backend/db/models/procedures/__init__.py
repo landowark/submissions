@@ -1430,7 +1430,7 @@ class Procedure(BaseClass):
                 output = output[0]
             logger.debug(f"\n{output.__class__.__name__}\n")
             if isinstance(output, Results):
-                if not self.already_in_collection(output, built):
+                if not self.already_in_collection(output, list_):
                     list_.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")

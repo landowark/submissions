@@ -1314,7 +1314,9 @@ class BaseClass(Base):
         """
         pk_names = obj.get_primary_keys()
         pk_vals = {k: getattr(obj, k, None) for k in pk_names}
-
+        if obj.__class__.__qualname__ == "Results":
+            if obj.result in [item.result for item in collection]:
+                return True
         # If every PK column is None the object hasn't been persisted yet;
         # we can't meaningfully deduplicate it, so let it through.
         if all(v is None for v in pk_vals.values()):
@@ -1326,10 +1328,7 @@ class BaseClass(Base):
                             and getattr(existing, "procedure_rank", None) == obj_rank):
                         return True
             return False
-        if obj.__class__.__qualname__ == "Results":
-            if obj.result in [item.result for item in collection]:
-                return True
-
+        
         for existing in collection:
             if existing is obj:
                 return True
