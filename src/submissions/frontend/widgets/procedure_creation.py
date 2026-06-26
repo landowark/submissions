@@ -2,6 +2,7 @@
 Main module to construct the procedure form
 """
 from __future__ import annotations
+import json
 import sys, logging, datetime
 from pprint import pformat
 from PyQt6.QtWidgets import QApplication
@@ -76,6 +77,8 @@ class ProcedureCreation(DefaultWebDialog):
             yield output
 
     def set_html(self):
+        with open("proceduretype.json", "w") as f:
+            json.dump(self.proceduretype_dict, f, default=str, indent=4)
         html = render_details_template(
             template="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],

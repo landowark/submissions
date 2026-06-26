@@ -785,68 +785,107 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                         ]
             }
             ])
-        procedure_dict = self.improved_dict_expand_fields([
-                "procedurereagentlotassociation",
-                "procedureequipmentassociation"
-            ], include_procedures=True)
-        for assoc in procedure_dict["procedurereagentlotassociation"]:
-            reagentrole = assoc['reagentrole']
-            reagent = assoc['reagent']
-            reagentlot = assoc['reagentlot']
-            try:
-                pt_reagent = next(item['reagent'] for item in proceduretype_dict['reagentrole'] if item['name'] == reagentrole)
-            except StopIteration:
+        for reagentlot in self.reagentlot:
+            proceduretype_reagentrole: dict = next((item for item in proceduretype_dict['reagentrole'] if item['name'] == reagentlot.reagentrole), None)
+            if not proceduretype_reagentrole:
                 continue
-            # Pull any existing reagentlots
-            try:
-                pt_reagentlots = next(item['reagentlot'] for item in pt_reagent if item['name'] == reagent)
-            except StopIteration:
+            reagent_index = next((iii for iii, item in enumerate(proceduretype_reagentrole['reagent']) if item['name'] == reagentlot.reagent), None)
+            if not reagent_index:
                 continue
-            rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
-            pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
-        for assoc in procedure_dict["procedureequipmentassociation"]:
-            equipmentrole = assoc['equipmentrole']
-            equipment = assoc['equipment']
-            try:
-                pt_equipment = next(item["equipmentroleequipmentassociation"] for item in proceduretype_dict['equipmentrole'] if item['name'] == equipmentrole)
-            except StopIteration:
+            proceduretype_reagentrole['reagent'].insert(0, proceduretype_reagentrole['reagent'].pop(reagent_index))
+            reagent = proceduretype_reagentrole['reagent'][0]
+            if len(reagent['reagentlot']) < 1:
+                reagent['reagentlot'].append("")
+            reagentlot_index = next((iii for iii, item in enumerate(reagent['reagentlot']) if item['name'] == reagentlot.reagentlot), None)
+            if not reagentlot_index:
                 continue
-            eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
-            pt_equipment.insert(0, pt_equipment.pop(eq_index))
-        for reagentrole in proceduretype_dict.get("reagentrole", []):
-            for reagent in reagentrole['reagent']:
-                if len(reagent['reagentlot']) < 1:
-                    reagent['reagentlot'].append(dict(name="", active=True))
-                else:
-                    try:
-                        reagent['reagentlot'].remove(dict(name="", active=True))
-                    except Exception:
-                        pass
-                try:
-                    check = "--New--" in (reagentlot['name'] for reagentlot in reagent['reagentlot'])
-                except TypeError:
-                    check = True
-                if not check:
-                    reagent['reagentlot'].append(dict(name="--New--", active=True))
-                # Try to move last used to top of the list.
-                last_used = self.get_last_used(reagentrole=reagentrole['name'])
-                if last_used:
-                    last_used = last_used.name
-                else:
-                    continue
-                try:
-                    removable = next((item for item in reagent['reagentlot'] if item['name'] == last_used))
-                except StopIteration:
-                    continue
-                idx = reagent['reagentlot'].index(removable)
-                reagent['reagentlot'].insert(0, reagent['reagentlot'].pop(idx))
+            reagent['reagentlot'].insert(0, reagentlot['reagentlot'].pop(reagentlot_index))
+            reagent['reagentlot'].append("--New--")
+        for equipment in self.equipment:
+            proceduretype_equipmentrole: dict = next((item for item in proceduretype_dict['equipmentrole'] if item['name'] == equipment.equipmentrole), None)
+            if not proceduretype_equipmentrole:
+                continue
+            ass_index = next((iii for iii, item in enumerate(proceduretype_equipmentrole['equipmentroleequipmentassociation']) 
+                        if item['equipmentrole'] == equipment.equipmentrole and item['equipment']['name'] == equipment.equipment), None)
+            if not ass_index:
+                continue
+            proceduretype_equipmentrole['equipmentroleequipmentassociation'].insert(0, proceduretype_equipmentrole['equipmentroleequipmentassociation'].pop(ass_index))
+            process = proceduretype_equipmentrole['equipmentroleequipmentassociation'][0]['process']
+            processversion_index = next((iii for iii, item in enumerate(process['processversion']) if item['name'] == equipment.processversion), None)
+            if not processversion_index:
+                continue
+            process['processversion'].insert(0, process['processversion'].pop(processversion_index))
+            if process.get('tips'):
+                for tips in equipment.tipslot:
+                    tipslot_index = next((iii for iii, item in process['tips'] if item['name'] == tips), None)
+                    if not tipslot_index:
+                        continue
+                    process['tips'].insert(0, process['tips'].pop(tipslot_index))
+        
+        # procedure_dict = self.improved_dict_expand_fields([
+        #         "procedurereagentlotassociation",
+        #         "procedureequipmentassociation"
+        #     ], include_procedures=True)
+        # for assoc in procedure_dict["procedurereagentlotassociation"]:
+        #     reagentrole = assoc['reagentrole']
+        #     reagent = assoc['reagent']
+        #     reagentlot = assoc['reagentlot']
+        #     logger.debug(f"Attempting update: {reagentrole}, {reagent}, {reagentlot}")
+        #     try:
+        #         proceduretype_reagent = next(item['reagent'] for item in proceduretype_dict['reagentrole'] if item['name'] == reagentrole)
+        #     except StopIteration:
+        #         continue
+            
+        #     # Pull any existing reagentlots
+        #     try:
+        #         pt_reagentlots = next(item['reagentlot'] for item in proceduretype_reagent if item['name'] == reagent)
+        #     except StopIteration:
+        #         continue
+        #     rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
+        #     pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
+        # for assoc in procedure_dict["procedureequipmentassociation"]:
+        #     equipmentrole = assoc['equipmentrole']
+        #     equipment = assoc['equipment']
+        #     try:
+        #         pt_equipment = next(item["equipmentroleequipmentassociation"] for item in proceduretype_dict['equipmentrole'] if item['name'] == equipmentrole)
+        #     except StopIteration:
+        #         continue
+        #     eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
+        #     pt_equipment.insert(0, pt_equipment.pop(eq_index))
+        # for reagentrole in proceduretype_dict.get("reagentrole", []):
+        #     for reagent in reagentrole['reagent']:
+        #         if len(reagent['reagentlot']) < 1:
+        #             reagent['reagentlot'].append(dict(name="", active=True))
+        #         else:
+        #             try:
+        #                 reagent['reagentlot'].remove(dict(name="", active=True))
+        #             except Exception:
+        #                 pass
+        #         try:
+        #             check = "--New--" in (reagentlot['name'] for reagentlot in reagent['reagentlot'])
+        #         except TypeError:
+        #             check = True
+        #         if not check:
+        #             reagent['reagentlot'].append(dict(name="--New--", active=True))
+        #         # Try to move last used to top of the list.
+        #         last_used = self.get_last_used(reagentrole=reagentrole['name'])
+        #         if last_used:
+        #             last_used = last_used.name
+        #         else:
+        #             continue
+        #         try:
+        #             removable = next((item for item in reagent['reagentlot'] if item['name'] == last_used))
+        #         except StopIteration:
+        #             continue
+        #         idx = reagent['reagentlot'].index(removable)
+        #         reagent['reagentlot'].insert(0, reagent['reagentlot'].pop(idx))
         repeat_regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [
             item.name for item in self.run.sql_instance.procedure if 
             item.proceduretype.name == self.proceduretype.sql_instance.name 
             and not bool(repeat_regex.match(item.name))
         ]
-        proceduretype_dict['platemap'] = procedure_dict['platemap']
+        proceduretype_dict['platemap'] = self.improved_dict['platemap']
         self.proceduretype = self._strip_procedure_refs(proceduretype_dict)
         # with open("procedure_reordered.json", "w") as f:
         #     json.dump(proceduretype_dict, f, default=str, indent=4)

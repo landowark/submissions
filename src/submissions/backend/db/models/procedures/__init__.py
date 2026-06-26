@@ -1772,10 +1772,10 @@ class Procedure(BaseClass):
                 {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", "process"]}]}
             ])
             # annotate filled flags on expanded entries
-            for item in expanded.get('reagentrole', []):
-                item['filled'] = any(assoc.reagentrole.name == item.get('name') for assoc in self.procedurereagentlotassociation)
-            for item in expanded.get('equipmentrole', []):
-                item['filled'] = any(assoc.equipmentrole.name == item.get('name') for assoc in self.procedureequipmentassociation)
+            # for item in expanded.get('reagentrole', []):
+            #     item['filled'] = any(assoc.reagentrole.name == item.get('name') for assoc in self.procedurereagentlotassociation)
+            # for item in expanded.get('equipmentrole', []):
+            #     item['filled'] = any(assoc.equipmentrole.name == item.get('name') for assoc in self.procedureequipmentassociation)
             # attach expanded dicts so templates can read them via proceduretype['reagentrole']
             pyd_proc_type.model_extra.update(expanded)
         except Exception as e:
@@ -1797,7 +1797,6 @@ class Procedure(BaseClass):
             sql_instance=self,
         )
         pyd = PydProcedure(**output)
-        pyd.new = False
         return pyd
 
     @classmethod
@@ -2241,6 +2240,8 @@ class Results(BaseClass):
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
+        # id is needed here due to duplication problems when procedure is edited.
+        output.id = self.id
         if bool(self.sample_id):
             output.sample_id = self.sample_id
             output.sample = self.sampleprocedureassociation.sample.sample_id
