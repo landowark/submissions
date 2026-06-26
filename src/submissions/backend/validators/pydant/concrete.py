@@ -419,7 +419,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         json_schema_extra = {"excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits', 'comment',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
                'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results", "info_results",
-               "active_reagentroles", "active_equipmentroles"]},
+               "active_reagentroles", "active_equipmentroles", "used_tips"]},
     )
 
     @field_validator("technician", mode="before")
@@ -761,8 +761,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
             output['run'] = output['run'].name
-        output['info_results'] = {k: [item.improved_dict.get("result", {}) for item in v] for k, v in self.info_results.items()}
         output['platemap'] = self.make_procedure_platemap()
+        try:
+            output['info_results'] = {k: [item.improved_dict.get("result", {}) for item in v] for k, v in self.info_results.items()}
+        except AttributeError:
+            pass
         return output
 
     def reorder_proceduretype_by_procedure(self):

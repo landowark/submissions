@@ -29,7 +29,7 @@
                       <option value="{{ previous }}">{{ previous }}</option>
                     {% endfor %}
                   </select><br><br>
-                  <label for="start_dated">Started Date:</label><br>
+                  <label for="started_dated">Started Date:</label><br>
                   <input type="datetime-local" id="started_date" class="form_text" value="{{ procedure['started_date']  | handle_results }}"><br>
                   {% if edit %}
                     <br>
@@ -115,7 +115,7 @@
 
     {% block script %}
     <script>const equipment_json = {{ proceduretype['equipmentrole'] | sanitize }};</script>
-    <script>const used_tips = {{ procedure.used_tips | sanitize }};</script>
+    <script>const used_tips = {{ procedure.used_tips | sanitize | default([])}};</script>
     
     <script>
         var rsl_plate_num = "{{ run['plate_number'] }}";

@@ -17,7 +17,7 @@ for(let i = 0; i < formtexts.length; i++) {
 var repeat_box = document.getElementById("repeat");
 
 repeat_box.addEventListener("input", function() {
-    backend.check_toggle("repeat", repeat_box.checked)
+    backend.check_toggle("repeat", repeat_box.checked);
     var repeat_str = document.getElementById("repeat_of");
     if (repeat_box.checked) {
         repeat_str.classList.remove("hidden_input");
@@ -29,7 +29,7 @@ repeat_box.addEventListener("input", function() {
 var repeat_of = document.getElementById("repeat_of");
 
 repeat_of.addEventListener("change", function() {
-    backend.text_changed("repeat_of", repeat_of.value)
+    backend.text_changed("repeat_of", repeat_of.value);
 })
 
 var changed_it = new Event('change');
@@ -38,7 +38,7 @@ const reagentRoles = document.getElementsByClassName("reagentrole_container");
 
 for (let i = 0; i < reagentRoles.length; i++) {
   let selector = reagentRoles[i].querySelector(".reagentrole");
-  console.log(i, selector.id)
+  console.log(i, selector.id);
   let checkbox = reagentRoles[i].querySelector(".procedure_checkbox");
   selector.addEventListener("change", async function() {
     if (this.value.includes("--New--")) {

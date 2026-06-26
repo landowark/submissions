@@ -1477,16 +1477,7 @@ class Procedure(BaseClass):
                  if (not result.is_sample) and (result.assoc_id is None) and (result.resultstype.name == rt)] 
                  for rt in resultstypes
             }
-        # for resultstype in resultstypes:
-        #     if result.is_sample or result.assoc_id is not None:
-        #         continue
-        #     try:
-        #         resultstype = result.resultstype.name
-        #     except AttributeError:
-        #         resultstype = "Unassigned ResultsType"
-            
-        #     grouped_results[resultstype] = result.to_pydantic()
-        return grouped_results
+        return {k:v for k, v in grouped_results.items() if v}
 
     @property
     def sample_results(self) -> dict[str, list]:
@@ -1643,11 +1634,15 @@ class Procedure(BaseClass):
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.debug("Edit!")
         procedure = self.construct_pyd_procedure_for_creation()
+        procedure.new = False
         procedure.active_reagentroles = [assoc.reagentrole.name for assoc in self.procedurereagentlotassociation]
         procedure.active_equipmentroles = [assoc.equipmentrole.name for assoc in self.procedureequipmentassociation]
         procedure.used_tips = {ass.equipmentrole.name: [tipslot.name for tipslot in ass.tipslot] for ass in self.procedureequipmentassociation} or {}
         dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
         if dlg.exec():
+            # Preserve existing procedure results while editing; the edit dialog
+            # does not update results, so avoid re-binding the old list back onto
+            # the SQL instance.
             sql: Procedure = dlg.return_sql()
             sql.update_last_useds()
             # Use the edited PydProcedure from the dialog to populate SQL relationships
@@ -1794,12 +1789,13 @@ class Procedure(BaseClass):
             sample=sample_list,
             reagentlot=[item.to_pydantic() for item in self.procedurereagentlotassociation],
             equipment=[item.to_pydantic() for item in self.procedureequipmentassociation],
-            results=[item.to_pydantic() for item in self.results],
+            results=[],
             started_date=self.started_date,
             completed_date=self.completed_date,
             sql_instance=self,
         )
         pyd = PydProcedure(**output)
+        pyd.new = False
         return pyd
 
     @classmethod
