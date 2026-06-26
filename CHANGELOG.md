@@ -1,3 +1,7 @@
+# 202606.04
+
+- Better reordering of an editted procedure's reagents and equipment
+
 # 202606.03
 
 - Fixed issue with procedureequipmentassociation addition in procedure_creation.
