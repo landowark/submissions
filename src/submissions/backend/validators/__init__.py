@@ -219,5 +219,4 @@ class RSLNamer(object):
         template = environment.from_string(source=template)
         return template.render(**output)
     
-
 from .pydant import *

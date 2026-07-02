@@ -18,12 +18,14 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
 
-    exclude = ["name", "id", "clientlab", "filepath", "comments", "sample", 
-               "excluded", "run", "clientsubmissionsampleassociation", "expanded", "full_batch_size",
-               "endrow", "startrow", "abbreviation", "submitter_info"]
+    # exclude = ["name", "id", "clientlab", "filepath", "comment", "sample", 
+    #            "excluded", "run", "clientsubmissionsampleassociation", "expanded", "full_batch_size",
+    #            "endrow", "startrow", "abbreviation", "submitter_info"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
+        # Add comment back due to exclusion
+        self.fill_dictionary['comment'] = pydant_obj.comment
 
     def prewrite(self, worksheet: Worksheet, start_row: int) -> Worksheet:
         worksheet.cell(row=start_row, column=1, value="Submitter Info")

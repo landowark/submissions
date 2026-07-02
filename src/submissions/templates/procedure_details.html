@@ -55,11 +55,13 @@
     {% if procedure['info_results'] %}
     <button type="button"><h3><u>Results:</u></h3></button>
     {% for key, value in procedure['info_results'].items() %}
-        <h4>{{ key | handle_key }}:</h4><br/>
+        <u><h4>{{ key | handle_key }}:</h4></u>
+        <div class="info_result_container" style="border: 1px double black;"><br/>
         {% for result in value %}
             {% for k, v in result.items() %}
                 &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ k | handle_key }}:</b> {{ v | handle_results }}<br/>
             {% endfor %}<br/>
+        </div>
         {% endfor %}<br/>
     {% endfor %}
     {% endif %}

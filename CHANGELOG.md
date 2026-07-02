@@ -1,3 +1,7 @@
+# 202606.05
+
+- Moving some writer excludes and key value ordering to PYD classes.
+
 # 202606.04
 
 - Better reordering of an editted procedure's reagents and equipment

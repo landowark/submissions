@@ -12,7 +12,7 @@ from pydantic.fields import FieldInfo
 from datetime import date, datetime
 from typing import Any, Generator, List, Generic, TypeVar, Annotated, get_args, get_origin
 from types import UnionType
-from tools import classproperty, jinja_template_loading, row_keys, DotDict
+from tools import classproperty, jinja_template_loading, row_keys, DotDict, sort_dict_by_list
 from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
@@ -547,7 +547,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             dict_[key] = output
         if not include_procedures:
             return self._strip_procedure_refs(dict_)
-        return dict_
+        return sort_dict_by_list(dict_, self.class_config.key_value_order)
     
     @property
     def improved_dict(self) -> dict:
@@ -568,7 +568,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             for k, v in iterator.items():
                 if "sql_instance" in k:
                     continue
-                if k.count(" ") > 3:
+                if k.count("_") > 4:
                     continue
                 if k not in output.keys():
                     output[k] = v
@@ -578,9 +578,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 output['name'] = self.sql_instance.name
             except AttributeError:
                 logger.error(f"Cannot set name for {self.__class__.__name__}")
-        output['excluded'] = self.model_config.get("json_schema_extra", {}).get("excluded", [])
+        output['excluded'] = self.class_config.excluded
         
-        return output
+        return sort_dict_by_list(output, self.class_config.key_value_order)
 
     @property
     def _sql_lookup_kwargs(self) -> dict:
@@ -1152,6 +1152,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             DotDict: Class configuration.
         """
         config = cls.model_config.get("json_schema_extra", {})
+        config['excluded'] = config.get("excluded", ["excluded"])
+        config['key_value_order'] = config.get("key_value_order", [])
         return DotDict(config)
 
     @classproperty
@@ -1205,6 +1207,7 @@ class PydAbstract(PydBaseClass):
     @property
     def improved_dict(self) -> dict:
         return self._strip_procedure_refs(super().improved_dict)
+
 
 class PydConcrete(PydBaseClass):
 

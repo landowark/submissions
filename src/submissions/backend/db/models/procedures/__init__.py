@@ -17,7 +17,6 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
-from frontend.widgets.submission_details import SubmissionComment
 from tools import check_authorization, setup_lookup, flatten_list, timezone
 from typing import Any, Iterator, List, TYPE_CHECKING
 from .. import BaseClass, Base, ClientLab, LogMixin
@@ -423,24 +422,19 @@ class SubmissionType(BaseClass):
         :rtype: SubmissionType | List[SubmissionType]
         """
         query: Query = cls.__database_session__.query(cls)
-        # query = cls._filter_scalar(query, column=cls.name, value=name)
         match name:
             case str():
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
                 pass
-        # query = cls._filter_scalar(query, column=cls.abbreviation, value=abbreviation)
         match abbreviation:
             case str():
                 query = query.filter(cls.abbreviation == abbreviation)
                 limit = 1
             case _:
                 pass
-        # args, _, _, values = inspect.getargvalues(inspect.currentframe())
-
-        # all_args = {arg: values[arg] for arg in args if values[arg]}
-        # print(all_args)
+        
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @check_authorization
@@ -1664,6 +1658,7 @@ class Procedure(BaseClass):
         :type obj: Any
         :return: None
         """
+        from frontend.widgets.submission_details import SubmissionComment
         logger.debug("Add Comment!")
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
@@ -1676,6 +1671,8 @@ class Procedure(BaseClass):
         from frontend.widgets.pop_ups import QuestionAsker
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
         if msg.exec():
+            for ass in self.procedureequipmentassociation:
+                ass._procedureequipmenttipslotassociation = []
             self.procedureequipmentassociation = []
             self.procedurereagentlotassociation = []
             self.proceduresampleassociation = []

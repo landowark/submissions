@@ -63,6 +63,20 @@ class DefaultParser(object):
             if all([item.value is None for item in row]):
                 return iii
         return worksheet.max_row + 1
+    
+    @staticmethod
+    def fix_key(key: str) -> str | None:
+        key = re.sub(r"\(.*\)", "", key)
+        key = re.sub(r"\s+", "_", key.lower().replace(":", "").strip())
+        if key.count("_") > 3:
+            logger.warning(f"There are more than 3 spaces in {key}, skipping")
+            return None
+        match key:
+            case "comments":
+                return "comment"
+            case _:
+                return key
+
 
 
 class DefaultKEYVALUEParser(DefaultParser):
@@ -82,12 +96,9 @@ class DefaultKEYVALUEParser(DefaultParser):
                 continue
             key = self.worksheet.cell(row, 1).value
             if key:
-                # NOTE: Remove anything in brackets.
-                key = re.sub(r"\(.*\)", "", key)
-                key = re.sub(r"\s+", "_", key.lower().replace(":", "").strip())
+                key = self.fix_key(key)
                 # NOTE: If there are more than 3 spaces in the key, continue
-                if key.count(" ") > 3:
-                    logger.warning(f"There are more than 3 spaces in {key}, skipping")
+                if not key:
                     continue
                 value = self.worksheet.cell(row, 2).value
                 missing = False if value else True
@@ -121,9 +132,9 @@ class DefaultTABLEParser(DefaultParser):
             output = {}
             for key, value in row[1].to_dict().items():
                 if isinstance(key, str):
-                    key = key.lower().replace(" ", "_")
-                    key = re.sub(r"_(\(.*\)|#)", "", key)
-                output[key] = value
+                    key = self.fix_key(key)
+                if key:    
+                    output[key] = value
             yield output
 
     def to_pydantic(self, **kwargs):

@@ -12,7 +12,7 @@ from backend.validators import SourcedField
 if TYPE_CHECKING:
     from backend.validators import PydProcedure
 from . import DefaultWebDialog
-from tools import render_details_template, find_first_matching_dict
+from tools import check_if_app, render_details_template, find_first_matching_dict
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -77,8 +77,9 @@ class ProcedureCreation(DefaultWebDialog):
             yield output
 
     def set_html(self):
-        with open("proceduretype.json", "w") as f:
-            json.dump(self.proceduretype_dict, f, default=str, indent=4)
+        if not check_if_app():
+            with open("proceduretype.json", "w") as f:
+                json.dump(self.proceduretype_dict, f, default=str, indent=4)
         html = render_details_template(
             template="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],

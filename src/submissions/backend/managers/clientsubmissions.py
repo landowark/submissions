@@ -148,7 +148,6 @@ class DefaultClientSubmissionManager(DefaultManager):
     
     def write(self, workbook: Workbook) -> Workbook:
         self.info_writer = clientsubmission_writer.ClientSubmissionInfoWriter(pydant_obj=self.pyd)
-        assert isinstance(self.info_writer, clientsubmission_writer.ClientSubmissionInfoWriter)
         workbook = self.info_writer.write_to_workbook(workbook)
         self.sample_writer = clientsubmission_writer.ClientSubmissionSampleWriter(pydant_obj=self.pyd)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.info_writer.worksheet.max_row + 1)

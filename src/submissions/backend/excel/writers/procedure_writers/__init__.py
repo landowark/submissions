@@ -13,16 +13,16 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
 
     start_row = 1
     header_order = []
-    exclude = ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
-               'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
-               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"]
-
+    
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-        self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.__class__.exclude}
+        # self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in pydant_obj.excluded}
+        # Put comment back in due to exclusion.
+        self.fill_dictionary['comment'] = pydant_obj.comment
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
+        logger.debug(self.pydant_obj.comment)
         workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.pydant_obj.proceduretype.name[:20]} Quality", start_row=start_row)
         return workbook
 
@@ -47,13 +47,14 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
     exclude = ['id', "equipment_role", "name", "nickname", "procedure", "equipmentequipmentroleassociation", 
                "equipmentprocedureassociation", "excluded", "procedureequipmenttipslotassociation", "asset_number",
-               "start_time", "end_time", "manufacturer", "ref", "process", "serial_number"]
+               "start_time", "end_time", "manufacturer", "ref", "process", "serial_number", "calibration_date"]
     header_order = ['equipmentrole', 'equipment', 'processversion', 'tipslot']
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
         output = self.pydant_obj.equipment
+        
         self.pydant_obj = output
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,

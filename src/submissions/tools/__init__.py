@@ -915,8 +915,8 @@ def handle_keys(key:str) -> str:
     key = key.title()
     key = key.replace(" Id", " ID")
     key = key.replace("Ww", "WW")
-    key = key.replace(" Id", " ID")
     key = key.replace("Rsl", "RSL")
+    key = key.replace("Pcr", "PCR")
     key = " ".join(key.split())
     return key
 
@@ -1368,7 +1368,6 @@ class Settings(BaseSettings, extra="allow"):
         finally:
             self.close_database()
             
-
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:
         """

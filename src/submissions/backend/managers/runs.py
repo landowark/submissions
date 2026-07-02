@@ -22,6 +22,7 @@ class DefaultRunManager(DefaultManager):
                                                                submissiontype=clientsubmission.submissiontype.name)
         if not workbook:
             workbook = Workbook()
+        self.clientsubmission.pyd.add_run_comments(run=self.pyd)
         workbook = self.clientsubmission.write(workbook=workbook)
         self.procedures = []
         for procedure in self.pyd.sql_instance.procedure:

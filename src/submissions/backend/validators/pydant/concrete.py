@@ -790,27 +790,30 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             if not proceduretype_reagentrole:
                 continue
             reagent_index = next((iii for iii, item in enumerate(proceduretype_reagentrole['reagent']) if item['name'] == reagentlot.reagent), None)
-            if not reagent_index:
+            if reagent_index is None:
                 continue
             proceduretype_reagentrole['reagent'].insert(0, proceduretype_reagentrole['reagent'].pop(reagent_index))
             reagent = proceduretype_reagentrole['reagent'][0]
             if len(reagent['reagentlot']) < 1:
                 reagent['reagentlot'].append("")
             reagentlot_index = next((iii for iii, item in enumerate(reagent['reagentlot']) if item['name'] == reagentlot.reagentlot), None)
-            if not reagentlot_index:
+            if reagentlot_index is None:
                 continue
-            reagent['reagentlot'].insert(0, reagentlot['reagentlot'].pop(reagentlot_index))
-            reagent['reagentlot'].append("--New--")
+            
+            reagent['reagentlot'].insert(0, reagent['reagentlot'].pop(reagentlot_index))
+            # reagent['reagentlot'].append(dict(name="--New--", active=True))
         for equipment in self.equipment:
             proceduretype_equipmentrole: dict = next((item for item in proceduretype_dict['equipmentrole'] if item['name'] == equipment.equipmentrole), None)
             if not proceduretype_equipmentrole:
                 continue
             ass_index = next((iii for iii, item in enumerate(proceduretype_equipmentrole['equipmentroleequipmentassociation']) 
                         if item['equipmentrole'] == equipment.equipmentrole and item['equipment']['name'] == equipment.equipment), None)
-            if not ass_index:
+            if ass_index is None:
                 continue
             proceduretype_equipmentrole['equipmentroleequipmentassociation'].insert(0, proceduretype_equipmentrole['equipmentroleequipmentassociation'].pop(ass_index))
-            process = proceduretype_equipmentrole['equipmentroleequipmentassociation'][0]['process']
+            process = next((item for item in proceduretype_equipmentrole['equipmentroleequipmentassociation'][0]['process'] if equipment.processversion in [pv['name'] for pv in item['processversion']]), None)
+            # process = proceduretype_equipmentrole['equipmentroleequipmentassociation'][0]['process']
+            print(pformat(process))
             processversion_index = next((iii for iii, item in enumerate(process['processversion']) if item['name'] == equipment.processversion), None)
             if not processversion_index:
                 continue
@@ -822,63 +825,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                         continue
                     process['tips'].insert(0, process['tips'].pop(tipslot_index))
         
-        # procedure_dict = self.improved_dict_expand_fields([
-        #         "procedurereagentlotassociation",
-        #         "procedureequipmentassociation"
-        #     ], include_procedures=True)
-        # for assoc in procedure_dict["procedurereagentlotassociation"]:
-        #     reagentrole = assoc['reagentrole']
-        #     reagent = assoc['reagent']
-        #     reagentlot = assoc['reagentlot']
-        #     logger.debug(f"Attempting update: {reagentrole}, {reagent}, {reagentlot}")
-        #     try:
-        #         proceduretype_reagent = next(item['reagent'] for item in proceduretype_dict['reagentrole'] if item['name'] == reagentrole)
-        #     except StopIteration:
-        #         continue
-            
-        #     # Pull any existing reagentlots
-        #     try:
-        #         pt_reagentlots = next(item['reagentlot'] for item in proceduretype_reagent if item['name'] == reagent)
-        #     except StopIteration:
-        #         continue
-        #     rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
-        #     pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
-        # for assoc in procedure_dict["procedureequipmentassociation"]:
-        #     equipmentrole = assoc['equipmentrole']
-        #     equipment = assoc['equipment']
-        #     try:
-        #         pt_equipment = next(item["equipmentroleequipmentassociation"] for item in proceduretype_dict['equipmentrole'] if item['name'] == equipmentrole)
-        #     except StopIteration:
-        #         continue
-        #     eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
-        #     pt_equipment.insert(0, pt_equipment.pop(eq_index))
-        # for reagentrole in proceduretype_dict.get("reagentrole", []):
-        #     for reagent in reagentrole['reagent']:
-        #         if len(reagent['reagentlot']) < 1:
-        #             reagent['reagentlot'].append(dict(name="", active=True))
-        #         else:
-        #             try:
-        #                 reagent['reagentlot'].remove(dict(name="", active=True))
-        #             except Exception:
-        #                 pass
-        #         try:
-        #             check = "--New--" in (reagentlot['name'] for reagentlot in reagent['reagentlot'])
-        #         except TypeError:
-        #             check = True
-        #         if not check:
-        #             reagent['reagentlot'].append(dict(name="--New--", active=True))
-        #         # Try to move last used to top of the list.
-        #         last_used = self.get_last_used(reagentrole=reagentrole['name'])
-        #         if last_used:
-        #             last_used = last_used.name
-        #         else:
-        #             continue
-        #         try:
-        #             removable = next((item for item in reagent['reagentlot'] if item['name'] == last_used))
-        #         except StopIteration:
-        #             continue
-        #         idx = reagent['reagentlot'].index(removable)
-        #         reagent['reagentlot'].insert(0, reagent['reagentlot'].pop(idx))
         repeat_regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [
             item.name for item in self.run.sql_instance.procedure if 
@@ -887,8 +833,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         ]
         proceduretype_dict['platemap'] = self.improved_dict['platemap']
         self.proceduretype = self._strip_procedure_refs(proceduretype_dict)
-        # with open("procedure_reordered.json", "w") as f:
-        #     json.dump(proceduretype_dict, f, default=str, indent=4)
+        logger.debug(pformat(proceduretype_dict['reagentrole']))
         return proceduretype_dict
     
     def make_procedure_platemap(self):
@@ -901,14 +846,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
 
-    # def to_html(self, **kwargs) -> str:
-    #     # details = self.reorder_proceduretype_by_procedure()
-    #     details = self.improved_dict
-    #     # output = super().to_html(**details)
-    #     output = super().to_html(**details)
-    #     return output
-
-
+    
 class PydClientSubmission(PydConcrete):
 
     filepath: Path | None = Field(default=None)
@@ -928,13 +866,13 @@ class PydClientSubmission(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            "excluded": ['excluded', 'filepath', 'comment',
+            "excluded": ['excluded', 'filepath', 'comment', 'comments',
                          'sample', 
                          'run', 
                          'clientsubmissionsampleassociation',
                          'endrow', 
                          "abbreviation",
-                         "full_batch_size"
+                         "full_batch_size", "name"
                          ],
             "key_value_order": ["submitter_plate_id",
                        "submitted_date",
@@ -956,6 +894,15 @@ class PydClientSubmission(PydConcrete):
     validate_cost_centre = field_validator("cost_centre", mode="before")(_coerce_str_field)
     validate_contact = field_validator("contact", mode="before")(_coerce_str_field)
     validate_submitter_plate_id = field_validator("submitter_plate_id", mode="before")(_coerce_str_field)
+
+    @field_validator("comment", mode="before")
+    @classmethod
+    def enforce_list(cls, value):
+        if value is None:
+            return cls.model_fields['comment'].default
+        if not isinstance(value, list):
+            value = [value]
+        return value
 
     @field_validator("run", mode="before")
     @classmethod
@@ -1172,6 +1119,15 @@ class PydClientSubmission(PydConcrete):
         output = super().to_html(**details)
         return output
 
+    def add_run_comments(self, run: PydRun):
+        if isinstance(run.comment, SourcedField):
+            value = run.comment.value
+        for comment in value:
+            if isinstance(comment, tuple): comment = comment[0]
+            if any([comment.get('time') == c.get('time') for c in self.comment]):
+                continue
+            self.comment.append(comment)
+
 
 class PydRun(PydConcrete):
 
@@ -1335,8 +1291,9 @@ class PydRun(PydConcrete):
         return output
 
     def to_html(self, **kwargs):
+        logger.debug(f"Generating HTML for run {self.rsl_plate_number}")
         details = self.improved_dict_expand_fields(fields=['procedure', 'sample'])
-        output = super().to_html(**details)#, js_in=["procedure"])
+        output = super().to_html(**details)
         return output
 
     def add_samples(self, samples):
@@ -1502,18 +1459,6 @@ class PydProcedureEquipmentAssociation(PydConcrete):
                 equipment = "Unassigned Equipment"
         return f"{procedure}->{equipment}"
 
-    # def to_sql(self, update: bool = True):
-    #     from backend.db.models import ProcedureEquipmentAssociation
-    #     self.sql_instance: ProcedureEquipmentAssociation = super().to_sql(update=update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     self.sql_instance.procedure = self.procedure
-    #     self.sql_instance.equipment = self.equipment
-    #     self.sql_instance.equipmentrole = self.equipmentrole
-    #     self.sql_instance.processversion = self.processversion
-    #     self.sql_instance.tipslot = self.tipslot
-    #     return self.sql_instance, None
-
     def to_sql(self, update: bool = True):
         from backend.db.models import ProcedureEquipmentAssociation
         self.sql_instance: ProcedureEquipmentAssociation = super().to_sql(update=update)
@@ -1529,10 +1474,6 @@ class PydProcedureEquipmentAssociation(PydConcrete):
         if not self.tipslot:
             self.sql_instance.tipslot = []
         return self.sql_instance        # single instance — symmetric with the reagentlot child
-
-    # @property
-    # def improved_dict(self) -> dict:
-    #     return {k:v for k, v in super().improved_dict.items() if k not in ['procedure']}
 
 
 class PydProcedureReagentLotAssociation(PydConcrete):

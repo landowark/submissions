@@ -137,16 +137,15 @@ class DefaultWriter(object):
 class DefaultKEYVALUEWriter(DefaultWriter):
     sheet = "Client Info"
     start_row = 2
-    exclude = []
-    key_order = []
-
+    
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
-        self.fill_dictionary = self.pydant_obj.improved_dict
+        self.fill_dictionary = {k: v for k, v in self.pydant_obj.improved_dict.items() if k not in self.pydant_obj.class_config.excluded}
 
     def delineate_end_row(self, start_row: int = 1):
-        data_length = len([key for key in self.fill_dictionary.keys() if key not in self.__class__.exclude])
-        return data_length + start_row
+        # data_length = len([key for key in self.fill_dictionary.keys() if key not in self.__class__.exclude])
+        # return data_length + start_row
+        return len(self.fill_dictionary) + start_row
 
     @classmethod
     def check_location(cls, locations: list, sheet: str):
@@ -155,8 +154,8 @@ class DefaultKEYVALUEWriter(DefaultWriter):
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row)
-        dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.__class__.exclude}
-        dictionary =  sort_dict_by_list(dictionary=dictionary, order_list=self.key_order)
+        # dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.pydant_obj.exclude}
+        dictionary =  sort_dict_by_list(dictionary=self.fill_dictionary, order_list=self.pydant_obj.class_config.key_value_order)
         for ii, (k, v) in enumerate(dictionary.items(), start=self.start_row):
             value = self.stringify_value(value=v)
             if value is None:
@@ -188,24 +187,27 @@ class DefaultTABLEWriter(DefaultWriter):
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
-        self.header_list = self.sort_header_row(list(set(flatten_list([item.fields for item in self.pydant_obj]))))
+        
         records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
-        df = DataFrame(records)[self.header_list]
+        df = DataFrame(records)[self.sorted_header_row]
         df.replace("", np.nan, inplace=True)
+
+        # Serialize list-valued columns so relationship fields like tipslot are preserved
+        for column in df.columns:
+            if df[column].apply(lambda value: isinstance(value, list)).any():
+                df[column] = df[column].apply(
+                    lambda value: "\n".join(str(item) for item in value) if isinstance(value, list) else value
+                )
+
         # Identify columns where ALL values are zero
         is_all_zero = (df == 0).all()
 
-        # Identify columns where ANY value is a list
-        is_list_col = df.map(lambda x: isinstance(x, list)).all()
-
-        # Drop columns that meet either condition
-        df = df.loc[:, ~(is_all_zero | is_list_col)]
-        # Drop columns where all values are NaN (the data is empty)
+        # Drop columns where the data is empty
+        df = df.loc[:, ~is_all_zero]
         df.dropna(axis=1, how='all', inplace=True)
         df.fillna("", inplace=True)
         # Rename column Headers.
         df = df.rename(columns=handle_keys)
-
         rows = dataframe_to_rows(df, index=False, header=True)
         for r_idx, row in enumerate(rows, start_row + 1 ):
             for c_idx, value in enumerate(row, 1):
@@ -213,13 +215,15 @@ class DefaultTABLEWriter(DefaultWriter):
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
 
-    @classmethod
-    def sort_header_row(cls, header_list: list) -> list:
+    @property
+    def sorted_header_row(self) -> list:
         output = []
-        for item in cls.header_order:
-            if item in [header for header in header_list if header not in cls.exclude]:
+        header_list = list(set(flatten_list([item.fields for item in self.pydant_obj])))
+        class_config = self.pydant_obj[0].class_config
+        for item in class_config.key_value_order:
+            if item in [header for header in header_list if header not in class_config.excluded]:
                 output.append(header_list.pop(header_list.index(item)))
-        return output + sorted([item for item in header_list if item not in cls.exclude])
+        return output + sorted([item for item in header_list if item not in class_config.excluded])
 
     def postwrite(self, worksheet: Worksheet) -> Worksheet:
         worksheet = self.columns_best_fit(worksheet=worksheet)

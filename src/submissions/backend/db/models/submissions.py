@@ -10,7 +10,6 @@ from operator import itemgetter
 from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
-from frontend.widgets.functions import select_save_file
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
@@ -357,13 +356,19 @@ class ClientSubmission(BaseClass, LogMixin):
     
     @comment.setter
     def comment(self, value):
-        if not isinstance(value, dict):
-            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-            return
-        if value['text'] in [""]:
-            return
+        if not isinstance(value, list):
+            value = [value]
         current = self._comment or []
-        current.append(value)
+        for comment in value:
+            if not isinstance(comment, dict):
+                logger.error(f"Invalid comment value {comment} for {self.__class__.__qualname__}, must be a dictionary.")
+                return
+            if comment['text'] in ["", None]:
+                return
+            
+            if any([comment['time'] == x['time'] for x in current]):
+                continue
+            current.append(comment)
         self._comment = current
 
     @property
@@ -1371,12 +1376,11 @@ class Run(BaseClass, LogMixin):
             obj (Widget): Parent widget 
         """
         logger.info("Edit!")
-        from frontend.widgets.submission_widget import SubmissionFormWidget
-        for widget in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
-            widget.setParent(None)
-        pyd = self.to_pydantic()
-        form = pyd.html_form(parent=obj, disable=['name'])
-        obj.app.table_widget.formwidget.layout().addWidget(form)
+        from frontend.widgets.sample_checker import SampleChecker
+        samples = [sample.to_pydantic() for sample in self.sample]
+        checker = SampleChecker(parent=None, title="Edit Run", samples=samples, clientsubmission=self.clientsubmission)
+        if checker.exec():
+            pass
 
     def add_comment(self, obj):
         """
@@ -1398,6 +1402,7 @@ class Run(BaseClass, LogMixin):
 
     def export(self, obj, output_filepath: str | Path | None = None):
         from backend import managers
+        from frontend.widgets.functions import select_save_file
         Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
         manager = Manager(parent=obj, input_object=self.to_pydantic())
         default_name = manager.pyd.export_filename

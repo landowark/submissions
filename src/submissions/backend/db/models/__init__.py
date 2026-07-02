@@ -79,8 +79,10 @@ class SafeMiscInfo(MutableDict, dict):
         if self._is_internal_key(key):
             return                                # silently drop ORM internals
         if self._owner and key.replace("_", "").lower() in self._owner.sqlalchemy_fields:
-            logger.debug(f"Key {key} in misc_info shadows a mapped field; skipping.")  # was warning
+            logger.warning(f"Key {key} in misc_info shadows a mapped field; skipping.")  # was warning
             return
+        if (key.count(" ") > 4) or (key.count("_") > 4):
+            logger.warning(f"key has too many spaces; skipping.")
         safe_value = self._owner.sanitize_obj_for_json(value) if self._owner else value
         dict.__setitem__(self, key, safe_value)
 
@@ -1213,6 +1215,8 @@ class BaseClass(Base):
                 if key.startswith("_"):
                     continue
                 if key in output['excluded']:
+                    continue
+                if key.count("_") > 4:
                     continue
                 output[key] = self.sanitize_obj_for_json(value)
         if 'name' not in output.keys():
