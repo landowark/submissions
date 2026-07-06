@@ -6,10 +6,9 @@ process versions, tips, and related associations. It includes rich association t
 for flexible input types.
 """
 from __future__ import annotations
-# import inspect
 from pprint import pformat
 from jinja2 import Template
-import zipfile, logging, re, numpy as np, json
+import zipfile, logging, re, numpy as np, json, sys
 from pydantic import BaseModel
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, cast, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -18,8 +17,8 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
 from tools import check_authorization, setup_lookup, flatten_list, timezone
-from typing import Any, Iterator, List, TYPE_CHECKING
-from .. import BaseClass, Base, ClientLab, LogMixin
+from typing import Any, Generator, Iterator, List, TYPE_CHECKING
+from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 if TYPE_CHECKING:
@@ -1608,10 +1607,11 @@ class Procedure(BaseClass):
         resultstype = resultstype_name.replace(" ", "")
         logger.info(f"Add Results! {resultstype_name}")
         from backend.managers import results
+        from backend.validators.pydant import PydResults
         results_manager = getattr(results, f"{resultstype}Manager")
         rs = results_manager(procedure=self, parent=obj)
         procedure_results = rs.procedure_to_pydantic()
-        samples_results = rs.samples_to_pydantic()
+        samples_results: Generator[PydResults] = rs.samples_to_pydantic()
         if procedure_results:
             procedure_sql = procedure_results.to_sql()
         else:
@@ -1623,6 +1623,21 @@ class Procedure(BaseClass):
             sample_sql = sample.to_sql()
             if isinstance(sample_sql, tuple):
                 sample_sql = sample_sql[0]
+                # NOTE: If the sql comes back without an association, try to find one by row/column if available.
+                if sample_sql.sampleprocedureassociation is None:
+                    logger.debug(f"Sample {sample_sql} has no sampleprocedureassociation for procedure {self.name}")
+                    if hasattr(sample, "row") and hasattr(sample, "column"):
+                        logger.debug(f"Sample {sample.name} has row {sample.row} and col {sample.column} falling back to row/col association search.")
+                    else:
+                        logger.error(f"Sample {sample.name} has no row/col attributes for procedure {self.name}, cannot find association.")
+                        continue
+                    assoc = next((assoc for assoc in self.proceduresampleassociation if assoc.row == sample.row and assoc.column == sample.column), None)
+                    if assoc is None:
+                        logger.debug(f"No association found for sample {sample.name} at row {sample.row} and col {sample.column}")
+                        continue
+                    else:
+                        sample_sql.sampleprocedureassociation = assoc
+            logger.debug(f"Saving sample {sample_sql} for procedure {self.name}")
             sample_sql.save()
 
     def edit(self, obj):
@@ -1674,25 +1689,30 @@ class Procedure(BaseClass):
 
     @check_authorization
     def delete(self, obj):
-        logger.warning(f"Temporarily disabled deletion of {self.__class__.__qualname__} {self.name} due to potential data integrity issues.")
-        # from frontend.widgets.pop_ups import QuestionAsker
-        # msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
-        # if msg.exec():
-        #     for ass in self.procedureequipmentassociation:
-        #         ass._procedureequipmenttipslotassociation = []
-        #     self.procedureequipmentassociation = []
-        #     self.procedurereagentlotassociation = []
-        #     self.proceduresampleassociation = []
-        #     self.__database_session__.delete(self)
-        #     try:
-        #         self.__database_session__.commit()
-        #     except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
-        #         self.__database_session__.rollback()
-        #         raise e
-        #     try:
-        #         obj.set_data()
-        #     except AttributeError:
-        #         logger.error("App will not refresh data at this time.")
+        
+        from frontend.widgets.pop_ups import QuestionAsker
+        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
+        if msg.exec():
+            # Ensure child associations are removed cleanly before deleting the Procedure.
+            procedure_equipment_assocs = list(self.procedureequipmentassociation)
+            for ass in procedure_equipment_assocs:
+                try:
+                    ass.tipslot = []
+                except Exception:
+                    logger.debug(f"Unable to clear tipslot associations for {ass}")
+            self.procedureequipmentassociation = []
+            self.procedurereagentlotassociation = []
+            self.proceduresampleassociation = []
+            self.__database_session__.delete(self)
+            try:
+                self.__database_session__.commit()
+            except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+                self.__database_session__.rollback()
+                raise e
+            try:
+                obj.set_data()
+            except AttributeError:
+                logger.error("App will not refresh data at this time.")
         
     # TODO: Convert references to details_dict_expand_fields calls so I can trim this down.
     @property

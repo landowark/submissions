@@ -26,7 +26,6 @@ class DiomniPCRManager(DefaultResultsManager):
             input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
         super().__init__(procedure=procedure, parent=parent, input_object=input_object)
         
-   
     def parse(self):
         self.info = {}
         samples = []
@@ -35,8 +34,8 @@ class DiomniPCRManager(DefaultResultsManager):
             self.info.update({k:v for k, v in self.info_parser.parsed_info})
             self.sample_parser = DiomniPCRSampleParser(worksheet=sheet, procedure=self.procedure, start_row=self.info_parser.end_row, date_analyzed=self.info_parser.date_analyzed)
             samples.extend([item for item in self.sample_parser.parsed_info])
-        print(pformat(samples))
-        sys.exit()
+        # print(pformat(samples))
+        # sys.exit()
         sample_names = list(set([list(item.keys())[0] for item in samples]))
         self.samples = []
         for sample_name in sample_names:

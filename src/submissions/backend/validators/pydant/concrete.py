@@ -86,7 +86,11 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
         if not sql.date_analyzed:
             sql.date_analyzed = self.date_analyzed
         sql.procedure = self.procedure
-        sql.sampleprocedureassociation = self.sample
+        logger.debug(f"Sample going into to_sql: {self.sample}")
+        if self.sample:
+            sql.sampleprocedureassociation = self.sample
+            if sql.sampleprocedureassociation is None:
+                logger.warning(f"Sample {self.sample} has no sampleprocedureassociation for procedure {self.procedure}")
         return sql, None
 
 
