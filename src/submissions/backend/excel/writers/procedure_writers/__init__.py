@@ -11,31 +11,32 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class ProcedureInfoWriter(DefaultKEYVALUEWriter):
 
-    start_row = 1
-    header_order = []
+    # start_row = 1
     
     def __init__(self, pydant_obj, *args, **kwargs):
+        self.proceduretype = pydant_obj.proceduretype
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         # self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in pydant_obj.excluded}
         # Put comment back in due to exclusion.
         self.fill_dictionary['comment'] = pydant_obj.comment
+        self.sheet = f"{self.proceduretype.name[:20]} Quality"
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
-        logger.debug(self.pydant_obj.comment)
-        workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.pydant_obj.proceduretype.name[:20]} Quality", start_row=start_row)
+        # logger.debug(self.pydant_obj.comment)
+        workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet, start_row=start_row)
         return workbook
 
 
 class ProcedureReagentWriter(DefaultTABLEWriter):
 
-    exclude = ["id", "comments", "missing", "active", "name", "reagentlot", "procedure", "excluded", "reagentlotprocedureassociation", "procedurereagentlotassociation", "reagent_name"]
-    header_order = ["reagentrole", "reagent", "lot", "expiry"]
+    # exclude = ["id", "comments", "missing", "active", "name", "reagentlot", "procedure", "excluded", "reagentlotprocedureassociation", "procedurereagentlotassociation", "reagent_name"]
+    # header_order = ["reagentrole", "reagent", "lot", "expiry"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-        self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
-        self.pydant_obj = self.pydant_obj.reagentlot
+        self.proceduretype = pydant_obj.proceduretype
+        super().__init__(pydant_obj=pydant_obj, actual_objs_type="reagentlot", *args, **kwargs)
+        self.sheet = f"{self.proceduretype.name[:20]} Quality"
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
@@ -45,17 +46,15 @@ class ProcedureReagentWriter(DefaultTABLEWriter):
 
 class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
-    exclude = ['id', "equipment_role", "name", "nickname", "procedure", "equipmentequipmentroleassociation", 
-               "equipmentprocedureassociation", "excluded", "procedureequipmenttipslotassociation", "asset_number",
-               "start_time", "end_time", "manufacturer", "ref", "process", "serial_number", "calibration_date"]
-    header_order = ['equipmentrole', 'equipment', 'processversion', 'tipslot']
+    # exclude = ['id', "equipment_role", "name", "nickname", "procedure", "equipmentequipmentroleassociation", 
+    #            "equipmentprocedureassociation", "excluded", "procedureequipmenttipslotassociation", "asset_number",
+    #            "start_time", "end_time", "manufacturer", "ref", "process", "serial_number", "calibration_date"]
+    # header_order = ['equipmentrole', 'equipment', 'processversion', 'tipslot']
 
     def __init__(self, pydant_obj, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-        self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
-        output = self.pydant_obj.equipment
-        
-        self.pydant_obj = output
+        self.proceduretype = pydant_obj.proceduretype
+        super().__init__(pydant_obj=pydant_obj, actual_objs_type="equipment", *args, **kwargs)
+        self.sheet = f"{self.proceduretype.name[:20]} Quality"
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
@@ -65,16 +64,18 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
 class ProcedureSampleWriter(DefaultTABLEWriter):
 
-    exclude = ['id', 'enabled', 'name', "submission_rank", 'background_color', "is_control", "well_id", "sample", "sample_location", 
-               "sample_type", "clientsubmission", "excluded", "procedure", "rank", "results", "run", "sampleclientsubmissionassociation",
-               "sampleprocedureassociation", "samplerunassociation", "control_type"]
-    header_order = ['procedure_rank', 'sample_id', 'row', 'column']
+    # exclude = ['id', 'enabled', 'name', "submission_rank", 'background_color', "is_control", "well_id", "sample", "sample_location", 
+    #            "sample_type", "clientsubmission", "excluded", "procedure", "rank", "results", "run", "sampleclientsubmissionassociation",
+    #            "sampleprocedureassociation", "samplerunassociation", "control_type"]
+    # header_order = ['procedure_rank', 'sample_id', 'row', 'column']
 
     def __init__(self, pydant_obj, *args, **kwargs):
+        self.proceduretype = pydant_obj.proceduretype
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-        self.procedure = self.pydant_obj.name
-        self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
+        self.sheet = f"{self.proceduretype.name[:20]} Quality"
         self.pydant_obj = self.pad_procedure_samples_to_length()
+        self.excluded = self.pydant_obj[0].class_config.excluded
+        self.key_value_order = self.pydant_obj[0].class_config.key_value_order
         
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:

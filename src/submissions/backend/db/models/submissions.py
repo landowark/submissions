@@ -19,14 +19,14 @@ from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (check_authorization, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
-                   is_power_user, row_map, timezone, Report)
+                   is_power_user, row_map, timezone, Report, get_application_from_parent)
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
 from typing import Generator, List, TYPE_CHECKING, Literal, Set
 from pathlib import Path
 if TYPE_CHECKING:
     from submissions.backend.db.models.procedures import ProcedureType, Procedure, Results
-    from backend.validators.pydant import PydSample
+    from backend.validators.pydant import PydSample, PydClientSubmission
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -531,12 +531,14 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def add_run(self, obj):
         from frontend.widgets.sample_checker import SampleChecker
+        from backend.validators import PydRun
         samples = [assoc.sample.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
-        checker = SampleChecker(parent=None, title="Create Run", samples=samples, clientsubmission=self)
+        run = Run.construct_dummy_run(clientsubmission=self)
+        checker = SampleChecker(parent=None, title="Create Run", samples=samples, run=run)
         if checker.exec():
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             try:
-                run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
+                
                 # Rank the selected pydantic samples, then convert them back to SQL Sample
                 selected_samples = []
                 for iii, sample in enumerate(samples, start=1):
@@ -547,6 +549,9 @@ class ClientSubmission(BaseClass, LogMixin):
                         sample = self.rank_sample(sample, iii)
                         selected_samples.append(sample)
                 run.sample = selected_samples
+                run = run.to_sql()
+                if isinstance(run, tuple):
+                    run = run[0]
                 run.save()
             finally:
                 QApplication.restoreOverrideCursor()
@@ -560,7 +565,8 @@ class ClientSubmission(BaseClass, LogMixin):
             obj.set_data()
 
     def edit(self, obj):
-        logger.debug("Edit")
+        app = get_application_from_parent(obj)
+        app.table_widget.formwidget.edit_submission_function(clientsubmission=self)
 
     def add_comment(self, obj):
         """
@@ -1378,7 +1384,7 @@ class Run(BaseClass, LogMixin):
         logger.info("Edit!")
         from frontend.widgets.sample_checker import SampleChecker
         samples = [sample.to_pydantic() for sample in self.sample]
-        checker = SampleChecker(parent=None, title="Edit Run", samples=samples, clientsubmission=self.clientsubmission)
+        checker = SampleChecker(parent=obj, title="Edit Run", samples=samples, run=self.to_pydantic())
         if checker.exec():
             pass
 
@@ -1528,6 +1534,27 @@ class Run(BaseClass, LogMixin):
                      )
             padded_list.append(sample)
         return list(sorted(padded_list, key=itemgetter('procedure_rank')))
+
+    @classmethod
+    def construct_dummy_run(cls, clientsubmission: ClientSubmission) -> Run:
+        """
+        Constructs a dummy run with samples from the given client submission.
+
+        Args:
+            clientsubmission (ClientSubmission): The client submission to base the run on.
+            run_name (str | None, optional): Optional name for the run. Defaults to None.
+
+        Returns:
+            Run: A dummy Run instance.
+        """
+        from backend.validators import PydRun, RSLNamer
+
+        data = clientsubmission.details_dict
+        rsl_plate_number = RSLNamer.construct_new_plate_name(data=data)
+        dummy_run = PydRun(sample=[], clientsubmission=clientsubmission.to_pydantic(), rsl_plate_number=rsl_plate_number)
+        for sample in clientsubmission.sample:
+            dummy_run.sample.append(sample.to_pydantic())
+        return dummy_run
 
 # NOTE: Sample Classes
 

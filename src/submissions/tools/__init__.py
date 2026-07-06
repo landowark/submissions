@@ -932,7 +932,7 @@ def handle_results(input_value:dict|str) -> str:
         case str() | int() | float():
             output = html.escape(str(input_value))
         case datetime() | date():
-            output = input_value.isoformat(timespec='milliseconds')
+            output = input_value.isoformat(timespec='hours').split("T")[0]
         case None:
             output = html.escape("NA")
         case _:

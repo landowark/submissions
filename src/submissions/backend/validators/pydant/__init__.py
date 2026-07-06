@@ -16,7 +16,7 @@ from tools import classproperty, jinja_template_loading, row_keys, DotDict, sort
 from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
-from dateutil.parser import parse
+from dateutil.parser import ParserError, parse
 from sqlalchemy.orm import DeclarativeMeta
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
@@ -635,18 +635,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
 
         return result
 
-    # @property
-    # def _sql_lookup_kwargs(self):
-    #     list_ = {item for item in inspect.signature(self._sql_class.query).parameters.keys()
-    #             if item in [attr for attr in dir(self) if not attr.startswith("_")]}
-    #     result = {}
-    #     for item in list_:
-    #         v = self.__getattribute__(item)
-    #         if isinstance(v, SourcedField):
-    #             v = v.value   # unwrap before handing to query_or_create
-    #         result[item] = v
-    #     return result
-
     def to_sql(self, update: bool = True):
         # Only resolve sql_instance once. If this instance was already resolved
         # by a prior to_sql() call (self.new=False), reuse it instead of
@@ -1099,8 +1087,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case SourcedField():
                     # Unwrap directly — no key guessing needed
                     value = value.value
-                case datetime() | date():
-                    value = value.isoformat(timespec="milliseconds")
+                # case datetime() | date():
+                #     value = value.isoformat(timespec="milliseconds")
                 case bytes():
                     continue
                 case dict():
@@ -1129,7 +1117,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     except AttributeError:
                         logger.error(f"Couldn't get name for PydBaseClass subclase {type(value)}")
                         continue
-                case str() | int() | float() | list():
+                case str() | int() | float() | list() | date() | datetime():
                     pass
                 case _:
                     logger.warning(f"Unmatched type for {k}: {type(value)}")
@@ -1154,6 +1142,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         config = cls.model_config.get("json_schema_extra", {})
         config['excluded'] = config.get("excluded", ["excluded"])
         config['key_value_order'] = config.get("key_value_order", [])
+        config['write_sheet'] = config.get('write_sheet', cls._sql_name)
         return DotDict(config)
 
     @classproperty

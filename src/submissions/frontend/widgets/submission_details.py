@@ -30,7 +30,7 @@ class SubmissionDetails(QDialog):
                  models.ClientSubmission | 
                  models.Run | 
                  models.Procedure |
-                 models. Sample |
+                 models.Sample |
                  models.Reagent, **kwargs) -> None:
 
         super().__init__(parent, **kwargs)

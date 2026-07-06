@@ -1077,9 +1077,9 @@ class BaseClass(Base):
         from backend.validators.pydant import PydBaseClass
         match obj_:
             case datetime():
-                return obj_.isoformat()
+                return obj_.isoformat().split("T")[0]
             case date():
-                return datetime.combine(obj_, datetime.max.time()).isoformat()
+                return datetime.combine(obj_, datetime.max.time()).isoformat().split("T")[0]
             case timedelta():
                 return obj_.days
             case list() | _AssociationList():
@@ -1207,6 +1207,7 @@ class BaseClass(Base):
                 continue
             corrected_value = self.sanitize_obj_for_json(value)
             output[k.strip("_")] = corrected_value
+            
         if self._misc_info:
             for key, value in self._misc_info.items():
                 # NOTE don't update from misc_info

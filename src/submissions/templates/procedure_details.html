@@ -12,7 +12,7 @@
     <h2><u>Procedure Details for {{ procedure['name'] | extract_value }}</u></h2>
     {{ super() }}
     <p>{% for key, value in procedure.items() if key not in procedure['excluded'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}:</b> {{ value | extract_value }}<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {{ value | handle_results }}<br>
     {% endfor %}</p>
     {% if procedure['comment'] %}
     &nbsp;&nbsp;&nbsp;&nbsp;<h4><b>Comments:</b></h4>

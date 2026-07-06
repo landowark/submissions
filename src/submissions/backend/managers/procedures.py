@@ -105,7 +105,6 @@ class DefaultProcedureManager(DefaultManager):
 
     def write(self, workbook: Workbook) -> Workbook:
         self.info_writer = self._resolve_operator("write", "info")(pydant_obj=self.pyd)
-        
         workbook = self.info_writer.write_to_workbook(workbook)
         self.reagent_writer = self._resolve_operator("write", "reagent")(pydant_obj=self.pyd)
         workbook = self.reagent_writer.write_to_workbook(workbook, start_row=self.info_writer.end_row)

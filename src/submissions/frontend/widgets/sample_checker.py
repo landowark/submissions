@@ -8,10 +8,11 @@ from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QGridLayout
-from backend.validators import PydSample, RSLNamer
+from backend.validators import PydSample
 from tools import get_application_from_parent, jinja_template_loading, render_details_template
 if TYPE_CHECKING:
     from backend.db.models import ClientSubmission
+    from backend.validators import PydRun
 
 env = jinja_template_loading()
 
@@ -20,13 +21,8 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class SampleChecker(QDialog):
 
-    def __init__(self, parent, title: str, samples: List[PydSample], clientsubmission: ClientSubmission|None=None):
+    def __init__(self, parent, title: str, samples: List[PydSample], run: PydRun|None=None):
         super().__init__(parent)
-        if clientsubmission:
-            data = clientsubmission.details_dict
-            self.rsl_plate_number = RSLNamer.construct_new_plate_name(data=data)
-        else:
-            self.rsl_plate_number = clientsubmission
         self.samples = samples
         self.setWindowTitle(title)
         self.app = get_application_from_parent(parent)
@@ -40,7 +36,8 @@ class SampleChecker(QDialog):
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
         samples = self.format_sample_list()
-        html = render_details_template(template="sample_checker", samples=samples, rsl_plate_number=self.rsl_plate_number)
+        rsl_plate_number = run.rsl_plate_number.value if run else None
+        html = render_details_template(template="sample_checker", samples=samples, rsl_plate_number=rsl_plate_number)
         self.webview.setHtml(html)
         self.webview.page().setWebChannel(self.channel)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel

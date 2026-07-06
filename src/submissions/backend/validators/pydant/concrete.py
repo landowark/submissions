@@ -509,7 +509,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         # Update the instance directly
         started_date = getattr(self, "started_date", None)
         if started_date is not None:
-            suffix = f" - {started_date.strftime("%Y-%m-%d %H:%M:%S")}"
+            suffix = f" - {started_date.isoformat(timespec='minutes')}"
         else:
             suffix = ""
         # return {"value": f"{run_id} - {pt_name}{suffix}", "missing": True}
@@ -813,7 +813,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             proceduretype_equipmentrole['equipmentroleequipmentassociation'].insert(0, proceduretype_equipmentrole['equipmentroleequipmentassociation'].pop(ass_index))
             process = next((item for item in proceduretype_equipmentrole['equipmentroleequipmentassociation'][0]['process'] if equipment.processversion in [pv['name'] for pv in item['processversion']]), None)
             # process = proceduretype_equipmentrole['equipmentroleequipmentassociation'][0]['process']
-            print(pformat(process))
             processversion_index = next((iii for iii, item in enumerate(process['processversion']) if item['name'] == equipment.processversion), None)
             if not processversion_index:
                 continue
@@ -882,7 +881,8 @@ class PydClientSubmission(PydConcrete):
                        "cost_centre",
                        "submissiontype",
                        "sample_count",
-                       "submission_category"]
+                       "submission_category"],
+            "write_sheet": "Client Info"
         }
     )
     
@@ -1214,7 +1214,6 @@ class PydRun(PydConcrete):
             ).parsed_name
             return SourcedField(value=generated, missing=True)
 
-
     @field_validator("sample", mode="before")
     @classmethod
     def expand_samples(cls, value):
@@ -1266,7 +1265,6 @@ class PydRun(PydConcrete):
             s.__class__.is_sample_id_valid(s)
         ]
         return self.sql_instance, None
-
 
     @property
     def export_filename(self) -> str:
@@ -1364,8 +1362,10 @@ class PydProcedureSampleAssociation(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            'excluded': ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run', 'comment',
-                               'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled', "submitted_date"],
+            'excluded': ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run', 'comment', "sampletype"
+                               'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled', "submitted_date", "well_id", "procedure",
+                               "samplerunassociation"],
+            "key_value_order": ["procedure_rank", "sample_id"],
             "renderclass": "sample"
         }
     )
@@ -1420,6 +1420,15 @@ class PydProcedureEquipmentAssociation(PydConcrete):
     tipslot: Annotated[List[str | dict | PydTipsLot], RelationshipField(uselist=True)] = Field(default_factory=list)
     calibration_date: datetime = Field(default = datetime.combine(date=datetime(year=2000, month=1, day=1), time=datetime.min.time()), 
                                        description="Calibration date previous to use.", repr=False)
+    
+    model_config = ConfigDict(
+        json_schema_extra = {
+            'excluded': ['excluded', 'asset_number', 'calibration_date', 'end_time', 'equipmentequipmentroleassociation', 'equipmentprocedureassociation', 
+                         'manufacturer', 'name', 'procedure', 'procedureequipmenttipslotassociation', 'process', 'ref', 'serial_number', 'start_time', "nickname"],
+            "renderclass": "equipment"
+            
+        }
+    )
 
     @field_validator("start_time", "end_time", mode="before")
     @classmethod
@@ -1481,9 +1490,18 @@ class PydProcedureReagentLotAssociation(PydConcrete):
     procedure: Annotated[str | dict | PydProcedure, RelationshipField(uselist=False)] = Field(default="NA")
     reagentlot: Annotated[str | dict |  PydReagentLot, RelationshipField(uselist=False)] = Field(default="NA")
     reagentrole: Annotated[str | dict | PydReagentRole, RelationshipField(uselist=False)] = Field(default="NA", repr=False)
+
+    model_config = ConfigDict(
+        json_schema_extra = {
+            'excluded': ['excluded', 'active', 'missing', 'name', 'procedure', 'reagent_name', "lot"],
+            'key_value_order': ["reagentrole", "reagent", "reagentlot", "expiry"],
+            "renderclass": "reagent"
+            
+        }
+    )
     
     def __repr__(self) -> str:
-        return f"<PydProcedureReagentLotAssociation({self.procedure} -> {self.reagentlot})>"
+        return f"<PydProcedureReagentLotAssociation({self.constructed_name})>"
 
     @property
     def constructed_name(self) -> str:
@@ -1507,7 +1525,7 @@ class PydProcedureReagentLotAssociation(PydConcrete):
                 reagentlot = self.reagentlot.name
             case _:
                 reagentlot = "Unassigned ReagentLot"
-        return f"{procedure}->{reagentlot}"
+        return f"{procedure} -> {reagentlot}"
 
     
 class PydClientSubmissionSampleAssociation(PydConcrete):
@@ -1519,6 +1537,17 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
     sample: Annotated[str | dict | PydSample, RelationshipField(uselist=False)] = Field(default="NA")
     enabled: bool = Field(default=True)
     comment: list | None = Field(default_factory=list, repr=False)
+
+    model_config = ConfigDict(
+        json_schema_extra = {
+            "excluded": ['excluded', 'clientsubmission', "name", "run",
+                         'enabled', "is_control", "procedure", "sample",
+                         "rank", 'results', 'sampleclientsubmissionassociation', 'samplerunassociation', 'sampleprocedureassociation', 'comment'
+                         ],
+            "key_value_order": ["submission_rank", "sample_id"],
+            "renderclass": "sample"
+        }
+    )
 
 
 __all__ = ["PydResults", "PydReagentLot", "PydDiscount", "PydSample", "PydEquipment", "PydContact", "PydClientLab", 

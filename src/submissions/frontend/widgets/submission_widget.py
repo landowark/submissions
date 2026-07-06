@@ -116,6 +116,35 @@ class SubmissionFormContainer(QWidget):
         self.app.last_dir = fname.parent
         self.import_drag.emit(fname)
 
+    def edit_submission_function(self, clientsubmission: ClientSubmission):
+        """
+        Edit a submission in the app window
+
+        Args:
+            obj (QMainWindow): original app window
+        """
+        from backend.db.models import ClientSubmission
+        from backend.managers import DefaultClientSubmissionManager
+        self.app.raise_()
+        self.app.activateWindow()
+        logger.info(f"\n\nStarting Edit...\n\n")
+        try:
+            assert isinstance(clientsubmission, ClientSubmission)
+        except AssertionError as e:
+            logger.error(f"Got wrong type for {clientsubmission}: {type(clientsubmission)}")
+            raise e
+        try:
+            self.form.setParent(None)
+        except AttributeError:
+            pass
+        self.samples = [assoc.sample.to_pydantic() for assoc in clientsubmission.clientsubmissionsampleassociation]
+        self.missing_info = []
+        self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=clientsubmission)
+        self.pydclientsubmission: PydClientSubmission = self.clientsubmission_manager.to_pydantic()
+        self.form = self.pydclientsubmission.to_form(parent=self, disable=['submitter_plate_id'])
+        self.layout().addWidget(self.form)
+        
+
     @report_result
     def import_submission_function(self, fname: Path | None = None) -> Report:
         """

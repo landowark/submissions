@@ -44,7 +44,7 @@ class App(QMainWindow):
         self.report = Report()
         # NOTE: indicate version and connected database in title bar
         try:
-            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database.path}/{ctx.database.name}"
+            self.title = f"Submissions App TNG (v{ctx.package.__version__}) - {ctx.database.path}/{ctx.database.name}"
         except (AttributeError, KeyError):
             self.title = f"Submissions App"
         # NOTE: set initial app position and size
@@ -66,7 +66,7 @@ class App(QMainWindow):
         self.show()
         self.statusBar().showMessage('Ready', 5000)
         # 1. Define the timeout in milliseconds (e.g., 5 minutes)
-        self.timeout_limit = 5 * 60 * 1000 
+        self.timeout_limit = 15 * 60 * 1000 
         
         # 2. Setup the idle timer
         self.idle_timer = QTimer(self)

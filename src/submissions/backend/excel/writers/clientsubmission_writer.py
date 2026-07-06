@@ -39,17 +39,21 @@ class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
 class ClientSubmissionSampleWriter(DefaultTABLEWriter):
 
 
-    exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank", "sample",
-               "excluded", "procedure", "run", "sampleclientsubmissionassociation", "sampleprocedureassociation",
-               "samplerunassociation", "results"]
-    header_order = ["submission_rank", "sample_id"]
+    # exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank", "sample",
+    #            "excluded", "procedure", "run", "sampleclientsubmissionassociation", "sampleprocedureassociation",
+    #            "samplerunassociation", "results"]
+    # header_order = ["submission_rank", "sample_id"]
 
-    def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
+    def __init__(self, pydant_obj, *args, **kwargs):
+        self.submissiontype = pydant_obj.submissiontype
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
+        self.pydant_obj = self.pad_submission_samples_to_length()
+        self.excluded = self.pydant_obj[0].class_config.excluded
+        self.key_value_order = self.pydant_obj[0].class_config.key_value_order
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
-        self.pydant_obj = self.pad_submission_samples_to_length()
+        
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         return workbook
 

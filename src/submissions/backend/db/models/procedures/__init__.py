@@ -1111,7 +1111,7 @@ class Procedure(BaseClass):
         except AttributeError:
             proceduretype = "Unknown ProcedureType"
         try:
-            started_date = self.started_date.strftime("%Y-%m-%d %H:%M:%S")
+            started_date = self.started_date.isoformat(timespec="minutes")
         except AttributeError:
             started_date = "NA"
         return f"{run} - {proceduretype} - {started_date}"  
@@ -1135,7 +1135,7 @@ class Procedure(BaseClass):
             " - " + \
             func.coalesce(proceduretype_subquery, "Unknown ProcedureType") + \
             " - " + \
-            func.coalesce(func.strftime("%Y-%m-%d %H:%M:%S", cls._started_date), "NA")
+            func.coalesce(func.strftime("%Y-%m-%dT%H:%M", cls._started_date), "NA")
 
     @hybrid_property
     def reagentlot(self):
@@ -1280,8 +1280,14 @@ class Procedure(BaseClass):
 
     @started_date.setter
     def started_date(self, value):
-        if isinstance(value, dict):
-            value = value.get("value", datetime.now())
+        from backend.validators.pydant import SourcedField
+        match value:
+            case dict():
+                value = value.get("value", datetime.now())
+            case SourcedField():
+                value = value.value
+            case _:
+                value = datetime.now()
         match value:
             case datetime():
                 output = value
@@ -1668,24 +1674,25 @@ class Procedure(BaseClass):
 
     @check_authorization
     def delete(self, obj):
-        from frontend.widgets.pop_ups import QuestionAsker
-        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
-        if msg.exec():
-            for ass in self.procedureequipmentassociation:
-                ass._procedureequipmenttipslotassociation = []
-            self.procedureequipmentassociation = []
-            self.procedurereagentlotassociation = []
-            self.proceduresampleassociation = []
-            self.__database_session__.delete(self)
-            try:
-                self.__database_session__.commit()
-            except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
-                self.__database_session__.rollback()
-                raise e
-            try:
-                obj.set_data()
-            except AttributeError:
-                logger.error("App will not refresh data at this time.")
+        logger.warning(f"Temporarily disabled deletion of {self.__class__.__qualname__} {self.name} due to potential data integrity issues.")
+        # from frontend.widgets.pop_ups import QuestionAsker
+        # msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
+        # if msg.exec():
+        #     for ass in self.procedureequipmentassociation:
+        #         ass._procedureequipmenttipslotassociation = []
+        #     self.procedureequipmentassociation = []
+        #     self.procedurereagentlotassociation = []
+        #     self.proceduresampleassociation = []
+        #     self.__database_session__.delete(self)
+        #     try:
+        #         self.__database_session__.commit()
+        #     except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+        #         self.__database_session__.rollback()
+        #         raise e
+        #     try:
+        #         obj.set_data()
+        #     except AttributeError:
+        #         logger.error("App will not refresh data at this time.")
         
     # TODO: Convert references to details_dict_expand_fields calls so I can trim this down.
     @property

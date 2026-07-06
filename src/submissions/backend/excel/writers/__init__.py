@@ -13,7 +13,7 @@ from pandas import DataFrame
 from backend.db.models import BaseClass
 from openpyxl.utils.dataframe import dataframe_to_rows
 from backend.validators.pydant import PydBaseClass, SourcedField
-from tools import flatten_list, sort_dict_by_list, handle_keys
+from tools import flatten_list, sort_dict_by_list, handle_keys, handle_results
 if TYPE_CHECKING:
     from backend.db.models import ProcedureType
 
@@ -30,42 +30,8 @@ class DefaultWriter(object):
 
     def __init__(self, pydant_obj, *args, **kwargs):
         self.pydant_obj = pydant_obj
-        self.proceduretype = kwargs.get("proceduretype", None)
-
-    @classmethod
-    def stringify_value(cls, value: Any) -> str:
-        if isinstance(value, SourcedField):
-            value = value.value
-        match value:
-            case _ if issubclass(value.__class__, BaseClass):
-                value = value.name
-            case _ if issubclass(value.__class__, PydBaseClass):
-                value = value.name
-            case bytes(): 
-                value = None
-            case list():
-                value = "\\n".join([str(item) for item in value])
-            case datetime() | date():
-                try:
-                    value = value.strftime("%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    value = "Time not available."
-            case _:
-                value = str(value)
-        return value
-
-    @classmethod
-    def prettify_key(cls, key: str) -> str:
-        key = key.replace("type", " type").strip()
-        key = key.replace("role", " role").strip()
-        key = key.replace("version", " version").strip()
-        key = key.replace("lot", " lot").strip()
-        key = key.replace("_", " ")
-        key = key.title()
-        key = key.replace(" Id", " ID").strip()
-        key = key.replace("Rsl", "RSL").strip()
-        return key
-
+        self.write_sheet = pydant_obj.class_config.write_sheet
+        
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs):
         if not start_row:
@@ -75,7 +41,7 @@ class DefaultWriter(object):
                 logger.error(f"Couldn't get start row due to {e}")
                 start_row = 1
         if not sheet:
-            sheet = self.__class__.sheet
+            sheet = self.write_sheet
         self.sheet = sheet
         sheetnames = workbook.sheetnames
         if isinstance(sheetnames, property):
@@ -135,16 +101,16 @@ class DefaultWriter(object):
 
 
 class DefaultKEYVALUEWriter(DefaultWriter):
-    sheet = "Client Info"
-    start_row = 2
+    
     
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
-        self.fill_dictionary = {k: v for k, v in self.pydant_obj.improved_dict.items() if k not in self.pydant_obj.class_config.excluded}
+        self.excluded = pydant_obj.class_config.excluded
+        self.key_value_order = pydant_obj.class_config.key_value_order
+        fill_dictionary = {k: v for k, v in self.pydant_obj.improved_dict.items() if k not in self.excluded}
+        self.fill_dictionary = sort_dict_by_list(fill_dictionary, self.key_value_order)
 
     def delineate_end_row(self, start_row: int = 1):
-        # data_length = len([key for key in self.fill_dictionary.keys() if key not in self.__class__.exclude])
-        # return data_length + start_row
         return len(self.fill_dictionary) + start_row
 
     @classmethod
@@ -154,14 +120,12 @@ class DefaultKEYVALUEWriter(DefaultWriter):
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row)
-        # dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.pydant_obj.exclude}
-        dictionary =  sort_dict_by_list(dictionary=self.fill_dictionary, order_list=self.pydant_obj.class_config.key_value_order)
-        for ii, (k, v) in enumerate(dictionary.items(), start=self.start_row):
-            value = self.stringify_value(value=v)
+        for ii, (k, v) in enumerate(self.fill_dictionary.items(), start=self.start_row):
+            value = handle_results(v)
             if value is None:
                 continue
             self.worksheet.cell(column=1, row=ii, value=handle_keys(k))
-            self.worksheet.cell(column=2, row=ii, value=self.stringify_value(value))
+            self.worksheet.cell(column=2, row=ii, value=handle_results(value))
         self.worksheet = self.postwrite(self.worksheet)
         
         return workbook
@@ -173,8 +137,20 @@ class DefaultKEYVALUEWriter(DefaultWriter):
 
 class DefaultTABLEWriter(DefaultWriter):
 
-    sheet = "Client Info"
-    
+    def __init__(self, pydant_obj, actual_objs_type: str | None = None, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
+        self.pydant_obj = getattr(self.pydant_obj, actual_objs_type) if actual_objs_type else self.pydant_obj
+        try:
+            self.excluded = self.pydant_obj[0].class_config.excluded
+        except (IndexError, AttributeError, TypeError) as e:
+            logger.error(f"Error occurred while initializing TABLE writer: {e}")
+            self.excluded = []
+        try:
+            self.key_value_order = self.pydant_obj[0].class_config.key_value_order
+        except (IndexError, AttributeError, TypeError) as e:
+            logger.error(f"Error occurred while initializing TABLE writer: {e}")
+            self.key_value_order = []
+
     def get_row_count(self, start_row: int = 1):
         list_df = DataFrame([item for item in self.worksheet.values][start_row - 1:])
         row_count = list_df.shape[0]
@@ -206,12 +182,13 @@ class DefaultTABLEWriter(DefaultWriter):
         df = df.loc[:, ~is_all_zero]
         df.dropna(axis=1, how='all', inplace=True)
         df.fillna("", inplace=True)
+        df.drop(columns=[col for col in df.columns if col in self.excluded], inplace=True, errors='ignore')
         # Rename column Headers.
         df = df.rename(columns=handle_keys)
         rows = dataframe_to_rows(df, index=False, header=True)
         for r_idx, row in enumerate(rows, start_row + 1 ):
             for c_idx, value in enumerate(row, 1):
-                self.worksheet.cell(row=r_idx, column=c_idx, value=self.stringify_value(value))
+                self.worksheet.cell(row=r_idx, column=c_idx, value=handle_results(value))
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
 
@@ -245,5 +222,6 @@ from .procedure_writers import *
 from .results_writers import *
 from .clientsubmission_writer import *
 
-__all__ = ["DefaultKEYVALUEWriter", "DefaultTABLEWriter", "ProcedureInfoWriter", "ProcedureReagentWriter", "ProcedureEquipmentWriter", "ProcedureSampleWriter",
-           "DefaultResultsInfoWriter", "DefaultResultsSampleWriter", "DiomniPCRInfoWriter", "DiomniPCRSampleWriter", "QubitInfoWriter", "QubitSampleWriter", "ClientSubmissionInfoWriter", "ClientSubmissionSampleWriter"]
+__all__ = ["DefaultKEYVALUEWriter", "DefaultTABLEWriter", "ProcedureInfoWriter", "ProcedureReagentWriter", "ProcedureEquipmentWriter", 
+           "ProcedureSampleWriter", "DefaultResultsInfoWriter", "DefaultResultsSampleWriter", "DiomniPCRInfoWriter", "DiomniPCRSampleWriter", 
+           "QubitInfoWriter", "QubitSampleWriter", "ClientSubmissionInfoWriter", "ClientSubmissionSampleWriter"]

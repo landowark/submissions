@@ -81,7 +81,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name=f"{__project__}_{__version__}_2",
+    name=f"{__project__}_{__version__}",
     debug=True,
     bootloader_ignore_signals=False,
     strip=False,

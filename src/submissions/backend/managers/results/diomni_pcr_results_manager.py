@@ -2,7 +2,7 @@
 Module for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
-import logging
+import logging, sys
 from pprint import pformat
 from pathlib import Path
 from openpyxl import Workbook
@@ -35,6 +35,8 @@ class DiomniPCRManager(DefaultResultsManager):
             self.info.update({k:v for k, v in self.info_parser.parsed_info})
             self.sample_parser = DiomniPCRSampleParser(worksheet=sheet, procedure=self.procedure, start_row=self.info_parser.end_row, date_analyzed=self.info_parser.date_analyzed)
             samples.extend([item for item in self.sample_parser.parsed_info])
+        print(pformat(samples))
+        sys.exit()
         sample_names = list(set([list(item.keys())[0] for item in samples]))
         self.samples = []
         for sample_name in sample_names:
