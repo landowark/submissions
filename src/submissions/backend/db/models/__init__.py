@@ -8,7 +8,7 @@ from dateutil.parser import parse
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
-from sqlalchemy.orm import CompositeProperty, DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
+from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
 from sqlalchemy.orm.attributes import InstrumentedAttribute, set_committed_value
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
@@ -86,14 +86,6 @@ class SafeMiscInfo(MutableDict, dict):
         safe_value = self._owner.sanitize_obj_for_json(value) if self._owner else value
         dict.__setitem__(self, key, safe_value)
 
-    # def _set_safe_item(self, key: str, value):
-        
-    #     if self._owner and key.replace("_", "").lower() in self._owner.sqlalchemy_fields:
-    #         logger.warning(f"Key {key} in misc_info conflicts with existing field name. Skipping.")
-    #         return
-    #     safe_value = self._owner.sanitize_obj_for_json(value) if self._owner else value
-    #     dict.__setitem__(self, key, safe_value)
-
     def __setitem__(self, key: str, value):
         """
         Set item with automatic sanitization and tracking of changes.
@@ -142,8 +134,6 @@ class BaseClass(Base):
 
     __table_args__ = {'extend_existing': True}  #: NOTE Will only add new columns
 
-    # singles = ['id', 'name']
-
     _misc_info = Column(MutableDict.as_mutable(JSON))
 
     def __repr__(self) -> str:
@@ -155,10 +145,8 @@ class BaseClass(Base):
         :return: String representation in the format ``<ClassName(name)>``.
         :rtype: str
         """
-        try:
-            return f"<{self.__class__.__name__}({self.name})>"
-        except AttributeError:
-            return f"<{self.__class__.__name__}(Name Unavailable)>"
+        return f"<{self.__class__.__name__}({getattr(self, 'name', 'Name Unavailable')})>"
+        
 
     def _wrap_misc_info(self):
         """
@@ -214,6 +202,7 @@ class BaseClass(Base):
             return
         if not isinstance(self._misc_info, SafeMiscInfo):
             self._misc_info = SafeMiscInfo(owner=self)
+        value = self.sanitize_obj_for_json(value)
         self._misc_info.update(value)
 
     @classproperty
@@ -393,48 +382,6 @@ class BaseClass(Base):
             if cls.__qualname__ != "BaseClass":
                 logger.error(f"Could not inspect SQLAlchemy fields for {cls.__name__}: {e}")
             return []
-
-    def _serialize_misc_value(self, value):
-        """
-        Serialize a value to a JSON-compatible form.
-        
-        Attempts to coerce a value into a JSON-serializable form. Returns the original 
-        value if already serializable, or converts common types like datetime, date, 
-        timedelta, and BaseClass instances to JSON-compatible representations.
-
-        :param value: Value to serialize.
-        :return: JSON-serializable version of the value.
-        :rtype: any
-        :raises TypeError: If the value cannot be coerced to a JSON-serializable form.
-        """
-        # First, quick test for serializability
-        try:
-            json.dumps(value)
-            return value
-        except TypeError:
-            pass
-        # Handle some common non-serializable types
-        try:
-            if isinstance(value, datetime):
-                return value.strftime("%Y-%m-%dT%H:%M:%S")
-            if isinstance(value, date):
-                return value.strftime("%Y-%m-%d")
-            if isinstance(value, timedelta):
-                return value.days
-        except Exception:
-            # fall through to other heuristics
-            pass
-        # If it's a BaseClass-like instance, prefer name/id when available
-        try:
-            if issubclass(value.__class__, BaseClass):
-                return getattr(value, "name", None) or getattr(value, "id", None) or str(value)
-        except Exception:
-            pass
-        # As a last resort, try to convert to string. If that fails, raise.
-        try:
-            return str(value)
-        except Exception:
-            raise TypeError(f"Value of type {type(value)} is not JSON serializable")
 
     @classmethod
     def determine_field_type(cls, field: str, is_new: bool = False) -> str:
@@ -810,7 +757,6 @@ class BaseClass(Base):
                     except ArgumentError:
                         continue
             if k in cls.singles:
-                # logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
         if offset:
             query = query.offset(offset)
@@ -947,7 +893,7 @@ class BaseClass(Base):
         if not class_has_attr:
             # ensure value is json serializable (or coerce it)
             try:
-                safe_value = self._serialize_misc_value(value)
+                safe_value = self.sanitize_obj_for_json(obj_=value)
             except TypeError:
                 # Could not coerce to a JSON serializable form; skip storing
                 return
@@ -1074,18 +1020,19 @@ class BaseClass(Base):
         :return: JSON-compatible version of the object.
         :rtype: any
         """
-        from backend.validators.pydant import PydBaseClass
+        from backend.validators.pydant import PydBaseClass, SourcedField
+        
         match obj_:
-            case datetime():
-                return obj_.isoformat().split("T")[0]
-            case date():
-                return datetime.combine(obj_, datetime.max.time()).isoformat().split("T")[0]
+            case datetime() | date():
+                return cls.rectify_query_date(input_date=obj_).split(" ")[0]
             case timedelta():
                 return obj_.days
             case list() | _AssociationList():
                 return [cls.sanitize_obj_for_json(item, expand=expand) for item in obj_]
             case dict():
                 return {k: cls.sanitize_obj_for_json(v, expand=expand) for k, v in obj_.items()}
+            case SourcedField():
+                return cls.sanitize_obj_for_json(obj_.value, expand=expand)
             case _ if issubclass(obj_.__class__, BaseClass):
                 if not expand:
                     return cls.sanitize_obj_for_json(obj_.name)

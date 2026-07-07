@@ -710,12 +710,7 @@ class ReagentLot(BaseClass):
 
     @property
     def details_dict(self) -> dict:
-        output = super().details_dict
-        for key in ("reagentlotprocedureassociation", "procedure", "procedures"):
-            output.pop(key, None)
-        # output['excluded'] += ["reagentlotprocedureassociation", "procedures"]
-        output['reagent'] = output['reagent']
-        return output
+        return {k: v for k,v in super().details_dict.items() if k not in ("reagentlotprocedureassociation", "procedure", "procedures")}
 
 
 class ReagentRoleReagentAssociation(BaseClass):
@@ -1341,14 +1336,12 @@ class ProcedureReagentLotAssociation(BaseClass):
         :return: Serialized details for this association.
         :rtype: dict
         """
-        output = super().details_dict
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
-        relevant = {k: v for k, v in output.items() if k not in ['reagent']}
+        relevant = {k: v for k, v in super().details_dict.items() if k not in ['reagent']}
         output = self.reagentlot.details_dict
-        output['reagent_name'] = self.reagentlot.reagent.name
         misc = output.get('misc_info', {})
         output.update(relevant)
-        output['reagentrole'] = self.reagentrole.name
+        # output['reagentrole'] = self.reagentrole.name
         output['misc_info'] = misc
         return output
 

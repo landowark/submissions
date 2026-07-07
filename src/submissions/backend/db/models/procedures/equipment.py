@@ -1,3 +1,6 @@
+"""
+SQLAlchemy models for equipment and equipment roles, including associations with procedures and processes.
+"""
 from __future__ import annotations
 from pprint import pformat
 import re, logging
@@ -8,7 +11,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime
 from dateutil.parser import parse as dateparse, ParserError
 from tools import check_authorization, setup_lookup, flatten_list, timezone
-from typing import List, Any, Tuple, TYPE_CHECKING
+from typing import List, Any, TYPE_CHECKING
 from .. import BaseClass, Base, LogMixin
 from . import ProcedureType, Procedure
 if TYPE_CHECKING:
@@ -187,27 +190,6 @@ class EquipmentRole(BaseClass):
                 logger.error(f"Can't add {output} to {self.__class__.__qualname__}._proceduretype")
                 continue
         self.equipmentroleproceduretypeassociation = list_
-
-    # @classmethod
-    # def query_or_create(cls, **kwargs) -> Tuple[EquipmentRole, bool]:
-    #     """
-    #     Find an EquipmentRole by kwargs or create a new one.
-
-    #     :param kwargs: Attributes used to query or set on the EquipmentRole.
-    #     :type kwargs: dict
-    #     :return: Tuple of (EquipmentRole instance, created flag).
-    #     :rtype: Tuple[EquipmentRole, bool]
-    #     """
-    #     new = False
-    #     disallowed = ['expiry']
-    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-    #     instance = cls.query(**sanitized_kwargs)
-    #     if not instance or isinstance(instance, list):
-    #         instance = cls()
-    #         new = True
-    #     for k, v in sanitized_kwargs.items():
-    #         setattr(instance, k, v)
-    #     return instance, new
 
     @classmethod
     @setup_lookup
@@ -1833,11 +1815,11 @@ class TipsLot(BaseClass, LogMixin):
         """
         super().save()
 
-    @property
-    def details_dict(self) -> dict:
-        output = super().details_dict
-        output['name'] = self.name
-        return output
+    # @property
+    # def details_dict(self) -> dict:
+    #     output = super().details_dict
+    #     output['name'] = self.name
+    #     return output
 
 
 class ProcedureEquipmentTipslotAssociation(BaseClass):

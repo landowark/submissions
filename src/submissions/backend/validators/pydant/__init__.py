@@ -1122,7 +1122,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case _:
                     logger.warning(f"Unmatched type for {k}: {type(value)}")
                     try:
-                        value = value.name
+                        value = BaseClass.sanitize_obj_for_json(value)
                     except AttributeError:
                         continue
             if value is None:

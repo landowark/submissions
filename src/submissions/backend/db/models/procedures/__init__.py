@@ -23,7 +23,7 @@ from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityErr
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
-    from backend.validators.pydant import PydProcedure, PydProcedureEquipmentAssociation
+    from backend.validators.pydant import PydProcedure
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -1729,7 +1729,8 @@ class Procedure(BaseClass):
         except AttributeError:
             pass
         output['results'] = [result.details_dict for result in self.results]
-        run_samples = [sample for sample in self.run.sample]
+        with self.run.__database_session__.no_autoflush:
+            run_samples = [assoc.sample for assoc in self.run.runsampleassociation]
         active_samples = [sample.details_dict for sample in self.proceduresampleassociation
                           if sample.sample.sample_id in [s.sample_id for s in run_samples]]
         for sample in active_samples:
@@ -1796,10 +1797,6 @@ class Procedure(BaseClass):
                 {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", "process"]}]}
             ])
             # annotate filled flags on expanded entries
-            # for item in expanded.get('reagentrole', []):
-            #     item['filled'] = any(assoc.reagentrole.name == item.get('name') for assoc in self.procedurereagentlotassociation)
-            # for item in expanded.get('equipmentrole', []):
-            #     item['filled'] = any(assoc.equipmentrole.name == item.get('name') for assoc in self.procedureequipmentassociation)
             # attach expanded dicts so templates can read them via proceduretype['reagentrole']
             pyd_proc_type.model_extra.update(expanded)
         except Exception as e:
@@ -1899,7 +1896,14 @@ class Procedure(BaseClass):
         from backend.db.models import RunSampleAssociation
         self.set_cost()
         assert self.run is not None
+        if hasattr(self, '_misc_info') and isinstance(self._misc_info, dict) and 'sample' in self._misc_info:
+            try:
+                self._misc_info['sample'] = self.sanitize_obj_for_json(self._misc_info['sample'])
+            except TypeError:
+                del self._misc_info['sample']
         super().save()
+        with self.run.__database_session__.no_autoflush:
+            run_samples = [assoc.sample for assoc in self.run.runsampleassociation]
         try:
             rank = max([item.run_rank for item in self.run.runsampleassociation])
         except AttributeError:
@@ -1909,7 +1913,7 @@ class Procedure(BaseClass):
                 logger.error(f"No association at rank {iii}")
                 continue
             try:
-                check = sampleassociation.sample.sample_id in [s.sample_id for s in self.run.sample]
+                check = sampleassociation.sample.sample_id in [s.sample_id for s in run_samples]
             except AttributeError as e:
                 logger.error(f"Couldn't get sample_id due to {e}")
                 check = True

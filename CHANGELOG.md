@@ -1,3 +1,11 @@
+# 202607.04
+
+- 
+
+# 202607.03
+
+- Updated version naming to allow for smoother updates in folder structure (i.e., not having to wait for people to close the program)
+
 # 202606.05
 
 - Moving some writer excludes and key value ordering to PYD classes.
@@ -10,7 +18,6 @@
 
 - Fixed issue with procedureequipmentassociation addition in procedure_creation.
 - Streamlined data update for the main window (much faster).
-
 
 # 202606.02
 

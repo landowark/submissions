@@ -26,7 +26,7 @@ from typing import Generator, List, TYPE_CHECKING, Literal, Set
 from pathlib import Path
 if TYPE_CHECKING:
     from submissions.backend.db.models.procedures import ProcedureType, Procedure, Results
-    from backend.validators.pydant import PydSample, PydClientSubmission
+    from backend.validators.pydant import PydSample
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -153,7 +153,7 @@ class ClientSubmission(BaseClass, LogMixin):
                 logger.error(f"Unmatched value {value} for submissiontype")
                 return
         if isinstance(output, tuple):
-                    output = output[0]
+            output = output[0]
         if isinstance(output, SubmissionType):
             self._submissiontype = output
         else:
@@ -259,7 +259,6 @@ class ClientSubmission(BaseClass, LogMixin):
         for item in value:
             if item is None:
                 continue
-            logger.debug(f"Incoming {item.__class__.__name__}: {item}")
             match item:
                 case str():
                     try:
@@ -280,9 +279,7 @@ class ClientSubmission(BaseClass, LogMixin):
                     continue
             # This indicates that the setter is being run in two duplicate batches
             if isinstance(output, ClientSubmissionSampleAssociation):
-                logger.debug(f"Checking: {output.sample.sample_id}")
                 try:
-                    # check = output.sample.sample_id.lower().startswith(("blank", "na", "none")) or output.sample.sample_id == ""
                     check = PydSample.is_sample_id_valid(output.sample.sample_id)
                 except AttributeError as e:
                     logger.error(f"Couldn't get sample_id due to {e}")
@@ -302,7 +299,6 @@ class ClientSubmission(BaseClass, LogMixin):
             else:
                 logger.error(f"Could not add {output} to {self.__class__.__qualname__}._sample")
         # As of here, samples is empty.
-        logger.debug(pformat(samples))
         self.clientsubmissionsampleassociation = samples
 
     @hybrid_property
@@ -531,7 +527,6 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def add_run(self, obj):
         from frontend.widgets.sample_checker import SampleChecker
-        from backend.validators import PydRun
         samples = [assoc.sample.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
         run = Run.construct_dummy_run(clientsubmission=self)
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, run=run)
@@ -622,7 +617,7 @@ class ClientSubmission(BaseClass, LogMixin):
         try:
             if self.completed_date is None:
                 return None
-            return (self.completed_date - self.submitted_date).days
+            return (self.completed_date - self.submitted_date).days + 1
         except IndexError:
             logger.warning("No run associated with this submission, cannot calculate turnaround time.")
             return None
@@ -655,6 +650,8 @@ class ClientSubmission(BaseClass, LogMixin):
         from frontend.widgets.pop_ups import QuestionAsker
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.submitter_plate_id}?\n")
         if msg.exec():
+            self.run = []
+            self.clientsubmissionsampleassociation = []
             self.__database_session__.delete(self)
             try:
                 self.__database_session__.commit()
@@ -775,10 +772,13 @@ class Run(BaseClass, LogMixin):
     
     @rsl_plate_number.setter
     def rsl_plate_number(self, value):
+        from backend.validators import RSLNamer
         if isinstance(value, dict):
             value = value.get("value", "NA")
         if isinstance(value, str):
             self._rsl_plate_number = value
+        else:
+            namer = RSLNamer(submission_type=self.clientsubmission.submissiontype)
 
     @hybrid_property
     def procedure(self):
@@ -1499,7 +1499,9 @@ class Run(BaseClass, LogMixin):
         plate_dict = proceduretype.ranked_plate
         ranked_samples = []
         unranked_samples = []
-        for sample in self.sample:
+        with self.__database_session__.no_autoflush:
+            samples = [assoc.sample for assoc in self.runsampleassociation]
+        for sample in samples:
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
             if submission_rank != 0:
                 try:
@@ -1784,6 +1786,11 @@ class Sample(BaseClass, LogMixin):
         return [dict(label="Submitter ID", field="sample_id")]
 
     def to_pydantic(self):
+        if hasattr(self, '_misc_info') and isinstance(self._misc_info, dict) and 'sample' in self._misc_info:
+            try:
+                self._misc_info['sample'] = self.sanitize_obj_for_json(self._misc_info['sample'])
+            except TypeError:
+                del self._misc_info['sample']
         output: PydSample = super().to_pydantic()
         output.results = [result.to_pydantic() for result in flatten_list([assoc.results for assoc in self.sampleprocedureassociation])]
         return output
