@@ -2196,7 +2196,7 @@ class Results(BaseClass):
         """
         Input objects will be assumed to be sample only and use self.procedure to set.
         """
-        from backend.validators.pydant import PydProcedureSampleAssociation
+        from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
         from backend.db.models import ProcedureSampleAssociation
         try:
             proc = self.procedure
@@ -2208,6 +2208,8 @@ class Results(BaseClass):
                 output = ProcedureSampleAssociation.query(sample=value, procedure=proc, limit=1)
             case dict():
                 output = ProcedureSampleAssociation.query_or_create(**value)
+            case PydSample():
+                output = ProcedureSampleAssociation(sample=value, procedure=proc)
             case PydProcedureSampleAssociation():
                 output = value.to_sql(update=False)
             case ProcedureSampleAssociation():

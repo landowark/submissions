@@ -5,7 +5,7 @@ from __future__ import annotations
 import re, sys, logging, json, inspect
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse
-from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
+from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect, event
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
@@ -1027,7 +1027,7 @@ class BaseClass(Base):
                 return cls.rectify_query_date(input_date=obj_).split(" ")[0]
             case timedelta():
                 return obj_.days
-            case list() | _AssociationList():
+            case list() | _AssociationList() | InstrumentedList():
                 return [cls.sanitize_obj_for_json(item, expand=expand) for item in obj_]
             case dict():
                 return {k: cls.sanitize_obj_for_json(v, expand=expand) for k, v in obj_.items()}
@@ -1121,7 +1121,7 @@ class BaseClass(Base):
                     continue
             dict_[field] = output
         return dict_
-    
+
     @property
     def details_dict(self) -> dict:
         """
@@ -1148,6 +1148,7 @@ class BaseClass(Base):
                 check = False
             if check:
                 continue
+            self.inspect_session()
             try:
                 value = getattr(self, k)
             except AttributeError:
@@ -1345,6 +1346,33 @@ class BaseClass(Base):
             elif direction == "MANYTOONE" and not rel.uselist and _columns_are_unique(rel.local_columns):
                 fields.add(_public(rel.key))  # genuine one-to-one (unique local FK)
         return sorted(fields)
+
+    def inspect_session(self):
+        for obj in self.__database_session__.dirty:
+            if not obj._misc_info:
+                continue
+            for k, v in obj._misc_info.items():
+                try:
+                    json.dumps(v)
+                except TypeError:
+                    print(f"{obj!r} -> _misc_info[{k!r}] = {v!r} ({type(v).__name__}) is not JSON-safe")
+
+
+@event.listens_for(Session, "before_flush")
+def _sanitize_misc_info_before_flush(session, flush_context, instances):
+    """
+    Safety net: ensure every dirty/new BaseClass instance's _misc_info is
+    JSON-serializable before any flush, not just explicit .save() calls.
+    Catches autoflush-triggered writes that bypass BaseClass.save().
+    """
+    for obj in list(session.dirty) + list(session.new):
+        if not isinstance(obj, BaseClass) or not obj._misc_info:
+            continue
+        for k, v in list(obj._misc_info.items()):
+            try:
+                json.dumps(v)
+            except TypeError:
+                obj._misc_info[k] = obj.sanitize_obj_for_json(v)
 
 
 class LogMixin(Base):

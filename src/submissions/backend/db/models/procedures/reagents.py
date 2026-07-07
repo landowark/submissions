@@ -297,12 +297,12 @@ class Reagent(BaseClass, LogMixin):
         if reagentrole is not None:
             try:
                 self.reagentrole = reagentrole
-            except Exception:
-                # fallback: store in misc_info if setter fails
+            except Exception as e:
+                logger.error(f"Couldn't set reagentrole via setter, falling back to misc_info: {e}")
                 try:
-                    self._misc_info.update({'reagentrole': reagentrole})
-                except Exception:
-                    pass
+                    self._misc_info.update({'reagentrole': self.sanitize_obj_for_json(reagentrole)})
+                except Exception as e2:
+                    logger.error(f"Fallback also failed: {e2}")
         # Resolve reagentrole
         if reagentlot is not None:
             try:

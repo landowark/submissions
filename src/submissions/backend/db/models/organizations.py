@@ -83,12 +83,12 @@ class ClientLab(BaseClass):
         if clientsubmission is not None:
             try:
                 self.clientsubmission = clientsubmission
-            except Exception:
-                # fallback: store in misc_info if setter fails
+            except Exception as e:
+                logger.error(f"Couldn't set clientsubmission via setter, falling back to misc_info: {e}")
                 try:
-                    self._misc_info.update({'clientsubmission': clientsubmission})
-                except Exception:
-                    logger.error(f"Couldn't set ClientLab clientsubmission: {clientsubmission}")
+                    self._misc_info.update({'clientsubmission': self.sanitize_obj_for_json(clientsubmission)})
+                except Exception as e2:
+                    logger.error(f"Fallback also failed: {e2}")
         # Resolve contact
         if contact is not None:
             try:
@@ -297,21 +297,22 @@ class Contact(BaseClass):
         if clientsubmission is not None:
             try:
                 self.clientsubmission = clientsubmission
-            except Exception:
-                # fallback: store in misc_info if setter fails
+            except Exception as e:
+                logger.error(f"Couldn't set clientsubmission via setter, falling back to misc_info: {e}")
                 try:
-                    self._misc_info.update({'clientsubmission': clientsubmission})
-                except Exception:
-                    pass
+                    self._misc_info.update({'clientsubmission': self.sanitize_obj_for_json(clientsubmission)})
+                except Exception as e2:
+                    logger.error(f"Fallback also failed: {e2}")
         # Resolve reagentrole
         if clientlab is not None:
             try:
                 self.clientlab = clientlab
-            except Exception:
+            except Exception as e:
+                logger.error(f"Couldn't set clientlab via setter, falling back to misc_info: {e}")
                 try:
-                    self._misc_info.update({'clientlab': clientlab})
-                except Exception:
-                    pass
+                    self._misc_info.update({'clientlab': self.sanitize_obj_for_json(clientlab)})
+                except Exception as e2:
+                    logger.error(f"Fallback also failed: {e2}")
 
 
     ##### Properties #####
