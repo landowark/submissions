@@ -1,3 +1,6 @@
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from . import DefaultSettings
 from csv import writer as csvwriter
 from frontend.widgets.functions import select_save_file

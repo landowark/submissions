@@ -1,5 +1,7 @@
 
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from functools import cached_property
 from re import compile as rcompile
 from csv import writer as csvwriter
@@ -600,7 +602,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         try:
             proc: ProcedureType = self.sql_instance.proceduretype
         except AttributeError as e:
-            logger.error(f"Can't get rows, columns due to {e}")
+            logger.exception(f"Can't get rows, columns due to {e}")
             return 0, 0
         return proc.plate_rows, proc.plate_columns
 
@@ -675,9 +677,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             # Find the existing reagentlot association with this role, if it exists.
             removable = next((item for item in self.reagentlot if reagentrole == item.reagentrole), None)
         except AttributeError as e:
-            logger.error(e)
+            logger.exception(e)
             removable = None
-        logger.debug(f"Found removable: {removable}")
         if removable:
             idx = self.reagentlot.index(removable)
             self.reagentlot.pop(idx)
@@ -1313,6 +1314,7 @@ class PydRun(PydConcrete):
         try:
             template = self.sql_instance.clientsubmission.submissiontype.file_name_template
         except KeyError as e:
+            logger.exception(f"Could not fetch template, using fallback.")
             template = "{{ rsl_plate_number }}{% if clientsubmission %}_{{ clientsubmission }}{% endif %}{% if completed_date %}_{{ completed_date }}{% endif %}"
         render = self.namer.construct_export_name(template=template, **self.improved_dict).replace("/", "")
         return render

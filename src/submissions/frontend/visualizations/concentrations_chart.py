@@ -1,6 +1,9 @@
 """
 Construct BC control concentration charts
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from . import ResultsFigure
 from plotly.express import scatter as pxscatter
 from pandas import DataFrame

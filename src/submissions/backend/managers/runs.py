@@ -2,6 +2,8 @@
 Module for managing Runs object
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from openpyxl.workbook.workbook import Workbook
 from backend.managers import DefaultManager
 

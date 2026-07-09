@@ -2,6 +2,8 @@
 Writers for PCR results from Design and Analysis Software
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from typing import Generator
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows

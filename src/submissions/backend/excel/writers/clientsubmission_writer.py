@@ -2,6 +2,8 @@
 Module for ClientSubmission writing
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from openpyxl.cell import MergedCell
 from openpyxl.workbook import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill

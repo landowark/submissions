@@ -7,14 +7,14 @@ block_cipher = None
 import sys, subprocess
 from pathlib import Path
 sys.path.append(Path(__name__).parent.joinpath('src').absolute().__str__())
-from submissions import __version__, __project__, bcolors, project_path
+from submissions import __version__, __project__, project_path
 print(f"Using {project_path.absolute().__str__()} as project path.")
 doc_path = project_path.joinpath("docs").absolute()
 build_path = project_path.joinpath(".venv", "Scripts", "sphinx-build").absolute().__str__()
-print(bcolors.BOLD + "Running Sphinx subprocess to generate rst files..." + bcolors.ENDC)
+print("\033[1mRunning Sphinx subprocess to generate rst files...\033[0m")
 api_path = project_path.joinpath(".venv", "Scripts", "sphinx-apidoc").absolute().__str__()
 subprocess.run([api_path, "-o", doc_path.joinpath("source").__str__(), project_path.joinpath("src", "submissions").__str__(), "-f"])
-print(bcolors.BOLD + "Running Sphinx subprocess to generate html docs..." + bcolors.ENDC)
+print("\033[1mRunning Sphinx subprocess to generate html docs...\033[0m")
 docs_build = doc_path.joinpath("build")
 if not docs_build.exists():
     docs_build.mkdir(exist_ok=True, parents=True)

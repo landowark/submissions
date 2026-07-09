@@ -1,4 +1,6 @@
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from re import sub as rsub
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Interval, FLOAT, select
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -295,11 +297,11 @@ class Reagent(BaseClass, LogMixin):
             try:
                 self.reagentrole = reagentrole
             except Exception as e:
-                logger.error(f"Couldn't set reagentrole via setter, falling back to misc_info: {e}")
+                logger.exception(f"Couldn't set reagentrole via setter, falling back to misc_info: {e}")
                 try:
                     self._misc_info.update({'reagentrole': self.sanitize_obj_for_json(reagentrole)})
                 except Exception as e2:
-                    logger.error(f"Fallback also failed: {e2}")
+                    logger.exception(f"Fallback also failed: {e2}")
         # Resolve reagentrole
         if reagentlot is not None:
             try:
@@ -583,10 +585,10 @@ class ReagentLot(BaseClass):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
+                    except Exception as e2:
                         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
             case _:
                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")

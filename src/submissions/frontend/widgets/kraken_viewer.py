@@ -4,6 +4,9 @@ Handles display of control charts
 ### Currently not implemented. Requires updating to models.Results ###
 
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QCheckBox, QLabel, QWidget, QComboBox, QPushButton
@@ -84,7 +87,7 @@ class KrakenViewer(InfoPane):
             reader = CSVDictReader(f)
             return [row for row in reader]
         except Exception as e:
-            logger.error(f"  [!] Failed to read CSV: {e}")
+            logger.exception(f"  [!] Failed to read CSV: {e}")
             return None
 
     @classmethod
@@ -166,7 +169,7 @@ class KrakenViewer(InfoPane):
             result = await client.execute_async(query, variable_values=variables)
             logger.info(result)
         except Exception as e:
-            logger.error(f"Error running mutation: {e}")    
+            logger.exception(f"Error running mutation: {e}")    
 
     def grab_data(self, project: str, start_date: str, end_date: str, metadata_only: bool = True):
         
@@ -278,7 +281,7 @@ class KrakenViewer(InfoPane):
                 try:
                     date_obj = datetime.strptime(clean_date, "%Y%m%d")
                 except ValueError as e:
-                    logger.error(f"Date format {clean_date} in sample name '{sample['name']}' is not recognized. Expected format YYYYMMDD or YYYY-MM-DD.")
+                    logger.exception(f"Date format {clean_date} in sample name '{sample['name']}' is not recognized. Expected format YYYYMMDD or YYYY-MM-DD.")
                     raise e
             else:
                 date_obj = datetime.strptime(sample['createdAt'], "%Y-%m-%dT%H:%M:%SZ")
@@ -409,7 +412,7 @@ class KrakenViewer(InfoPane):
             )
         except KeyError as e:
             
-            logger.error(f"Data structure: {pformat([item.keys() for item in self.data])}")
+            logger.exception(f"Data structure: {pformat([item.keys() for item in self.data])}")
             raise e
         if not self.metadata_box.isChecked():
             df = self.merge_genera(df)

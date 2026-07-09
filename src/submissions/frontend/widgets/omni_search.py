@@ -1,6 +1,9 @@
 """
 Search box that performs fuzzy search for various object types
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from typing import Tuple, Any, List, Generator
 from pandas import DataFrame
 from PyQt6.QtCore import QSortFilterProxyModel, QModelIndex
@@ -174,7 +177,7 @@ class SearchResults(QTableView):
             self.data['id'] = self.data['id'].apply(str)
             self.data['id'] = self.data['id'].str.zfill(3)
         except (TypeError, KeyError) as e:
-            logger.error(f"Couldn't format id string: {e}")
+            logger.exception(f"Couldn't format id string: {e}")
         proxy_model = QSortFilterProxyModel()
         proxy_model.setSourceModel(pandasModel(self.data))
         self.setModel(proxy_model)
@@ -197,12 +200,12 @@ class SearchResults(QTableView):
         try:
             object = self.object_type.query(**context)
         except KeyError as e:
-            logger.error(e)
+            logger.exception(e)
             object = None
         try:
             object.edit_from_search(obj=self.parent, **context)
         except AttributeError as e:
-            logger.error(f"Error getting object function: {e}")
+            logger.exception(f"Error getting object function: {e}")
         self.doubleClicked.disconnect()
         self.parent.update_data()
 

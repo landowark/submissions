@@ -2,6 +2,8 @@
 Main module to construct the procedure form
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from json import dump as jdump
 from datetime import datetime
 from PyQt6.QtWidgets import QApplication

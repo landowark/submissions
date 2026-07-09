@@ -2,6 +2,8 @@
 All abstract pyd models and associations between abstracts.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from re import match as rmatch, I
 from numpy import array as nparray, ndenumerate
 from datetime import timedelta

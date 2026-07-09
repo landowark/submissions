@@ -2,6 +2,8 @@
 Default Parser archetypes.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from re import sub as rsub
 from typing import Generator
 from openpyxl.cell import MergedCell

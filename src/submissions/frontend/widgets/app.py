@@ -1,6 +1,9 @@
 """
 Constructs main application.
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from webbrowser import get as wb_get
 from PyQt6.QtCore import QEvent, QTimer, qInstallMessageHandler
 from PyQt6.QtWidgets import (

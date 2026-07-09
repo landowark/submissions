@@ -2,6 +2,8 @@
 Module for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
@@ -12,6 +14,7 @@ from . import DefaultResultsManager
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.db.models import Procedure
+
 
 class DiomniPCRManager(DefaultResultsManager):
 

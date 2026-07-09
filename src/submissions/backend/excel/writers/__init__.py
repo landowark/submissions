@@ -2,6 +2,8 @@
 Module for default excel writers
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from numpy import nan as npnan
 from typing import  TYPE_CHECKING
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -32,7 +34,7 @@ class DefaultWriter(object):
             try:
                 start_row = self.__class__.start_row
             except AttributeError as e:
-                logger.error(f"Couldn't get start row due to {e}")
+                logger.exception(f"Couldn't get start row due to {e}")
                 start_row = 1
         if not sheet:
             sheet = self.write_sheet
@@ -42,7 +44,7 @@ class DefaultWriter(object):
             try:
                 sheetnames = sheetnames.fget(workbook)
             except Exception as e:
-                logger.error(f"Couldn't resolve workbook sheetnames property due to {e}")
+                logger.exception(f"Couldn't resolve workbook sheetnames property due to {e}")
                 sheetnames = []
         if self.sheet not in sheetnames:
             try:
@@ -137,12 +139,12 @@ class DefaultTABLEWriter(DefaultWriter):
         try:
             self.excluded = self.pydant_obj[0].class_config.excluded
         except (IndexError, AttributeError, TypeError) as e:
-            logger.error(f"Error occurred while initializing TABLE writer: {e}")
+            logger.exception(f"Error occurred while initializing TABLE writer: {e}")
             self.excluded = []
         try:
             self.key_value_order = self.pydant_obj[0].class_config.key_value_order
         except (IndexError, AttributeError, TypeError) as e:
-            logger.error(f"Error occurred while initializing TABLE writer: {e}")
+            logger.exception(f"Error occurred while initializing TABLE writer: {e}")
             self.key_value_order = []
 
     def get_row_count(self, start_row: int = 1):

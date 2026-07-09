@@ -2,6 +2,8 @@
 Default parsers for results 
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.excel.parsers import DefaultKEYVALUEParser, DefaultTABLEParser
 from typing import Tuple, Generator, Any

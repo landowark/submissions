@@ -2,6 +2,8 @@
 Results parser for Qubit csv file.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from typing import Generator, TYPE_CHECKING
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from openpyxl.worksheet.worksheet import Worksheet

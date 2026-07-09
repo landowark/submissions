@@ -2,6 +2,8 @@
 SQLAlchemy models for equipment and equipment roles, including associations with procedures and processes.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from re import sub as rsub, Pattern, compile as rcompile, VERBOSE
 from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, and_, cast, func, select, Table
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -16,8 +18,6 @@ from . import ProcedureType, Procedure
 if TYPE_CHECKING:
     from backend.validators.pydant import PydProcedureEquipmentAssociation
 
-
-# logger = logging.getLogger(f"submissions.{__name__}")
 
 # Define the association table instance first
 equipmentroleequipmentassociation_process = Table(
@@ -408,11 +408,11 @@ class Equipment(BaseClass, LogMixin):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
@@ -1080,11 +1080,11 @@ class ProcessVersion(BaseClass):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._date_verified")
@@ -1581,11 +1581,11 @@ class TipsLot(BaseClass, LogMixin):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")

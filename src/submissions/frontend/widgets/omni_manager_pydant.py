@@ -1,4 +1,6 @@
-
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
@@ -65,7 +67,7 @@ class OmniManager(QDialog):
             try:
                 sql_instance = self.object_type._sql_class.query(name=selection, limit=1)
             except AttributeError as e:
-                logger.error(f"Couldn't get _sql_object for type {self.object_type}")
+                logger.exception(f"Couldn't get _sql_object for type {self.object_type}")
             if not sql_instance:
                 logger.error(f"Could not find instance with name: {selection}")
                 return

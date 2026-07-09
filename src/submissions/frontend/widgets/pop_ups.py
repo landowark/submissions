@@ -1,6 +1,9 @@
 '''
 Contains dialogs for notification and prompting.
 '''
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog,
     QDialogButtonBox, QMessageBox, QComboBox

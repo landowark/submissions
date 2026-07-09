@@ -1,6 +1,9 @@
 """
 Contains widgets specific to the procedure summary and procedure details.
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from datetime import date, datetime
 from PyQt6.QtWidgets import QMenu, QTreeView, QAbstractItemView
 from PyQt6.QtCore import QModelIndex, Qt, pyqtSignal, QAbstractItemModel
@@ -226,7 +229,7 @@ class SubmissionsTree(QTreeView):
         try:
             sub = submission_row_data(submission)
         except Exception as e:
-            logger.error(f"Couldn't build row for submission; falling back to full refresh: {e}")
+            logger.exception(f"Couldn't build row for submission; falling back to full refresh: {e}")
             self.set_data()
             return
         self.model.upsert_top_level(sub)

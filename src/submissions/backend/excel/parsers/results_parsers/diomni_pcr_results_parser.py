@@ -2,6 +2,8 @@
 Parser for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime
 from typing import Generator, List, TYPE_CHECKING, Tuple
 from dateutil.parser import parse
@@ -46,7 +48,7 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
             sample_names: List[dict] = self.construct_unique_sample_dict(output)
         except KeyError as e:
             sample_names = []
-            logger.error(f"Error occurred while constructing unique sample dictionary: {e}")
+            logger.exception(f"Error occurred while constructing unique sample dictionary: {e}")
         for sample in sample_names:
             multi = dict(resultstype="Diomni PCR", date_analyzed=self.date_analyzed, result={})
             samples_of_interest = [item for item in output if item['sample'] == sample.get('sample') and item.get("well_position") == sample.get("well_position")]
@@ -60,7 +62,7 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
                 try:
                     multi["row"], multi["column"] = convert_well_to_row_column(soi['well_position'])
                 except (KeyError, TypeError) as e:
-                    logger.error(f"Error occurred while converting well position to row and column: {e}")
+                    logger.exception(f"Error occurred while converting well position to row and column: {e}")
             yield {sample.get('sample'): multi}
 
     @classmethod

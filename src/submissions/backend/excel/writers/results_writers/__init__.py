@@ -1,6 +1,7 @@
 """
 Default results writers.
 """
+from __future__ import annotations
 from pprint import pformat
 from openpyxl import Workbook
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter

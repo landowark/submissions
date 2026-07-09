@@ -2,8 +2,9 @@
 Writers for PCR results from Qubit device
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from openpyxl import Workbook
-from openpyxl.styles import Alignment
 from . import DefaultResultsInfoWriter, DefaultResultsSampleWriter
 
 

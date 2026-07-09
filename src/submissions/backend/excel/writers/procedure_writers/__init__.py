@@ -2,6 +2,8 @@
 Default writers for procedures.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from openpyxl.workbook import Workbook
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 

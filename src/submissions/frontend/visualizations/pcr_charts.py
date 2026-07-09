@@ -1,6 +1,9 @@
 """
 Functions for constructing irida control graphs using plotly.
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from operator import itemgetter
 from . import ResultsFigure
 from plotly.express import scatter as pxscatter

@@ -2,6 +2,8 @@
 Module for manager of ClientSubmission object
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from typing import TYPE_CHECKING, Generator
 from pathlib import Path
 from openpyxl.workbook import Workbook
@@ -16,11 +18,6 @@ if TYPE_CHECKING:
 
 class DefaultClientSubmissionManager(DefaultManager):
    
-    # sheets = {
-    #     "info":[dict(sheet="Client Info", start_row=1)],
-    #     "sample":[dict(sheet="Client Info", start_row=1)]
-    #     }
-
     def __init__(self, parent, submissiontype: SubmissionType | str | None = None,
                  input_object: Path | str | ClientSubmission | PydClientSubmission | None = None, **kwargs):
         from backend.db.models import SubmissionType, ClientSubmission
@@ -138,7 +135,7 @@ class DefaultClientSubmissionManager(DefaultManager):
             try:
                 self.clientsubmission.sample.append(PydSample(**sample))
             except Exception as e:
-                logger.error(f"Couldn't add sample {sample} due to {e}")
+                logger.exception(f"Couldn't add sample {sample} due to {e}")
                 continue
         return self.clientsubmission
     

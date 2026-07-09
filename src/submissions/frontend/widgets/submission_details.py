@@ -2,6 +2,8 @@
 Webview to show procedure and sample details.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -81,6 +83,7 @@ class SubmissionDetails(QDialog):
         try:
             check = self.webview.history().items()[0].title()
         except IndexError as e:
+            logger.exception(f"Couldn't get index")
             check = title
         if title == check:
             self.back.setEnabled(False)

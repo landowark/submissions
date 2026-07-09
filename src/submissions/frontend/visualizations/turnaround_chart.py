@@ -1,6 +1,9 @@
 """
 Construct turnaround time charts
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from . import CustomFigure
 from pandas import DataFrame
 from plotly.express import scatter as pxscatter

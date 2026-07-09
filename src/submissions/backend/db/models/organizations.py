@@ -10,6 +10,8 @@ Classes:
     Contact: Represents a contact person associated with client labs
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -82,11 +84,11 @@ class ClientLab(BaseClass):
             try:
                 self.clientsubmission = clientsubmission
             except Exception as e:
-                logger.error(f"Couldn't set clientsubmission via setter, falling back to misc_info: {e}")
+                logger.exception(f"Couldn't set clientsubmission via setter, falling back to misc_info: {e}")
                 try:
                     self._misc_info.update({'clientsubmission': self.sanitize_obj_for_json(clientsubmission)})
                 except Exception as e2:
-                    logger.error(f"Fallback also failed: {e2}")
+                    logger.exception(f"Fallback also failed: {e2}")
         # Resolve contact
         if contact is not None:
             try:
@@ -296,21 +298,21 @@ class Contact(BaseClass):
             try:
                 self.clientsubmission = clientsubmission
             except Exception as e:
-                logger.error(f"Couldn't set clientsubmission via setter, falling back to misc_info: {e}")
+                logger.exception(f"Couldn't set clientsubmission via setter, falling back to misc_info: {e}")
                 try:
                     self._misc_info.update({'clientsubmission': self.sanitize_obj_for_json(clientsubmission)})
                 except Exception as e2:
-                    logger.error(f"Fallback also failed: {e2}")
+                    logger.exception(f"Fallback also failed: {e2}")
         # Resolve reagentrole
         if clientlab is not None:
             try:
                 self.clientlab = clientlab
             except Exception as e:
-                logger.error(f"Couldn't set clientlab via setter, falling back to misc_info: {e}")
+                logger.exception(f"Couldn't set clientlab via setter, falling back to misc_info: {e}")
                 try:
                     self._misc_info.update({'clientlab': self.sanitize_obj_for_json(clientlab)})
                 except Exception as e2:
-                    logger.error(f"Fallback also failed: {e2}")
+                    logger.exception(f"Fallback also failed: {e2}")
 
 
     ##### Properties #####

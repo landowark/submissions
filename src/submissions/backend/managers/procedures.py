@@ -2,6 +2,8 @@
 Module for manager of Procedure object.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.managers import DefaultManager

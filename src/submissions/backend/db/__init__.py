@@ -1,6 +1,8 @@
 """
 All database related operations.
 """
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime
 from getpass import getuser
 from sqlalchemy import event as sql_event, inspect as sql_inspect
@@ -61,7 +63,7 @@ def update_log(mapper, connection, target):
             try:
                 update['changes'].append(change)
             except Exception as e:
-                logger.error(f"Something went wrong adding attr: {attr.key}: {e}")
+                logger.exception(f"Something went wrong adding attr: {attr.key}")
                 continue
     if update['changes']:
         # Note: must use execute as the session will be busy at this point.

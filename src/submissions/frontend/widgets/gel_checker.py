@@ -2,6 +2,8 @@
 Gel box for artic quality control
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from operator import itemgetter
 from PyQt6.QtWidgets import (
     QWidget, QDialog, QGridLayout, QLabel, QLineEdit, QDialogButtonBox, QTextEdit, QComboBox

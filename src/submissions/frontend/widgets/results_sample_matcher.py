@@ -2,6 +2,8 @@
 
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime
 from json import loads as jloads, JSONDecodeError
 from typing import List, Generator, TYPE_CHECKING
@@ -55,7 +57,7 @@ class ResultsSampleMatcher(QDialog):
             try:
                 result = jloads(result)
             except JSONDecodeError as e:
-                logger.error(f"Could not decode string: {result} due to\n{e}")
+                logger.exception(f"Could not decode string: {result} due to\n{e}")
                 return
         association = next((assoc for assoc in self.procedure.proceduresampleassociation if assoc.sample.sample_id == sample_id and assoc.row==row and assoc.column==column), None)
         date_analyzed = result.pop("date_analyzed", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

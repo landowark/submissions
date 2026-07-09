@@ -2,6 +2,8 @@
 Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
+from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
+logger = getLogger(f"submissions.{__name__}")
 from html import escape as html_escape
 from string import ascii_uppercase
 from itertools import product as iterproduct, chain
@@ -23,14 +25,13 @@ from threading import Thread
 from inspect import getmembers, isfunction, stack, currentframe
 from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader, Template
-from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
 from pathlib import Path
 from sqlalchemy.orm import scoped_session, sessionmaker
 from contextlib import contextmanager
 from sqlalchemy import create_engine, text, MetaData
 from pydantic import ValidationError, field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
-from typing import Any, Tuple, Literal, List, Generator
+from typing import Any, Tuple, Literal, List, Generator, Callable, TypeVar
 from __init__ import project_path
 from configparser import ConfigParser
 from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
@@ -39,9 +40,6 @@ from functools import wraps
 import builtins, sys
 
 builtins.pformat = pformat
-builtins.sys = sys
-
-logger = getLogger(f"submissions.{__name__}")
 
 timezone = tz("America/Winnipeg")
 
@@ -78,6 +76,52 @@ main_form_style = '''
                 '''
 
 page_size = 250
+
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+_MAX = 300  # per-value repr cap
+
+def _safe_repr(obj: Any, max_len: int = _MAX) -> str:
+    """repr that never raises and never runs away."""
+    try:
+        r = repr(obj)
+    except Exception as e:                       # a broken __repr__ won't break tracing
+        return f"<unreprable {type(obj).__name__}: {e!r}>"
+    return r if len(r) <= max_len else f"{r[:max_len]}...(+{len(r) - max_len})"
+
+def trace(func: F | None = None, *, level: int = DEBUG,
+          args: bool = True, result: bool = True, timing: bool = True,
+          max_len: int = _MAX) -> Any:
+    """Log entry args, exit value + elapsed, and exceptions (with traceback)."""
+    def decorator(fn: F) -> F:
+        log = getLogger(fn.__module__)   # attributes lines to the DEFINING module
+        qual = fn.__qualname__
+
+        @wraps(fn)
+        def wrapper(*a: Any, **kw: Any) -> Any:
+            on = log.isEnabledFor(level)
+            if on and args:
+                sig = ", ".join([_safe_repr(x, max_len) for x in a] +
+                                [f"{k}={_safe_repr(v, max_len)}" for k, v in kw.items()])
+                log.log(level, "call %s(%s)", qual, sig)
+            elif on:
+                log.log(level, "call %s(...)", qual)
+            t0 = perf_counter()
+            try:
+                out = fn(*a, **kw)
+            except Exception:
+                log.log(level, "raise %s after %.1fms", qual,
+                        (perf_counter() - t0) * 1000, exc_info=True)
+                raise                            # this is the traceback you're currently losing
+            if on:
+                ms = (perf_counter() - t0) * 1000
+                if result and timing: log.log(level, "ret  %s = %s  [%.1fms]", qual, _safe_repr(out, max_len), ms)
+                elif result:          log.log(level, "ret  %s = %s", qual, _safe_repr(out, max_len))
+                elif timing:          log.log(level, "ret  %s  [%.1fms]", qual, ms)
+            return out
+        return wrapper  # type: ignore[return-value]
+    return decorator(func) if func is not None else decorator
 
 
 def divide_chunks(input_list: list, chunk_count: int) -> Generator[Any, Any, None]:
@@ -130,18 +174,19 @@ def check_not_nan(cell_contents) -> bool:
         if npisnat(cell_contents):
             cell_contents = npnan
     except TypeError as e:
-        pass
+        logger.exception(f"Cell contents {cell_contents} not value for isnat")
     try:
         if pdisnull(cell_contents):
             cell_contents = npnan
     except ValueError:
-        pass
+        logger.exception(f"Cell contents {cell_contents} not value for isnull")
     try:
         return not npisnan(cell_contents)
     except TypeError:
+        logger.exception(f"Cell contents {cell_contents} not value for isnan")
         return True
     except Exception as e:
-        logger.error(f"Check encountered unknown error: {type(e).__name__} - {e}")
+        logger.exception(f"Check encountered unknown error: {type(e).__name__} - {e}")
         return False
 
 
@@ -268,21 +313,6 @@ class CustomFormatter(Formatter):
         return formatter.format(record)
 
 
-# class StreamToLogger(object):
-#     """
-#     Fake file-like stream object that redirects writes to a logger instance.
-#     """
-
-#     def __init__(self, logger, log_level=logging.INFO):
-#         self.logger = logger
-#         self.log_level = log_level
-#         self.linebuf = ''
-
-#     def write(self, buf):
-#         for line in buf.rstrip().splitlines():
-#             self.logger.log(self.log_level, line.rstrip())
-
-
 class CustomLogger(Logger):
 
     def __init__(self, name: str = "procedure", level=DEBUG):
@@ -330,8 +360,6 @@ class GlobalLoggerProxy:
         actual_logger = getLogger(f"submissions.{module_name}")
         return getattr(actual_logger, item)
 
-# Setup global logger
-builtins.logger = GlobalLoggerProxy()
 
 def jinja_template_loading() -> Environment:
     """
@@ -361,8 +389,6 @@ def jinja_template_loading() -> Environment:
     env.filters['handle_key'] = handle_keys
     env.filters['handle_results'] = handle_results
     return env
-
-
 
 
 def render_details_template(template: str | Template, css_in: List[str] | str = [], js_in: List[str] | str = [],
@@ -755,7 +781,7 @@ def report_result(func):
                     dlg.exec()
             except Exception as e:
                 logger.error(f"Problem reporting due to {e}")
-                logger.error(result.msg)
+                logger.exception(result.msg)
         if output:
             logger.info(f"Report result being called by {func.__name__}")
             if is_list_etc(output):
@@ -1219,14 +1245,14 @@ class Settings(BaseSettings, extra="allow"):
             try:
                 self.database.session.close()
             except Exception as e:
-                logger.error(f"Error closing database session: {e}")
+                logger.exception(f"Error closing database session: {e}")
             finally:
                 self.database.session = None
         if engine is not None:
             try:
                 engine.dispose()
             except Exception as e:
-                logger.error(f"Error disposing database engine: {e}")
+                logger.exception(f"Error disposing database engine: {e}")
             finally:
                 self.database.engine = None
 
@@ -1276,7 +1302,7 @@ class Settings(BaseSettings, extra="allow"):
             try:
                 mod = import_module(module.stem)
             except ImportError as e:
-                logger.error(f"Error loading module: {e}")
+                logger.exception(f"Error loading module: {e}")
                 continue
             for function in getmembers(mod, isfunction):
                 name = function[0]
@@ -1324,9 +1350,9 @@ class Settings(BaseSettings, extra="allow"):
                     thread = Thread(target=script, args=(ctx,))
                     thread.start()
                 except AttributeError:
-                    logger.error(f"Couldn't run teardown script: {script}")
+                    logger.exception(f"Couldn't run teardown script: {script}")
         except AttributeError:
-            pass
+            logger.exception(f"Couldn't run teardown scripts.")
         finally:
             self.close_database()
             
@@ -1357,12 +1383,14 @@ class Settings(BaseSettings, extra="allow"):
                 try:
                     return url[:url.index("@")].split(":")[0]
                 except (IndexError, ValueError) as e:
+                    logger.exception(f"Couldn't parse url: {url}")
                     return None
             case "pass":
                 url = rsub(r"^.*//", "", url)
                 try:
                     return url[:url.index("@")].split(":")[1]
                 except (IndexError, ValueError) as e:
+                    logger.exception(f"Couldn't parse url: {url}")
                     return None
 
     def save(self):

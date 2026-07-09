@@ -1,5 +1,4 @@
-import logging
-import sys, os, traceback
+import logging, sys, os, traceback
 from tools import ctx, check_if_app, CustomLogger
 
 # NOTE: environment variable must be set to enable qtwebengine in network path
@@ -12,6 +11,7 @@ else:
 
 # NOTE: setup custom logger
 logging.setLoggerClass(CustomLogger)
+logger = logging.getLogger(f"submissions.{__name__}")
 
 from PyQt6.QtWidgets import QApplication
 from frontend.widgets.app import App

@@ -1,9 +1,11 @@
 """
 Contains all operations for creating charts, graphs and visual effects.
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from datetime import date
 from typing import Generator
-import pandas as pd
 from pandas import to_datetime as pd_to_datetime, DataFrame
 from plotly.offline import plot as pltplot
 from plotly.graph_objects import Figure
@@ -172,7 +174,7 @@ class ResultsFigure(CustomFigure):
             self.df = self.df.reset_index().rename(columns={"index": "idx"})
             return True
         except (ValueError, AttributeError, KeyError) as e:
-            logger.error(f"Error creating scatter plot: {e}")
+            logger.exception(f"Error creating scatter plot: {e}")
             return False
 
 

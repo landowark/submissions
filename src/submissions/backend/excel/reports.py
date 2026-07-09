@@ -2,6 +2,8 @@
 Contains functions for generating summary reports
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from pandas import DataFrame, ExcelWriter, to_numeric
 from pathlib import Path
 from datetime import date
@@ -142,7 +144,7 @@ class ReportMaker(object):
                 col_letter = chr(ord('@') + idx)
                 worksheet.column_dimensions[col_letter].width = max_len
             except ValueError as e:
-                logger.error(f"Couldn't resize column {col} due to {e}")
+                logger.exception(f"Couldn't resize column {col} due to {e}")
         blank_row = get_first_blank_df_row(self.summary_df) + 1
         for col in range(3, 6):
             col_letter = row_map[col]

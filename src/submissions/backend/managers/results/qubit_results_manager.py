@@ -2,6 +2,8 @@
 
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from pathlib import Path
 from backend.db.models import Procedure
 from openpyxl import Workbook

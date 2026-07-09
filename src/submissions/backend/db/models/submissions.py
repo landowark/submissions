@@ -2,6 +2,8 @@
 Models for the main procedure and sample types.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from getpass import getuser
 from itertools import chain
 from types import GeneratorType, NoneType
@@ -31,8 +33,6 @@ from pathlib import Path
 if TYPE_CHECKING:
     from submissions.backend.db.models.procedures import ProcedureType, Procedure, Results
     from backend.validators.pydant import PydSample
-
-# logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ClientSubmission(BaseClass, LogMixin):
@@ -286,7 +286,7 @@ class ClientSubmission(BaseClass, LogMixin):
                 try:
                     check = PydSample.is_sample_id_valid(output.sample.sample_id)
                 except AttributeError as e:
-                    logger.error(f"Couldn't get sample_id due to {e}")
+                    logger.exception(f"Couldn't get sample_id due to {e}")
                     check = True
                 if not check:
                     continue
@@ -325,11 +325,11 @@ class ClientSubmission(BaseClass, LogMixin):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 raise ValueError(f"Unmatched value {value['value']} for datetime")
@@ -665,7 +665,7 @@ class ClientSubmission(BaseClass, LogMixin):
             try:
                 obj.set_data()
             except AttributeError:
-                logger.error("App will not refresh data at this time.")
+                logger.exception("App will not refresh data at this time.")
 
     def get_procedure_sample_results(self, include=Set[Literal['positive', 'negative', 'samples']]) -> Generator[Results, None, None]:
         """
@@ -917,11 +917,11 @@ class Run(BaseClass, LogMixin):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 raise ValueError(f"Unmatched value {value} for datetime")
@@ -954,11 +954,11 @@ class Run(BaseClass, LogMixin):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 logger.error(f"Unmatched value {value} for Run.completed date")
@@ -1842,7 +1842,7 @@ class Sample(BaseClass, LogMixin):
         try:
             samples = [sample.details_dict for sample in sample_list]
         except TypeError as e:
-            logger.error(f"Couldn't find any sample with data: {kwargs}\nDue to {e}")
+            logger.exception(f"Couldn't find any sample with data: {kwargs}\nDue to {e}")
             return None
         df = DataFrame.from_records(samples)
         # NOTE: Exclude sub information
@@ -2805,7 +2805,7 @@ class ProcedureSampleAssociation(BaseClass):
         try:
             output = max([item.id for item in cls.query()])
         except ValueError as e:
-            logger.warning(f"Unable to autoincrement id due to: {e}, setting to 0")
+            logger.exception(f"Unable to autoincrement id due to: {e}, setting to 0")
             output = 0
         return output + procedure_rank
 

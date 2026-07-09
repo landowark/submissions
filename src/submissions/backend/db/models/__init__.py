@@ -2,6 +2,8 @@
 Contains all models for sqlalchemy
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from inspect import getmembers, getattr_static, isroutine
 from json import dumps as jdumps
 from re import sub as rsub
@@ -18,14 +20,11 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError, IntegrityError, OperationalError, StatementError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
-from tools import report_result, Report, Alert, ctx, is_internal_attr_key
+from tools import report_result, Report, Alert, ctx, is_internal_attr_key, trace
 if TYPE_CHECKING:
     from pydantic import BaseModel
     from backend.validators import PydSample
 
-# NOTE: Load testing environment
-if 'pytest' in sys.modules:
-    sys.path.append(Path(__file__).parents[4].absolute().joinpath("tests").__str__())
 
 # NOTE: For inheriting in LogMixin
 Base: DeclarativeMeta = declarative_base()
@@ -334,7 +333,7 @@ class BaseClass(Base):
             return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
         except AttributeError as e:
             if not cls.__qualname__ == "BaseClass":
-                logger.error(f"Could not get timestamps due to {e}")
+                logger.exception(f"Could not get timestamps due to {e} ")
             return []
         
     @classproperty
@@ -352,7 +351,7 @@ class BaseClass(Base):
             return [item.name.strip("_") for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
         except AttributeError as e:
             if not cls.__qualname__ == "BaseClass":
-                logger.error(f"Could not get timestamps due to {e}")
+                logger.exception(f"Could not get timestamps due to {e}")
             return []
 
     @classproperty
@@ -381,7 +380,7 @@ class BaseClass(Base):
             return list(set([item.replace("_id", "").replace("_name", "").strip("_") for item in sqls]))
         except Exception as e:
             if cls.__qualname__ != "BaseClass":
-                logger.error(f"Could not inspect SQLAlchemy fields for {cls.__name__}: {e}")
+                logger.exception(f"Could not inspect SQLAlchemy fields for {cls.__name__}: {e}")
             return []
 
     @classmethod
@@ -504,7 +503,7 @@ class BaseClass(Base):
                 # NOTE: the secret sauce is in attr.like
                 query = query.filter(attr.like(search))
             except (ArgumentError, AttributeError) as e:
-                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
+                logger.exception(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
         return query.limit(50).all()
 
     @classmethod
@@ -594,7 +593,7 @@ class BaseClass(Base):
             try:
                 setattr(instance, k, v)
             except (AttributeError, ValueError) as e:
-                logger.error(f"query_or_create: could not set {k} on {cls.__name__}: {e}")
+                logger.exception(f"query_or_create: could not set {k} on {cls.__name__}: {e}")
         return instance, new
 
     @classmethod
@@ -639,6 +638,7 @@ class BaseClass(Base):
         return cls.execute_query(**kwargs)
 
     @classmethod
+    @trace
     def execute_query(cls, query: Query = None, limit: int = 0, offset: int | None = None,
                       **kwargs) -> Any | List[Any]:
         """
@@ -677,9 +677,8 @@ class BaseClass(Base):
             try:
                 attr = getattr(cls, k)
             except (ArgumentError, AttributeError) as e:
-                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\n.")
+                logger.exception(f"Attribute {k} unavailable due to:\n\t{e}\n.")
                 continue
-            # >>> INSERT HERE (new block) <
             prop = getattr(attr, "property", None)
             if isinstance(prop, RelationshipProperty) and isinstance(v, (str, int)) and not isinstance(v, bool):
                 related_cls = prop.mapper.class_
@@ -821,12 +820,12 @@ class BaseClass(Base):
             self.__database_session__.commit()
         except IntegrityError as e:
             self.__database_session__.rollback()
-            logger.error(f"Integrity error saving {self}: {e.orig}")
+            logger.exception(f"Integrity error saving {self}: {e.orig}")
             report.add_result(Alert(msg=str(e.orig), status="Critical"))
             raise  # or return report, but don't silently drop
         except OperationalError as e:
             self.__database_session__.rollback()
-            logger.critical(f"Operational error saving {self}: {e}")
+            logger.exception(f"Operational error saving {self}: {e}")
             raise
 
     @classmethod
@@ -895,8 +894,8 @@ class BaseClass(Base):
             # ensure value is json serializable (or coerce it)
             try:
                 safe_value = self.sanitize_obj_for_json(obj_=value)
-            except TypeError:
-                # Could not coerce to a JSON serializable form; skip storing
+            except TypeError as e:
+                logger.exception("Could not coerce to a JSON serializable form; skip storing")
                 return
             if not "sql_instance" in key:
                 try:
@@ -923,12 +922,12 @@ class BaseClass(Base):
                         return setter(self, value)
             except Exception as e:
                 # fall back to default behavior if detection fails
-                logger.error(f"Unable to call setter for {self.__str__()}.{attr.__name__} due to {e}")
+                logger.exception(f"Unable to call setter for {self.__str__()}.{attr.__name__} due to {e}")
                 return super().__setattr__(key, current)
             try:
                 return super().__setattr__(key, value)
             except AttributeError as e:
-                logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
+                logger.exception(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
                 
     @classmethod
     def get_relationship_sqlclass(cls, key: str) -> BaseClass | None:
@@ -1072,7 +1071,7 @@ class BaseClass(Base):
                     try:
                         value = getattr(self, field)
                     except AttributeError as e:
-                        logger.error(f"Skipping {field} in {self} due to {e}")
+                        logger.exception(f"Skipping {field} in {self} due to {e}")
                         continue
                     match value:
                         case InstrumentedAttribute():
@@ -1100,7 +1099,7 @@ class BaseClass(Base):
                     try:
                         value = getattr(self, field)
                     except AttributeError as e:
-                        logger.error(f"Skipping {field} in {self} due to {e}")
+                        logger.exception(f"Skipping {field} in {self} due to {e}")
                         continue
                     match value:
                         case _AssociationList():
@@ -1362,7 +1361,7 @@ class BaseClass(Base):
     def is_active(self) -> bool:
         try:
             return bool(self.active)
-        except AttributeError as e:
+        except AttributeError:
             return True        
 
 

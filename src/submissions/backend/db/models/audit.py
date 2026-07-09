@@ -5,6 +5,8 @@ Provides the :class:`AuditLog` model and related functionality for tracking
 and querying database changes by user and date range.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from typing import List
 from dateutil.parser import parse
 from sqlalchemy.orm import Query
@@ -12,10 +14,6 @@ from . import BaseClass, Base
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, func
 from datetime import date, datetime, timedelta
 
-# logger = logging.getLogger(f"submissions.{__name__}")
-
-# NOTE: Need a seperate base for this.
-# Base: DeclarativeMeta = declarative_base()
 
 # Fix: Inherit from the shared Base (and optionally BaseClass) and manage migration order via Alembic's depends_on:
 class AuditLog(Base):

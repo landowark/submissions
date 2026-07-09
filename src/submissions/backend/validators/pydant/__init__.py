@@ -2,6 +2,8 @@
 Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from pathlib import Path
 from re import sub as rsub
 from inspect import signature, getmembers
@@ -452,6 +454,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             try:
                 return value['value']
             except KeyError as e:
+                logger.exception(f"Could not filter {key} with value {value}")
                 return None
         return value
 
@@ -507,7 +510,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     try:
                         value = getattr(self.sql_instance, key)
                     except AttributeError as e:
-                        logger.error(f"Skipping {key} in {self.sql_instance} due to {e}")
+                        logger.exception(f"Skipping {key} in {self.sql_instance} due to {e}")
                         continue
                     match value:
                         case InstrumentedAttribute():
@@ -680,7 +683,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         try:
                             setattr(self.sql_instance, k, v)
                         except AttributeError as e:
-                            logger.error(f"Could not set {k} on {self.sql_instance}: {e}")
+                            logger.exception(f"Could not set {k} on {self.sql_instance}: {e}")
                 case _:
                     pass
         
@@ -698,7 +701,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             try:
                 setattr(self.sql_instance, k, v)
             except Exception as e:
-                logger.error(f"Could not set relationship {k} on {self.sql_instance}: {e}", exc_info=True)
+                logger.exception(f"Could not set relationship {k} on {self.sql_instance}: {e}")
         for k, v in self.model_extra.items():
             assert not (k.startswith("_") or "AssociationProxy" in k), f"internal extra leaked: {k}"
             self.sql_instance._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
@@ -774,9 +777,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 try:
                     type_ = getattr(cls._sql_class, type_.property.key)
                 except AttributeError:
+                    logger.exception("Could not get attribute")
                     try:
                         type_ = getattr(cls._sql_class, f"_{field}") # Dicey workaround for hybrid_property with underscore
                     except AttributeError as e:
+                        logger.exception(f"could not get attribute: _{field}")
                         type_ = getattr(cls._sql_class, field) # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
                 if type_name == "InstrumentedAttribute":
@@ -871,7 +876,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 if (not already_related_to_self) and (item.name not in data_names):
                     excluded.append(item.name)
         except AttributeError as e:
-            logger.warning(f"Could not get excluded items for field {field} due to {e}. Trying sql based.")
+            logger.exception(f"Could not get excluded items for field {field} due to {e}. Trying sql based.")
         return excluded
 
     @property
@@ -1058,9 +1063,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
+            logger.exception(f"Template {temp_name} not found.")
             try:
                 template = jinja_env.get_template(f"{cls.class_config.renderclass}_details.html")
             except TemplateNotFound:
+                logger.exception(f"Failback template {cls.class_config.renderclass}_details.html")
                 template = jinja_env.get_template("details.html")
         return template
         

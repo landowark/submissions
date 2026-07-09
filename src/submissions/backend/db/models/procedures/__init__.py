@@ -6,6 +6,8 @@ process versions, tips, and related associations. It includes rich association t
 for flexible input types.
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from jinja2 import Template
 from json import loads as jloads, JSONDecodeError
 from numpy import array as nparray, ndenumerate, sum as npsum
@@ -26,8 +28,6 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
     from backend.validators.pydant import PydProcedure
-
-# logger = logging.getLogger(f'submissions.{__name__}')
 
 
 proceduretype_resulttype = Table(
@@ -481,12 +481,13 @@ class SubmissionType(BaseClass):
             try:
                 regex = submission_type.regex
             except AttributeError as e:
-                logger.error(f"Couldn't get submission type for {submission_type.name}")
+                logger.exception(f"Couldn't get submission type for {submission_type.name}")
                 regex = None
         if regex is not None:
             try:
                 regex = rcompile(rf"{regex}", flags=IGNORECASE | VERBOSE)
             except rerror as e:
+                logger.exception(f"Error compiling regex: {e}")
                 regex = None
         return regex
     
@@ -1264,7 +1265,7 @@ class Procedure(BaseClass):
                 try:
                     check = output.sample.sample_id.lower().startswith(("blank", "na", "none", ""))
                 except AttributeError as e:
-                    logger.error(f"Couldn't get sample_id due to {e}")
+                    logger.exception(f"Couldn't get sample_id due to {e}")
                     check = True
                 if check:
                     continue
@@ -1300,11 +1301,11 @@ class Procedure(BaseClass):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._started_date")
@@ -1331,11 +1332,11 @@ class Procedure(BaseClass):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._completed_date")
@@ -1799,7 +1800,7 @@ class Procedure(BaseClass):
             pyd_proc_type.model_extra.update(expanded)
         except Exception as e:
             logger.error(f"Couldn't build expanded proceduretype for {self.__class__.__qualname__} with name {self.name}")
-            logger.error(f"Error: {e}")
+            logger.exception(f"Error: {e}")
             pyd_proc_type = self.proceduretype.to_pydantic() if hasattr(self.proceduretype, 'to_pydantic') else self.proceduretype
         output = dict(
             proceduretype=pyd_proc_type,
@@ -1913,7 +1914,7 @@ class Procedure(BaseClass):
             try:
                 check = sampleassociation.sample.sample_id in [s.sample_id for s in run_samples]
             except AttributeError as e:
-                logger.error(f"Couldn't get sample_id due to {e}")
+                logger.exception(f"Couldn't get sample_id due to {e}")
                 check = True
             if not check:
                 assoc = RunSampleAssociation(sample=sampleassociation.sample, run=self.run, rank=rank+iii)
@@ -1955,7 +1956,7 @@ class Procedure(BaseClass):
                 try:
                     assoc.update_last_used(reagentlotassoc.reagentlot)
                 except Exception as e:
-                    logger.error(f"Error updating last used for {assoc}: {e}")
+                    logger.exception(f"Error updating last used for {assoc}: {e}")
             else:
                 logger.error(f"Association not found for {reagentrole} and {proceduretype}")
                 
@@ -2066,7 +2067,7 @@ class Results(BaseClass):
             try:
                 value = jloads(value)
             except JSONDecodeError as e:
-                logger.error(f"Error decoding JSON: {e}")
+                logger.exception(f"Error decoding JSON: {e}")
         match value:
             case dict():
                 self._result = value
@@ -2122,11 +2123,11 @@ class Results(BaseClass):
                 try:
                     output = dateparse(string)
                 except ParserError as e:
-                    logger.error(f"Problem parsing date: {e}")
+                    logger.exception(f"Problem parsing date: {e}")
                     try:
                         output = dateparse(string.replace("-", ""))
-                    except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
+                    except Exception as e2:
+                        logger.exception(f"Problem with parse fallback: {e2}")
                         return value
             case _:
                 raise ValueError(f"Unmatched value {value} for {self.__class__.__qualname__}.date_analyzed")
@@ -2199,7 +2200,7 @@ class Results(BaseClass):
         try:
             proc = self.procedure
         except AttributeError as e:
-            logger.critical(f"Could not get procedure for setting association.")
+            logger.critical(f"Could not get procedure for setting association in {self}.")
             raise e
         match value:
             case str():
@@ -2222,7 +2223,7 @@ class Results(BaseClass):
             try:
                 self.procedure = output.procedure
             except Exception as e:
-                logger.error(f"Problem setting procedure from sampleprocedureassociation: {e}")
+                logger.exception(f"Problem setting procedure from sampleprocedureassociation: {e}")
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._sampleprocedureassociation to {output} of type {type(output)}")
     

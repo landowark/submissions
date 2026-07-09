@@ -1,6 +1,9 @@
 """
 Contains all custom generated PyQT6 derivative widgets.
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import QDialog
 from PyQt6.QtCore import QAbstractTableModel, Qt
 from PyQt6.QtWebEngineCore import QWebEnginePage

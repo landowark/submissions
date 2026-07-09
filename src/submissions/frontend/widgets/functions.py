@@ -1,6 +1,9 @@
 """
 functions used by all windows in the application's frontend
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from pathlib import Path
 from PyQt6.QtCore import QMarginsF
 from PyQt6.QtGui import QPageLayout, QPageSize
@@ -66,7 +69,7 @@ def select_save_file(obj: QMainWindow, default_name: str, extension: str) -> Pat
     except FileNotFoundError:
         home_dir = Path.home().joinpath(default_name).resolve().__str__()
     except AttributeError as e:
-        logger.warning(f"Could not get last directory from {app.last_dir}: {e}")
+        logger.exception(f"Could not get last directory from {app.last_dir}: {e}")
         p = Path(app.last_dir) if app and app.last_dir else Path.home()
         home_dir = p.joinpath(default_name).resolve().__str__()
     fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{extension}(*.{extension})")[0])

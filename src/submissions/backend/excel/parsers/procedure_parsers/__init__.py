@@ -2,6 +2,8 @@
 Default procedure parsers (currently unused).
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from typing import Generator
 from backend.excel.parsers import DefaultTABLEParser, DefaultKEYVALUEParser
 from openpyxl.worksheet.worksheet import Worksheet

@@ -2,6 +2,8 @@
 Contains all procedure related frontend functions
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout, QSpinBox, QDoubleSpinBox,
     QComboBox, QDateEdit, QLineEdit, QLabel, QApplication
@@ -218,7 +220,7 @@ class SubmissionFormWidget(QWidget):
             try:
                 value = self.pyd.__getattribute__(k)
             except AttributeError as e:
-                logger.error(f"Couldn't get attribute from pyd: {k} due to {e}")
+                logger.exception(f"Couldn't get attribute from pyd: {k} due to {e}")
                 try:
                     value = self.pyd.model_extra[k]
                 except KeyError:
@@ -394,7 +396,7 @@ class SubmissionFormWidget(QWidget):
                         try:
                             labs.remove(str(looked_up_lab.name))
                         except ValueError as e:
-                            logger.error(f"Error reordering labs: {e}")
+                            logger.exception(f"Error reordering labs: {e}")
                         labs.insert(0, str(looked_up_lab.name))
                     # NOTE: set combobox values to lookedup values
                     add_widget.addItems(labs)
@@ -448,7 +450,7 @@ class SubmissionFormWidget(QWidget):
                                 try:
                                     labs.remove(str(looked_up_value.name))
                                 except ValueError as e:
-                                    logger.error(f"Error reordering labs: {e}")
+                                    logger.exception(f"Error reordering labs: {e}")
                                 labs.insert(0, str(looked_up_value.name))
                             # NOTE: set combobox values to lookedup values
                             add_widget.addItems(labs)

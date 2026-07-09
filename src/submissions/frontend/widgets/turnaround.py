@@ -1,6 +1,9 @@
 """
 Pane showing turnaround time summary.
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import QWidget, QPushButton, QComboBox, QLabel
 from .info_tab import InfoPane
 from backend.excel.reports import TurnaroundMaker

@@ -1,6 +1,9 @@
 """
 Pane to hold information e.g. cost summary.
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from .info_tab import InfoPane
 from PyQt6.QtWidgets import QWidget, QLabel, QPushButton
 from backend.db.models import ClientLab

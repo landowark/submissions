@@ -1,3 +1,6 @@
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from backend.db.models import ResultsType
 from backend.validators.pydant import PydProcedure, PydProcedureType
 from frontend.widgets import DefaultWebDialog

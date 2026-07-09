@@ -2,6 +2,8 @@
 Module for default results manager
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from .. import DefaultManager
 from backend.db.models import Procedure
 from pathlib import Path

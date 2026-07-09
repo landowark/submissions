@@ -2,6 +2,8 @@
 Contains all validators
 """
 from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from re import search as rsearch
 from pathlib import Path
 from openpyxl import load_workbook
@@ -93,7 +95,7 @@ class ClientSubmissionNamer(DefaultNamer):
             sub_type = SubmissionType.query(name=sub_type)
         except AttributeError as e:
             sub_type = None
-            logger.critical(f"No procedure type found or procedure type found!: {e}")
+            logger.exception(f"No procedure type found or procedure type found!: {e}")
         if isinstance(sub_type, list):
             sub_type = None
         return sub_type

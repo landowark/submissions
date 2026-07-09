@@ -1,6 +1,9 @@
 """
 Contains miscellaneous widgets for frontend functions
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from math import ceil as math_ceiling
 from PyQt6.QtGui import QStandardItem, QIcon
 from PyQt6.QtWidgets import (

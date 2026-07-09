@@ -1,7 +1,9 @@
 """
 Contains pandas and openpyxl convenience functions for interacting with excel workbooks
 """
-
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from openpyxl import worksheet
 from copy import copy
 

@@ -1,6 +1,9 @@
 """
 Module for manager defaults.
 """
+from __future__ import annotations
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from copy import deepcopy
 from pathlib import Path
 from frontend.widgets.functions import select_open_file
@@ -94,12 +97,12 @@ class DefaultManager(object):
         try:
             return getattr(pydant, f"Pyd{self.__class__.__name__.replace('Manager', '').replace('Default', '')}")
         except AttributeError as e:
-            logger.error(
+            logger.exception(
                 f"Couldn't get pyd object: Pyd{self.__class__.__name__.replace('Manager', '').replace('Default', '')}, using {self.__class__.pyd_name}")
             try:
                 return getattr(pydant, self.__class__.pyd_name)
             except AttributeError:
-                logger.error(f"Couldn't get pyd object using pyd_name. Returning None")
+                logger.exception(f"Couldn't get pyd object using pyd_name. Returning None")
                 return None
         
     @classmethod
