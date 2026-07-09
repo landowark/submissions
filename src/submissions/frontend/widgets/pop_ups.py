@@ -6,13 +6,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox, QMessageBox, QComboBox
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from tools import jinja_template_loading
-import logging
 from typing import Literal, Any
-
-logger = logging.getLogger(f"submissions.{__name__}")
-
-env = jinja_template_loading()
 
 
 class QuestionAsker(QDialog):

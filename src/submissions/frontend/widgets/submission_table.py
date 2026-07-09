@@ -1,16 +1,13 @@
 """
 Contains widgets specific to the procedure summary and procedure details.
 """
-from datetime import date
-import sys, logging
-from pprint import pformat
+from datetime import date, datetime
 from PyQt6.QtWidgets import QMenu, QTreeView, QAbstractItemView
 from PyQt6.QtCore import QModelIndex, Qt, pyqtSignal, QAbstractItemModel
 from PyQt6.QtGui import QAction, QCursor, QStandardItem, QContextMenuEvent
 from typing import List
-from tools import datetime, get_application_from_parent
+from tools import get_application_from_parent
 
-logger = logging.getLogger(f"submissions.{__name__}")
 
 def _date_sort_key(value) -> tuple:
     """

@@ -2,7 +2,9 @@
 Contains all models for sqlalchemy
 """
 from __future__ import annotations
-import re, sys, logging, json, inspect
+from inspect import getmembers, getattr_static, isroutine
+from json import dumps as jdumps
+from re import sub as rsub
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect, event
@@ -16,7 +18,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError, IntegrityError, OperationalError, StatementError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
-from tools import report_result, Report, Alert, ctx
+from tools import report_result, Report, Alert, ctx, is_internal_attr_key
 if TYPE_CHECKING:
     from pydantic import BaseModel
     from backend.validators import PydSample
@@ -27,8 +29,6 @@ if 'pytest' in sys.modules:
 
 # NOTE: For inheriting in LogMixin
 Base: DeclarativeMeta = declarative_base()
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class SafeMiscInfo(MutableDict, dict):
@@ -61,9 +61,10 @@ class SafeMiscInfo(MutableDict, dict):
         self._owner = owner
 
     def _is_internal_key(self, key) -> bool:
-        if not isinstance(key, str):
-            return False
-        return key.startswith("_") or any(m in key for m in self._INTERNAL_MARKERS)
+        return is_internal_attr_key(key)
+        # if not isinstance(key, str):
+        #     return False
+        # return key.startswith("_") or any(m in key for m in self._INTERNAL_MARKERS)
 
     def _set_safe_item(self, key: str, value):
         """
@@ -434,7 +435,7 @@ class BaseClass(Base):
                 type_name = handle_instrument_attr(type_=type_)
             case _:
                 logger.warning(f"Got unmatched type: {type_name} for field {field}.")
-        type_name = re.sub(r"\(.*\)", "", type_name)
+        type_name = rsub(r"\(.*\)", "", type_name)
         return type_name.upper()
 
     @classmethod
@@ -450,7 +451,7 @@ class BaseClass(Base):
         """
         output = []
         # NOTE: get only non-function attributes that are columns, not foreign keys, and of type String.
-        for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a))):
+        for item in getmembers(cls, lambda a: not (isroutine(a))):
             if item[0] in ["_misc_info"]:
                 continue
             if not isinstance(item[1], InstrumentedAttribute) and not isinstance(item[1], hybrid_property):
@@ -567,7 +568,6 @@ class BaseClass(Base):
 
         :return: (instance, is_new)
         """
-        # logger.debug(f"query_or_create called on {cls.__name__} with kwargs: {kwargs}")
         valid = cls._mapped_fields()
         fields = {k: v for k, v in kwargs.items() if k in valid}
 
@@ -578,13 +578,11 @@ class BaseClass(Base):
             instance = None
         # Final check to ensure the instance actually matches all provided filters (e.g. list-valued ones)
         if instance:
-            # logger.debug(f"query_or_create: found existing {cls.__name__} with {query_kwargs}, running final check for all fields.")
             check = all(
                 (getattr(instance, k) == v if not isinstance(v, list) else all(item in getattr(instance, k) for item in v))
                 for k, v in fields.items()
             )
             if not check:
-                # logger.debug(f"query_or_create: existing instance did not match all fields, creating new {cls.__name__}.")
                 instance = None
         new = instance is None
         if new:
@@ -807,7 +805,7 @@ class BaseClass(Base):
         # values where possible; drop keys that cannot be coerced.
         for key, value in items:
             try:
-                json.dumps(value)
+                jdumps(value)
             except TypeError:
                 try:
                     self._misc_info[key] = self.sanitize_obj_for_json(value)
@@ -884,13 +882,16 @@ class BaseClass(Base):
             return
         # NOTE: if attribute not found in this object, value gets shoved in to misc_info
         try:
-            attr = inspect.getattr_static(self.__class__, key)
+            attr = getattr_static(self.__class__, key)
             class_has_attr = True
         except AttributeError as e:
             attr = None
             class_has_attr = False
+        
         # NOTE: if attribute not found in this object, value gets shoved into misc_info
         if not class_has_attr:
+            if is_internal_attr_key(key):
+                return super().__setattr__(key, value)   # let SQLAlchemy have its cache attr
             # ensure value is json serializable (or coerce it)
             try:
                 safe_value = self.sanitize_obj_for_json(obj_=value)
@@ -1353,26 +1354,48 @@ class BaseClass(Base):
                 continue
             for k, v in obj._misc_info.items():
                 try:
-                    json.dumps(v)
+                    jdumps(v)
                 except TypeError:
                     print(f"{obj!r} -> _misc_info[{k!r}] = {v!r} ({type(v).__name__}) is not JSON-safe")
 
+    @property
+    def is_active(self) -> bool:
+        try:
+            return bool(self.active)
+        except AttributeError as e:
+            return True        
+
 
 @event.listens_for(Session, "before_flush")
-def _sanitize_misc_info_before_flush(session, flush_context, instances):
+def _sanitize_json_columns_before_flush(session, flush_context, instances):
     """
-    Safety net: ensure every dirty/new BaseClass instance's _misc_info is
-    JSON-serializable before any flush, not just explicit .save() calls.
-    Catches autoflush-triggered writes that bypass BaseClass.save().
+    Sanitize every JSON-typed column on every dirty/new BaseClass instance
+    before any flush. Covers _misc_info and any other Column(JSON) field
+    (_comment, defaults, _result, _info, _samples, _saved_settings, etc.)
     """
     for obj in list(session.dirty) + list(session.new):
-        if not isinstance(obj, BaseClass) or not obj._misc_info:
+        if not isinstance(obj, BaseClass):
             continue
-        for k, v in list(obj._misc_info.items()):
+        mapper = sql_inspect(obj.__class__)
+        for col_attr in mapper.column_attrs:
+            if not isinstance(col_attr.columns[0].type, JSON):
+                continue
+            key = col_attr.key
+            # read from __dict__ directly - avoid triggering another lazy load/autoflush
+            value = obj.__dict__.get(key)
+            if value is None:
+                continue
             try:
-                json.dumps(v)
+                jdumps(value)
             except TypeError:
-                obj._misc_info[k] = obj.sanitize_obj_for_json(v)
+                if key == "_misc_info":
+                    for k, v in list(value.items()):
+                        try:
+                            jdumps(v)
+                        except TypeError:
+                            value[k] = obj.sanitize_obj_for_json(v)
+                else:
+                    setattr(obj, key, obj.sanitize_obj_for_json(value))
 
 
 class LogMixin(Base):

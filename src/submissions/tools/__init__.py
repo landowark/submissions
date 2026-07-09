@@ -2,18 +2,28 @@
 Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
-import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd, \
-    itertools, openpyxl, string, html
-from copy import copy
+from html import escape as html_escape
+from string import ascii_uppercase
+from itertools import product as iterproduct, chain
+from pandas import DataFrame, isnull as pdisnull
+from numpy import nan as npnan, isnat as npisnat, isnan as npisnan
+from getpass import getuser
+from platform import system
+from stat import S_IWGRP
+from os import stat as osstat, chmod, umask
+from yaml import dump as ydump
+from re import sub as rsub, match as rmatch, I
+from time import perf_counter
+from importlib import import_module
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
-from json import JSONDecodeError
+from json import JSONDecodeError, dumps as jdumps, loads as jloads
 from pprint import pformat
 from threading import Thread
-from inspect import getmembers, isfunction, stack
+from inspect import getmembers, isfunction, stack, currentframe
 from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader, Template
-from logging import handlers, Logger
+from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
 from pathlib import Path
 from sqlalchemy.orm import scoped_session, sessionmaker
 from contextlib import contextmanager
@@ -23,25 +33,26 @@ from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSett
 from typing import Any, Tuple, Literal, List, Generator
 from __init__ import project_path
 from configparser import ConfigParser
-from tkinter import Tk  # NOTE: This is for potentially choosing database path before app is created.
 from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 from pytz import timezone as tz
 from functools import wraps
+import builtins, sys
 
+builtins.pformat = pformat
+builtins.sys = sys
 
+logger = getLogger(f"submissions.{__name__}")
 
 timezone = tz("America/Winnipeg")
 
-logger = logging.getLogger(f"submissions.{__name__}")
-
 logger.info(f"Package dir: {project_path}")
 
-if platform.system() == "Windows":
+if system() == "Windows":
     os_config_dir = "AppData/local"
     logger.info(f"Got platform Windows, config_dir: {os_config_dir}")
 else:
     os_config_dir = ".config"
-    logger.info(f"Got platform {platform.system()}, config_dir: {os_config_dir}")
+    logger.info(f"Got platform {system()}, config_dir: {os_config_dir}")
 
 main_aux_dir = Path.home().joinpath(f"{os_config_dir}/procedure")
 
@@ -49,10 +60,10 @@ CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
 # 1. Generate single letters: ['A', 'B', ..., 'Z']
-single = list(string.ascii_uppercase)
+single = list(ascii_uppercase)
 
 # 2. Generate double letters: ['AA', 'AB', ..., 'ZZ']
-double = [''.join(p) for p in itertools.product(string.ascii_uppercase, repeat=2)]
+double = [''.join(p) for p in iterproduct(ascii_uppercase, repeat=2)]
 
 # 3. Combine and enumerate starting from index 1
 row_map = dict(enumerate(single + double, start=1))
@@ -84,7 +95,7 @@ def divide_chunks(input_list: list, chunk_count: int) -> Generator[Any, Any, Non
     return (input_list[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(chunk_count))
 
 
-def get_unique_values_in_df_column(df: pd.DataFrame, column_name: str) -> list:
+def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
     """
     get all unique values in a dataframe column by name
 
@@ -112,21 +123,21 @@ def check_not_nan(cell_contents) -> bool:
     exclude = ['unnamed:', 'blank', 'void', 'nat', 'nan', "", "none"]
     try:
         if cell_contents.lower() in exclude:
-            cell_contents = np.nan
+            cell_contents = npnan
     except (TypeError, AttributeError):
         pass
     try:
-        if np.isnat(cell_contents):
-            cell_contents = np.nan
+        if npisnat(cell_contents):
+            cell_contents = npnan
     except TypeError as e:
         pass
     try:
-        if pd.isnull(cell_contents):
-            cell_contents = np.nan
+        if pdisnull(cell_contents):
+            cell_contents = npnan
     except ValueError:
         pass
     try:
-        return not np.isnan(cell_contents)
+        return not npisnan(cell_contents)
     except TypeError:
         return True
     except Exception as e:
@@ -149,12 +160,12 @@ def convert_nans_to_nones(input_str: str) -> str | None:
     return None
 
 
-def get_first_blank_df_row(df: pd.DataFrame) -> int:
+def get_first_blank_df_row(df: DataFrame) -> int:
     """
     For some reason I need a whole function for this.
 
     Args:
-        df (pd.DataFrame): Input dataframe.
+        df (DataFrame): Input dataframe.
 
     Returns:
         int: Index of the row after the last used row.
@@ -173,9 +184,9 @@ def timer(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
+        start_time = perf_counter()
         value = func(*args, **kwargs)
-        end_time = time.perf_counter()
+        end_time = perf_counter()
         run_time = end_time - start_time
         print(f"Finished {func.__name__}() in {run_time:.4f} secs")
         return value
@@ -203,7 +214,7 @@ def clean_string(text):
     if not isinstance(text, str):
         return text
     # Replaces any non-letter and non-number character with an empty string
-    return re.sub(r'[^a-zA-Z0-9]', '', text)
+    return rsub(r'[^a-zA-Z0-9]', '', text)
 
 # Logging formatters
 
@@ -216,17 +227,17 @@ class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
         # NOTE: Rotate the file first.
         handlers.RotatingFileHandler.doRollover(self)
         # NOTE: Add group write to the current permissions.
-        currMode = os.stat(self.baseFilename).st_mode
-        os.chmod(self.baseFilename, currMode | stat.S_IWGRP)
+        currMode = osstat(self.baseFilename).st_mode
+        chmod(self.baseFilename, currMode | S_IWGRP)
 
     def _open(self):
-        prevumask = os.umask(0o002)
+        prevumask = umask(0o002)
         rtv = handlers.RotatingFileHandler._open(self)
-        os.umask(prevumask)
+        umask(prevumask)
         return rtv
 
 
-class CustomFormatter(logging.Formatter):
+class CustomFormatter(Formatter):
     class bcolors:
         HEADER = '\033[95m'
         OKBLUE = '\033[94m'
@@ -241,11 +252,11 @@ class CustomFormatter(logging.Formatter):
     log_format = "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(message)s"
 
     FORMATS = {
-        logging.DEBUG: bcolors.ENDC + log_format + bcolors.ENDC,
-        logging.INFO: bcolors.ENDC + log_format + bcolors.ENDC,
-        logging.WARNING: bcolors.WARNING + log_format + bcolors.ENDC,
-        logging.ERROR: bcolors.FAIL + log_format + bcolors.ENDC,
-        logging.CRITICAL: bcolors.FAIL + log_format + bcolors.ENDC
+        DEBUG: bcolors.ENDC + log_format + bcolors.ENDC,
+        INFO: bcolors.ENDC + log_format + bcolors.ENDC,
+        WARNING: bcolors.WARNING + log_format + bcolors.ENDC,
+        ERROR: bcolors.FAIL + log_format + bcolors.ENDC,
+        CRITICAL: bcolors.FAIL + log_format + bcolors.ENDC
     }
 
     def format(self, record):
@@ -253,32 +264,34 @@ class CustomFormatter(logging.Formatter):
             log_fmt = self.log_format
         else:
             log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
+        formatter = Formatter(log_fmt)
         return formatter.format(record)
 
 
-class StreamToLogger(object):
-    """
-    Fake file-like stream object that redirects writes to a logger instance.
-    """
+# class StreamToLogger(object):
+#     """
+#     Fake file-like stream object that redirects writes to a logger instance.
+#     """
 
-    def __init__(self, logger, log_level=logging.INFO):
-        self.logger = logger
-        self.log_level = log_level
-        self.linebuf = ''
+#     def __init__(self, logger, log_level=logging.INFO):
+#         self.logger = logger
+#         self.log_level = log_level
+#         self.linebuf = ''
 
-    def write(self, buf):
-        for line in buf.rstrip().splitlines():
-            self.logger.log(self.log_level, line.rstrip())
+#     def write(self, buf):
+#         for line in buf.rstrip().splitlines():
+#             self.logger.log(self.log_level, line.rstrip())
 
 
 class CustomLogger(Logger):
 
-    def __init__(self, name: str = "procedure", level=logging.DEBUG):
+    def __init__(self, name: str = "procedure", level=DEBUG):
+        if check_if_app():
+           level = INFO 
         super().__init__(name, level)
         self.extra_info = None
         self.propagate = False
-        ch = logging.StreamHandler(stream=sys.stdout)
+        ch = StreamHandler(stream=sys.stdout)
         ch.name = "Stream"
         ch.setLevel(self.level)
         # NOTE: create formatter and add it to the handlers
@@ -309,6 +322,17 @@ class CustomLogger(Logger):
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
 
+class GlobalLoggerProxy:
+    def __getattr__(self, item):
+        # Find the __name__ of the file currently calling the logger
+        frame = currentframe().f_back
+        module_name = frame.f_globals.get('__name__', '__main__')
+        actual_logger = getLogger(f"submissions.{module_name}")
+        return getattr(actual_logger, item)
+
+# Setup global logger
+builtins.logger = GlobalLoggerProxy()
+
 def jinja_template_loading() -> Environment:
     """
     Returns jinja2 template environment.
@@ -337,6 +361,8 @@ def jinja_template_loading() -> Environment:
     env.filters['handle_key'] = handle_keys
     env.filters['handle_results'] = handle_results
     return env
+
+
 
 
 def render_details_template(template: str | Template, css_in: List[str] | str = [], js_in: List[str] | str = [],
@@ -384,83 +410,7 @@ def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
     return row, column
 
 
-def copy_xl_sheet(source_sheet, target_sheet):
-    """
-    Copy a sheet's values with style, format, layout, etc. from one Excel sheet to another
 
-    Args:
-        source_sheet (Worksheet): Input sheet
-        target_sheet (Worksheet): Output sheet
-    """
-    copy_cells(source_sheet, target_sheet)  # copy all the cell values and styles
-    copy_sheet_attributes(source_sheet, target_sheet)
-
-
-def copy_sheet_attributes(source_sheet, target_sheet):
-    """
-    Copy a sheet's style, format, layout, etc. from one Excel sheet to another
-
-    Args:
-        source_sheet (Worksheet): Input sheet
-        target_sheet (Worksheet): Output sheet
-    """
-    if isinstance(source_sheet, openpyxl.worksheet._read_only.ReadOnlyWorksheet):
-        return
-    target_sheet.sheet_format = copy(source_sheet.sheet_format)
-    target_sheet.sheet_properties = copy(source_sheet.sheet_properties)
-    target_sheet.merged_cells = copy(source_sheet.merged_cells)
-    target_sheet.page_margins = copy(source_sheet.page_margins)
-    target_sheet.freeze_panes = copy(source_sheet.freeze_panes)
-
-    # NOTE: set row dimensions
-    # NOTE: So you cannot copy the row_dimensions attribute. Does not work (because of meta data in the attribute I think). So we copy every row's row_dimensions. That seems to work.
-    for rn in range(len(source_sheet.row_dimensions)):
-        target_sheet.row_dimensions[rn] = copy(source_sheet.row_dimensions[rn])
-
-    if source_sheet.sheet_format.defaultColWidth is None:
-        logger.error('Unable to copy default column wide')
-    else:
-        target_sheet.sheet_format.defaultColWidth = copy(source_sheet.sheet_format.defaultColWidth)
-
-    # NOTE: set specific column width and hidden property
-    # NOTE: we cannot copy the entire column_dimensions attribute so we copy selected attributes
-    for key, _ in source_sheet.column_dimensions.items():
-        target_sheet.column_dimensions[key].min = copy(source_sheet.column_dimensions[
-                                                           key].min)  # Excel actually groups multiple columns under 1 key. Use the min max attribute to also group the columns in the targetSheet
-        target_sheet.column_dimensions[key].max = copy(source_sheet.column_dimensions[
-                                                           key].max)  # https://stackoverflow.com/questions/36417278/openpyxl-can-not-read-consecutive-hidden-columns discussed the issue. Note that this is also the case for the width, not onl;y the hidden property
-        target_sheet.column_dimensions[key].width = copy(
-            source_sheet.column_dimensions[key].width)  # set width for every column
-        target_sheet.column_dimensions[key].hidden = copy(source_sheet.column_dimensions[key].hidden)
-
-
-def copy_cells(source_sheet, target_sheet):
-    """
-    Copy a sheet's values from one Excel sheet to another
-
-    Args:
-        source_sheet (Worksheet): Input sheet
-        target_sheet (Worksheet): Output sheet
-    """
-    for r, row in enumerate(source_sheet.iter_rows()):
-        for c, cell in enumerate(row):
-            source_cell = cell
-            if isinstance(source_cell, openpyxl.cell.read_only.EmptyCell):
-                continue
-            target_cell = target_sheet.cell(column=c + 1, row=r + 1)
-            target_cell._value = source_cell._value
-            target_cell.data_type = source_cell.data_type
-            if source_cell.has_style:
-                target_cell.font = copy(source_cell.font)
-                target_cell.border = copy(source_cell.border)
-                target_cell.fill = copy(source_cell.fill)
-                target_cell.number_format = copy(source_cell.number_format)
-                target_cell.protection = copy(source_cell.protection)
-                target_cell.alignment = copy(source_cell.alignment)
-            if not isinstance(source_cell, openpyxl.cell.ReadOnlyCell) and source_cell.hyperlink:
-                target_cell._hyperlink = copy(source_cell.hyperlink)
-            if not isinstance(source_cell, openpyxl.cell.ReadOnlyCell) and source_cell.comment:
-                target_cell.comment = copy(source_cell.comment)
 
 
 def list_str_comparator(target_str: str, list_: List[str], mode: Literal["starts_with", "contains"] = "starts_with") -> bool:
@@ -699,7 +649,7 @@ def is_developer() -> bool:
         bool: True if yes, False if no.
     """
     try:
-        check = getpass.getuser() in ctx.super_users
+        check = getuser() in ctx.super_users
     except (ValueError, AttributeError, TypeError):
         check = False
     return check
@@ -713,7 +663,7 @@ def is_power_user() -> bool:
         bool: True if yes, False if no.
     """
     try:
-        check = getpass.getuser() in ctx.power_users
+        check = getuser() in ctx.power_users
     except (ValueError, AttributeError, TypeError):
         check = False
     return check
@@ -731,7 +681,7 @@ def check_authorization(func):
     @report_result
     def wrapper(*args, **kwargs):
         logger.info(f"Checking authorization")
-        error_msg = f"User {getpass.getuser()} is not authorized for this function."
+        error_msg = f"User {getuser()} is not authorized for this function."
         auth_func = is_power_user
         if auth_func():
             return func(*args, **kwargs)
@@ -759,7 +709,7 @@ def under_development(func):
         if is_developer():
             return func(*args, **kwargs)
         else:
-            error_msg = f"User {getpass.getuser()} is not authorized for this function."
+            error_msg = f"User {getuser()} is not authorized for this function."
             logger.error(error_msg)
             report = Report()
             report.add_result(
@@ -902,7 +852,7 @@ def flatten_list(input_list: list) -> list:
     Returns:
         list:
     """
-    return list(itertools.chain.from_iterable(input_list))
+    return list(chain.from_iterable(input_list))
 
 
 def handle_keys(key:str) -> str:
@@ -922,7 +872,6 @@ def handle_keys(key:str) -> str:
 
 
 def handle_results(input_value:dict|str) -> str:
-    logger.debug(f"Handling results for {input_value}")
     if isinstance(input_value, dict):
         input_value = input_value.get("value", input_value)
     
@@ -930,19 +879,19 @@ def handle_results(input_value:dict|str) -> str:
         case bool():
             output = str(input_value).title()
         case str() | int() | float():
-            output = html.escape(str(input_value))
+            output = html_escape(str(input_value))
         case datetime() | date():
             output = input_value.isoformat(timespec='hours').split("T")[0]
         case None:
-            output = html.escape("NA")
+            output = html_escape("NA")
         case _:
             try:
-                output = f"<pre>{html.escape(json.dumps(input_value, indent=4))}</pre>"
+                output = f"<pre>{html_escape(jdumps(input_value, indent=4))}</pre>"
             except (TypeError, ValueError):
                 logger.error(f"Could not convert {input_value} to json for display. Displaying as string instead.")
-                output = f"{html.escape(str(input_value))}"
+                output = f"{html_escape(str(input_value))}"
             
-    output = re.sub(r'[{}]|&quot;|,', '', output)
+    output = rsub(r'[{}]|&quot;|,', '', output)
     return output
     
 
@@ -960,6 +909,19 @@ def sanitize_object_for_json(input_obj):
             return sanitize_object_for_json(input_obj.name)
         case _:
             return input_obj
+
+
+_MISC_INFO_INTERNAL_MARKERS = ("AssociationProxy", "sa_instance_state", "_sa_")
+
+
+def is_internal_attr_key(key) -> bool:
+    """
+    True if `key` looks like SQLAlchemy/ORM-internal bookkeeping rather than
+    real data - e.g. association_proxy's per-instance cache attributes like
+    "_AssociationProxy_<target>_<id>". SQLAlchemy setattr()'s these directly;
+    they must never be captured into _misc_info.
+    """
+    return isinstance(key, str) and key.startswith("_") and any(m in key for m in _MISC_INFO_INTERNAL_MARKERS)
 
 
 def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["pop", "return", "index"] = "pop") -> dict | Tuple[int, dict]:
@@ -1009,7 +971,7 @@ def get_well_index(cell_id:str, grid_height:int=8, grid_width:int=12, direction:
     direction='col': Top-to-bottom, then left-to-right (A1, B1, C1...)
     direction='row': Left-to-right, then top-to-bottom (A1, A2, A3...)
     """
-    match = re.match(r"([A-Z]+)([0-9]+)", cell_id, re.I)
+    match = rmatch(r"([A-Z]+)([0-9]+)", cell_id, I)
     if not match:
         raise ValueError("Invalid cell ID format.")
     
@@ -1057,6 +1019,7 @@ class classproperty(property):
 # NOTE: Monkey patching... hooray!
 builtins.classproperty = classproperty
 
+
 class DotDict(dict):
     """A helper to allow dot notation on dictionaries while supporting standard dict syntax."""
     
@@ -1092,7 +1055,6 @@ class Settings(BaseSettings, extra="allow"):
     directories: DotDict = Field(default_factory=DotDict)
     package: Any | None = None
     logging_enabled: bool = Field(default=False)
-    
 
     def __getattr__(self, name: str) -> Any:
         # Use the public model_extra API
@@ -1106,7 +1068,7 @@ class Settings(BaseSettings, extra="allow"):
 
     @classproperty
     def main_aux_dir(cls):
-        if platform.system() == "Windows":
+        if system() == "Windows":
             os_config_dir = "AppData/local"
         else:
             os_config_dir = ".config"
@@ -1290,7 +1252,7 @@ class Settings(BaseSettings, extra="allow"):
             output = {}
             for item in config_items:
                 try:
-                    output[item[1]] = json.loads(item[2])
+                    output[item[1]] = jloads(item[2])
                 except (JSONDecodeError, TypeError):
                     output[item[1]] = item[2]
         for k, v in output.items():
@@ -1312,7 +1274,7 @@ class Settings(BaseSettings, extra="allow"):
         modules = p.glob("[!__]*.py")
         for module in modules:
             try:
-                mod = importlib.import_module(module.stem)
+                mod = import_module(module.stem)
             except ImportError as e:
                 logger.error(f"Error loading module: {e}")
                 continue
@@ -1385,19 +1347,19 @@ class Settings(BaseSettings, extra="allow"):
         url = c['alembic']['sqlalchemy.url']
         match mode:
             case 'path':
-                path = re.sub(r"^.*//", "", url)
-                path = re.sub(r"^.*@", "", path)
+                path = rsub(r"^.*//", "", url)
+                path = rsub(r"^.*@", "", path)
                 return Path(path)
             case "schema":
                 return url[:url.index(":")]
             case "user":
-                url = re.sub(r"^.*//", "", url)
+                url = rsub(r"^.*//", "", url)
                 try:
                     return url[:url.index("@")].split(":")[0]
                 except (IndexError, ValueError) as e:
                     return None
             case "pass":
-                url = re.sub(r"^.*//", "", url)
+                url = rsub(r"^.*//", "", url)
                 try:
                     return url[:url.index("@")].split(":")[1]
                 except (IndexError, ValueError) as e:
@@ -1429,7 +1391,8 @@ class Settings(BaseSettings, extra="allow"):
                         pass
                 dicto[k] = v
             with open(self.configdir.joinpath("config.yml"), 'w') as f:
-                yaml.dump(dicto, f)
+                ydump(dicto, f)
 
 
 ctx = Settings()
+jinja_env = jinja_template_loading()

@@ -4,10 +4,6 @@ Default results writers.
 from pprint import pformat
 from openpyxl import Workbook
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
-import logging
-
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultResultsInfoWriter(DefaultKEYVALUEWriter):

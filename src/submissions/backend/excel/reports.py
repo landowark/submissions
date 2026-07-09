@@ -2,22 +2,15 @@
 Contains functions for generating summary reports
 """
 from __future__ import annotations
-import re, sys, logging, pandas as pd
-from pprint import pformat
-from pandas import DataFrame, ExcelWriter
+from pandas import DataFrame, ExcelWriter, to_numeric
 from pathlib import Path
 from datetime import date
 from typing import Generator, Tuple, List, TYPE_CHECKING
-
-from tools import find_paths_to_value, jinja_template_loading, get_first_blank_df_row, row_map, convert_strings
+from tools import find_paths_to_value, get_first_blank_df_row, row_map, convert_strings, jinja_env
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 if TYPE_CHECKING:
     from backend.db.models import ClientSubmission, Results
-
-logger = logging.getLogger(f"submissions.{__name__}")
-
-env = jinja_template_loading()
 
 
 class ReportArchetype(object):
@@ -112,7 +105,7 @@ class ReportMaker(object):
                 output.append(adder)
             old_lab = lab
         dicto = {'start_date': self.start_date, 'end_date': self.end_date, 'labs': output}
-        temp = env.get_template('summary_report.html')
+        temp = jinja_env.get_template('summary_report.html')
         html = temp.render(input=dicto)
         return html
 
@@ -227,10 +220,11 @@ class ConcentrationMaker(ResultsMaker):
         super().__init__(start_date, end_date, submission_types, include, **kwargs)
         try:
             self.df = self.df[self.df["original_sample_conc."].notnull()]
-            self.df["original_sample_conc."] = pd.to_numeric(self.df["original_sample_conc."], errors='coerce').fillna(0)
+            self.df["original_sample_conc."] = to_numeric(self.df["original_sample_conc."], errors='coerce').fillna(0)
         except KeyError:
             logger.warning("No 'original_sample_conc.' column found in the dataframe. ConcentrationMaker may not function as intended.")
             self.df = self.df.iloc[0:0]
+
 
 class PCRMaker(ResultsMaker):
 
@@ -238,7 +232,7 @@ class PCRMaker(ResultsMaker):
         super().__init__(start_date, end_date, submission_types, include, **kwargs)
         try:
             # 1. Convert non-numbers to NaN (Not a Number)
-            self.df['cq'] = pd.to_numeric(self.df['cq'], errors='coerce')
+            self.df['cq'] = to_numeric(self.df['cq'], errors='coerce')
             # 2. Fill all NaN values with -1.0
             self.df['cq'] = self.df['cq'].fillna(-1.0)
         except KeyError:
@@ -257,9 +251,11 @@ class PCRMaker(ResultsMaker):
                 new_item.update(target)  # NOTE: add target key-values to the new item
                 yield new_item
 
+
 class ChartReportMaker(ReportArchetype):
 
     def __init__(self, df: DataFrame):
         self.df = df
+
 
 __all__ = ["ReportArchetype", "ReportMaker", "TurnaroundMaker", "ResultsMaker", "ConcentrationMaker", "PCRMaker", "ChartReportMaker"]

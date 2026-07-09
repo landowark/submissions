@@ -10,7 +10,6 @@ Classes:
     Contact: Represents a contact person associated with client labs
 """
 from __future__ import annotations
-import logging
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -18,7 +17,6 @@ from . import BaseClass, Base
 from tools import check_authorization, setup_lookup
 from typing import List
 
-logger = logging.getLogger(f"submissions.{__name__}")
 
 # NOTE: table containing clientlab/contact relationship
 clientlab_contact = Table(

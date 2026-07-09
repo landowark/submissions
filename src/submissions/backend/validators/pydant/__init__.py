@@ -3,8 +3,9 @@ Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
 from pathlib import Path
-import logging, sys, string, inspect, re, json
-from pprint import pformat
+from re import sub as rsub
+from inspect import signature, getmembers
+from string import ascii_lowercase
 from jinja2 import Template, TemplateNotFound
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
@@ -12,7 +13,7 @@ from pydantic.fields import FieldInfo
 from datetime import date, datetime
 from typing import Any, Generator, List, Generic, TypeVar, Annotated, get_args, get_origin
 from types import UnionType
-from tools import classproperty, jinja_template_loading, row_keys, DotDict, sort_dict_by_list
+from tools import classproperty, row_keys, DotDict, sort_dict_by_list, jinja_env
 from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
@@ -22,8 +23,6 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.associationproxy import _AssociationList
 from PyQt6.QtWidgets import QDialog
-
-logger = logging.getLogger(f"submission.{__name__}")
 
 T = TypeVar("T")
 
@@ -155,7 +154,7 @@ def _coerce_datetime_field(raw: Any, fallback: datetime | None = None) -> Source
             coerced = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + raw_value - 2)
         case str():
             # Strip RSL plate suffix before parsing (e.g. "2024-01-01-1" → "2024-01-01")
-            cleaned = re.sub(r"(_|-)\d(R\d)?$", "", raw_value)
+            cleaned = rsub(r"(_|-)\d(R\d)?$", "", raw_value)
             for attempt in (cleaned, cleaned.replace("-", "")):
                 try:
                     coerced = parse(attempt)
@@ -308,6 +307,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     sql_instance: BaseClass | None = Field(default=None, validate_default=True, repr=False)
     new: bool = Field(default=True, repr=False, validate_default=True)
     
+    def __str__(self) -> str:
+        return self.__repr__()
+
     @classproperty
     def aliases(cls) -> List[str]:
         """
@@ -417,7 +419,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     # Before: self.__setattr__(key, ...)
                     object.__setattr__(self, key, datetime.strptime(value, "%Y-%m-%d"))
             if key == "row" and isinstance(value, str):
-                if value.lower() in string.ascii_lowercase[0:8]:
+                if value.lower() in ascii_lowercase[0:8]:
                     try:
                         value = row_keys[value]
                     except KeyError:
@@ -605,7 +607,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         (e.g. role-name only) from silently re-binding an existing association
         onto a different parent.
         """
-        sig = inspect.signature(self._sql_class.query).parameters
+        sig = signature(self._sql_class.query).parameters
         candidates = {
             name for name in sig
             if not name.startswith("_")
@@ -749,7 +751,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             List[str]: List of lowercase object names.
         """
-        return [class_[0].lower() for class_ in inspect.getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], models.BaseClass)]
+        return [class_[0].lower() for class_ in getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], models.BaseClass)]
     
     @classmethod
     def determine_field_type(cls, field: str, is_new: bool = False) -> str | None:
@@ -927,8 +929,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             association = True
         else:
             association = False
-        env = jinja_template_loading()
-        template = env.get_template("managers/manager_form.html")
+        # env = jinja_template_loading()
+        template = jinja_env.get_template("managers/manager_form.html")
         html = template.render(object=self.form_dictionary, association=association, class_name=self.__class__.__name__)
         return html
             
@@ -1005,7 +1007,30 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         Updates all instrumented attributes to match the current state of the pydantic model.
         """
+        attribute_type = self.determine_field_type(key)
+        match attribute_type.upper():
+            case "INTEGER":
+                match value:
+                    case str():
+                        if value.lower() in ["on", "true"," yes"]:
+                            value = 1
+                    case _:
+                        value = int(value)
+            case "BOOL":
+                match value:
+                    case str():
+                        if value.lower() in ["on", "true"," yes"]:
+                            value = True
+                        elif value.lower() in ['off', 'false', 'no']:
+                            value = False
+                        else:
+                            raise ValueError(f"Unparsable string given to 'active' on {self}: {value}")
+                    case _:
+                        value = bool(value)
+            case _:
+                pass
         self.__setattr__(key, value)
+        assert getattr(self, key) == value, f"Failed to set {key} to '{value}' for {self}"
 
     def revalidate(self):
         """
@@ -1028,15 +1053,15 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             Template: Template to be rendered
         """
-        env = jinja_template_loading()
+        # env = jinja_template_loading()
         temp_name = f"{cls._sql_name.lower()}_details.html"
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
             try:
-                template = env.get_template(f"{cls.class_config.renderclass}_details.html")
+                template = jinja_env.get_template(f"{cls.class_config.renderclass}_details.html")
             except TemplateNotFound:
-                template = env.get_template("details.html")
+                template = jinja_env.get_template("details.html")
         return template
         
     def to_html(self, css_in: List[str| Path] | str = [], js_in: List[str | Path] | str = [],
@@ -1045,8 +1070,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         details = {details_name: self.clean_details_for_render(self.improved_dict | kwargs)}
         if isinstance(css_in, str | Path):
             css_in = [css_in]
-        env = jinja_template_loading()
-        html_folder = Path(env.loader.__getattribute__("searchpath")[0])
+        # env = jinja_template_loading()
+        html_folder = Path(jinja_env.loader.__getattribute__("searchpath")[0])
         css_in = ["styles", self._sql_name.lower()] + css_in
         css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
         if isinstance(js_in, str | Path):
@@ -1173,6 +1198,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         rel = cls._relationship_fields
         return [name for name in cls.model_fields if name not in rel]
 
+    @classmethod
+    def has_field(cls, fieldname):
+        return fieldname in cls.model_fields
+    
+    
 
 class PydAbstract(PydBaseClass):
 

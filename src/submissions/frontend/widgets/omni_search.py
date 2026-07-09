@@ -1,7 +1,6 @@
 """
 Search box that performs fuzzy search for various object types
 """
-from pprint import pformat
 from typing import Tuple, Any, List, Generator
 from pandas import DataFrame
 from PyQt6.QtCore import QSortFilterProxyModel, QModelIndex
@@ -10,9 +9,6 @@ from PyQt6.QtWidgets import (
     QTableView, QWidget, QLineEdit, QGridLayout, QComboBox, QDialogButtonBox
 )
 from . import pandasModel
-import logging, sys
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class SearchBox(QDialog):

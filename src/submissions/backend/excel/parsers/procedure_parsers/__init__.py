@@ -4,16 +4,7 @@ Default procedure parsers (currently unused).
 from __future__ import annotations
 from typing import Generator
 from backend.excel.parsers import DefaultTABLEParser, DefaultKEYVALUEParser
-import logging
 from openpyxl.worksheet.worksheet import Worksheet
-
-logger = logging.getLogger(f"submissions.{__name__}")
-
-"""
-TODO
-
-- range dicts should hopefully not be necessary in this type of parser. Hopefully all procedure parsers are the same.
-"""
 
 
 class ProcedureInfoParser(DefaultKEYVALUEParser):

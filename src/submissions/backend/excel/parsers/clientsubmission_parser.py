@@ -2,9 +2,7 @@
 Module for clientsubmission parsing
 """
 from __future__ import annotations
-from pprint import pformat
-import logging, sys
-from datetime import datetime, time
+from datetime import datetime
 from string import ascii_lowercase
 from typing import Generator, TYPE_CHECKING, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
@@ -14,10 +12,8 @@ from backend.validators import ClientSubmissionNamer
 if TYPE_CHECKING:
     from backend.db.models import SubmissionType
 
-logger = logging.getLogger(f"submissions.{__name__}")
 
-
-class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin):
+class ClientSubmissionInfoParser(DefaultKEYVALUEParser):
     """
     Object for retrieving submitter info from "Client Info" sheet
     """
@@ -53,7 +49,7 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
         return output
 
 
-class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
+class ClientSubmissionSampleParser(DefaultTABLEParser):
     """
     Object for retrieving submitter samples from "sample list" sheet
     """
@@ -103,5 +99,6 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
         
     def to_pydantic(self):
         return [self._pyd_object(**sample) for sample in self.parsed_info if sample.get('sample_id', None)]
+
 
 __all__ = ["ClientSubmissionInfoParser", "ClientSubmissionSampleParser"]

@@ -1,17 +1,13 @@
 
-from pprint import pformat
-import logging, sys
 from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from backend.db.models import BaseClass
 from . import CustomWebEnginePage
 from PyQt6.QtCore import pyqtSlot, QVariant
-from tools import jinja_template_loading, render_details_template
+from tools import render_details_template
+from operator import itemgetter
 
-logger = logging.getLogger(f"submissions.{__name__}")
-
-env = jinja_template_loading()
 
 class OmniManager(QDialog):
     """
@@ -20,6 +16,8 @@ class OmniManager(QDialog):
     def __init__(self, parent: QWidget, object_type: type):
         super().__init__(parent)
         self.object_type = object_type
+        logger.debug(f"Objecttype: {self.object_type}")
+        
         self.pydant = None
         self.webview = QWebEngineView()
         custom_page = CustomWebEnginePage(self.webview)
@@ -42,8 +40,9 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        addendum = ["", "--New--"]
-        object_list = addendum + [item.name for item in self.sql_type.query() if item.name != "Default SubmissionType"]
+        # addendum = ["", "--New--"]
+        object_list = [dict(name="", active=True)] + sorted([dict(name=item.name, active=item.is_active) for item in self.sql_type.query() 
+                                                             if item.name != "Default SubmissionType"], key=itemgetter("active"), reverse=True)
         object_name = self.sql_type.__name__
         html = render_details_template("managers/default_manager", js_in=['manager'], object_name=object_name, object_list=object_list)
         self.webview.setHtml(html)
@@ -84,7 +83,9 @@ class OmniManager(QDialog):
             field (str): The field name to update.
             value (str): The new value for the field.
         """
+        logger.debug(f"Updating {field} to {value}")
         self.pydant.update_instrumentedattribute(field, value)
+        logger.debug(f"New value for {field}: {getattr(self.pydant, field)}")
         
     @pyqtSlot(str, str, result=str)
     def get_association_form(self, field: str, value: str) -> str:
@@ -128,9 +129,11 @@ class OmniManager(QDialog):
         Returns:
             None
         """
+        logger.debug(f"Pydant object coming in: {pformat(self.pydant.improved_dict)}")
         sql_instance = self.pydant.to_sql()
         if isinstance(sql_instance, tuple):
             sql_instance = sql_instance[0]
+        logger.debug(pformat({k:v for k, v in sql_instance.__dict__.items() if not isinstance(v, list) and not isinstance(v, dict)}))
         sql_instance.save()
         self.reset_form()
 

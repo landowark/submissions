@@ -1,30 +1,28 @@
 """
 Functions for constructing irida control graphs using plotly.
 """
-from pprint import pformat
-import logging, plotly.express as px, pandas as pd
+from plotly.express import bar as pxbar
+from pandas import DataFrame, to_numeric as pd_to_numeric
 from . import CustomFigure
 from tools import get_unique_values_in_df_column
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class IridaFigure(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, **kwargs):
+    def __init__(self, df: DataFrame, modes: list, settings: dict, **kwargs):
 
         super().__init__(df=df, modes=modes, settings=settings, **kwargs)
         self.df = df
         self.construct_chart(df=df, modes=modes, start_date=settings['start_date'], end_date=settings['end_date'])
 
-    def construct_chart(self, df: pd.DataFrame, modes: list, **kwargs):
+    def construct_chart(self, df: DataFrame, modes: list, **kwargs):
         """
         Creates a plotly chart for control from a pandas dataframe
 
         Args:
             end_date ():
             start_date ():
-            df (pd.DataFrame): input dataframe of control
+            df (DataFrame): input dataframe of control
             modes (list): analysis modes to construct charts for
             ytitle (str | None, optional): title on the y-axis. Defaults to None.
 
@@ -33,7 +31,7 @@ class IridaFigure(CustomFigure):
         """
         for ii, mode in enumerate(modes):
             if "count" in mode:
-                df[mode] = pd.to_numeric(df[mode], errors='coerce')
+                df[mode] = pd_to_numeric(df[mode], errors='coerce')
                 color = "genus"
                 color_discrete_sequence = None
             elif 'percent' in mode:
@@ -49,7 +47,7 @@ class IridaFigure(CustomFigure):
                     case _:
                         color_discrete_sequence = ['blue', 'red']
             # NOTE April 24th and 30 not in this df.
-            bar = px.bar(df,
+            bar = pxbar(df,
                          x="submitted_date",
                          y=mode,
                          color=color,

@@ -2,36 +2,26 @@
 Default writers for procedures.
 """
 from __future__ import annotations
-import logging, sys
-from pprint import pformat
 from openpyxl.workbook import Workbook
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 
-logger = logging.getLogger(f"submissions.{__name__}")
 
 class ProcedureInfoWriter(DefaultKEYVALUEWriter):
 
-    # start_row = 1
-    
     def __init__(self, pydant_obj, *args, **kwargs):
         self.proceduretype = pydant_obj.proceduretype
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-        # self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in pydant_obj.excluded}
         # Put comment back in due to exclusion.
         self.fill_dictionary['comment'] = pydant_obj.comment
         self.sheet = f"{self.proceduretype.name[:20]} Quality"
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
-        # logger.debug(self.pydant_obj.comment)
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet, start_row=start_row)
         return workbook
 
 
 class ProcedureReagentWriter(DefaultTABLEWriter):
-
-    # exclude = ["id", "comments", "missing", "active", "name", "reagentlot", "procedure", "excluded", "reagentlotprocedureassociation", "procedurereagentlotassociation", "reagent_name"]
-    # header_order = ["reagentrole", "reagent", "lot", "expiry"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         self.proceduretype = pydant_obj.proceduretype
@@ -46,11 +36,6 @@ class ProcedureReagentWriter(DefaultTABLEWriter):
 
 class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
-    # exclude = ['id', "equipment_role", "name", "nickname", "procedure", "equipmentequipmentroleassociation", 
-    #            "equipmentprocedureassociation", "excluded", "procedureequipmenttipslotassociation", "asset_number",
-    #            "start_time", "end_time", "manufacturer", "ref", "process", "serial_number", "calibration_date"]
-    # header_order = ['equipmentrole', 'equipment', 'processversion', 'tipslot']
-
     def __init__(self, pydant_obj, *args, **kwargs):
         self.proceduretype = pydant_obj.proceduretype
         super().__init__(pydant_obj=pydant_obj, actual_objs_type="equipment", *args, **kwargs)
@@ -63,11 +48,6 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
 
 class ProcedureSampleWriter(DefaultTABLEWriter):
-
-    # exclude = ['id', 'enabled', 'name', "submission_rank", 'background_color', "is_control", "well_id", "sample", "sample_location", 
-    #            "sample_type", "clientsubmission", "excluded", "procedure", "rank", "results", "run", "sampleclientsubmissionassociation",
-    #            "sampleprocedureassociation", "samplerunassociation", "control_type"]
-    # header_order = ['procedure_rank', 'sample_id', 'row', 'column']
 
     def __init__(self, pydant_obj, *args, **kwargs):
         self.proceduretype = pydant_obj.proceduretype
@@ -108,11 +88,12 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
                     except StopIteration:
                         try:
                             sample = next(item for item in self.pydant_obj.sample if item.column == ccc and item.row == rrr)
-                            sample = PydProcedureSampleAssociation(sample=sample, procedure=self.procedure, procedure_rank=iii, row=sample.row, column=sample.column)
+                            sample = PydProcedureSampleAssociation(sample=sample, procedure=self.pydant_obj, procedure_rank=iii, row=sample.row, column=sample.column)
                         except StopIteration:
-                            sample = PydProcedureSampleAssociation(sample="", procedure=self.procedure, procedure_rank=iii, row=rrr, column=ccc)
+                            sample = PydProcedureSampleAssociation(sample="", procedure=self.pydant_obj, procedure_rank=iii, row=rrr, column=ccc)
                     output_samples.append(sample)
                     iii += 1
             return sorted(output_samples, key=lambda x: (x.column, x.row))
-        
+
+
 __all__ = ["ProcedureInfoWriter", "ProcedureReagentWriter", "ProcedureEquipmentWriter", "ProcedureSampleWriter"]

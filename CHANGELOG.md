@@ -1,6 +1,7 @@
 # 202607.04
 
-- 
+- Upgrades to database functions for robustness.
+- Move inactive concrete objects to bottom of options list.
 
 # 202607.03
 

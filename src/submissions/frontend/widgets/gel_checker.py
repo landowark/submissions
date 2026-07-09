@@ -8,14 +8,12 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QIcon
 from PIL import Image
-import logging, numpy as np, pyqtgraph as pg
-from pprint import pformat
+from pyqtgraph import ImageView, setConfigOptions
+from numpy import flip as npflip, rot90 as nprot90, array as nparray
 from typing import Tuple, List, TYPE_CHECKING
 from pathlib import Path
 if TYPE_CHECKING:
     from backend.db.models import Run
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 # Main window class
@@ -43,13 +41,13 @@ class GelBox(QDialog):
         Create widgets in ui
         """
         # NOTE: setting configuration options
-        pg.setConfigOptions(antialias=True)
+        setConfigOptions(antialias=True)
         # NOTE: creating image view object
-        self.imv = pg.ImageView()
+        self.imv = ImageView()
         # NOTE: Create image.
         # NOTE: For some reason, ImageView wants to flip the image, so we have to rotate and flip the array first.
         # NOTE: Using the Image.rotate function results in cropped image, so using np.
-        img = np.flip(np.rot90(np.array(Image.open(self.img_path)), 1), 0)
+        img = npflip(nprot90(nparray(Image.open(self.img_path)), 1), 0)
         self.imv.setImage(img)
         layout = QGridLayout()
         layout.addWidget(QLabel("DNA Core Submission Number"), 21, 1)

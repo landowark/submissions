@@ -2,8 +2,6 @@
 Module for default results manager
 """
 from __future__ import annotations
-import logging
-from pprint import pformat
 from .. import DefaultManager
 from backend.db.models import Procedure
 from pathlib import Path
@@ -13,8 +11,6 @@ from openpyxl.worksheet.worksheet import Worksheet
 from typing import Generator, List
 from backend.validators.pydant import PydResults
 
-
-logger = logging.getLogger(f"submission.{__name__}")
 
 class DefaultResultsManager(DefaultManager):
 

@@ -1,9 +1,8 @@
 from . import DefaultSettings
-import csv, logging
+from csv import writer as csvwriter
 from frontend.widgets.functions import select_save_file
 from tools import row_map
 
-logger = logging.getLogger(f"submissions.{__name__}")
 
 class DiomniPCRSettings(DefaultSettings):
 
@@ -62,7 +61,7 @@ class DiomniPCRSettings(DefaultSettings):
                 ]
                 samples.append(output)
         with open(filepath, "w", newline='', encoding='utf-8') as f:
-            writer = csv.writer(f, delimiter=",")
+            writer = csvwriter(f, delimiter=",")
             writer.writerows(toplines)
             writer.writerows(samples)
             

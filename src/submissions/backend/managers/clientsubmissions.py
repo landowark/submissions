@@ -2,8 +2,6 @@
 Module for manager of ClientSubmission object
 """
 from __future__ import annotations
-from pprint import pformat
-import logging, sys
 from typing import TYPE_CHECKING, Generator
 from pathlib import Path
 from openpyxl.workbook import Workbook
@@ -15,15 +13,13 @@ if TYPE_CHECKING:
     from backend.db.models import SubmissionType, ClientSubmission
     from backend.validators.pydant import PydClientSubmission, PydProcedure, PydRun
 
-logger = logging.getLogger(f"submissions.{__name__}")
-
 
 class DefaultClientSubmissionManager(DefaultManager):
    
-    sheets = {
-        "info":[dict(sheet="Client Info", start_row=1)],
-        "sample":[dict(sheet="Client Info", start_row=1)]
-        }
+    # sheets = {
+    #     "info":[dict(sheet="Client Info", start_row=1)],
+    #     "sample":[dict(sheet="Client Info", start_row=1)]
+    #     }
 
     def __init__(self, parent, submissiontype: SubmissionType | str | None = None,
                  input_object: Path | str | ClientSubmission | PydClientSubmission | None = None, **kwargs):

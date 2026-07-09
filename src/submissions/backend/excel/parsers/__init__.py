@@ -2,14 +2,11 @@
 Default Parser archetypes.
 """
 from __future__ import annotations
-import logging, re
-from pprint import pformat
+from re import sub as rsub
 from typing import Generator
 from openpyxl.cell import MergedCell
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultParser(object):
@@ -66,8 +63,8 @@ class DefaultParser(object):
     
     @staticmethod
     def fix_key(key: str) -> str | None:
-        key = re.sub(r"\(.*\)", "", key)
-        key = re.sub(r"\s+", "_", key.lower().replace(":", "").strip())
+        key = rsub(r"\(.*\)", "", key)
+        key = rsub(r"\s+", "_", key.lower().replace(":", "").strip())
         if key.count("_") > 3:
             logger.warning(f"There are more than 3 spaces in {key}, skipping")
             return None
@@ -76,7 +73,6 @@ class DefaultParser(object):
                 return "comment"
             case _:
                 return key
-
 
 
 class DefaultKEYVALUEParser(DefaultParser):

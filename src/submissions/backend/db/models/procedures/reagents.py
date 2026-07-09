@@ -1,6 +1,5 @@
 from __future__ import annotations
-from pprint import pformat
-import logging, re 
+from re import sub as rsub
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Interval, FLOAT, select
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
@@ -13,8 +12,6 @@ from tools import check_authorization, classproperty, setup_lookup, timezone
 from typing import List
 from .. import BaseClass, LogMixin
 from . import ProcedureType, Procedure
-
-logger = logging.getLogger(f"subbmissions.{__name__}")
 
 
 class ReagentRole(BaseClass):
@@ -582,7 +579,7 @@ class ReagentLot(BaseClass):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:

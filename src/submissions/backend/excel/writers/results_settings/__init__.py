@@ -4,10 +4,6 @@ from frontend.widgets import DefaultWebDialog
 from PyQt6.QtCore import pyqtSlot, QVariant
 from PyQt6.QtWidgets import QDialog
 from tools import render_details_template
-import logging
-from pprint import pformat
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultSettings(object):

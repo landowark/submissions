@@ -2,25 +2,14 @@
 Module for ClientSubmission writing
 """
 from __future__ import annotations
-import logging, sys
-from pprint import pformat
 from openpyxl.cell import MergedCell
 from openpyxl.workbook import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
-from typing import TYPE_CHECKING
 from . import DefaultKEYVALUEWriter, DefaultTABLEWriter
-if TYPE_CHECKING:
-    from backend.db.models import ProcedureType
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
-
-    # exclude = ["name", "id", "clientlab", "filepath", "comment", "sample", 
-    #            "excluded", "run", "clientsubmissionsampleassociation", "expanded", "full_batch_size",
-    #            "endrow", "startrow", "abbreviation", "submitter_info"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
@@ -37,12 +26,6 @@ class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
 
 
 class ClientSubmissionSampleWriter(DefaultTABLEWriter):
-
-
-    # exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank", "sample",
-    #            "excluded", "procedure", "run", "sampleclientsubmissionassociation", "sampleprocedureassociation",
-    #            "samplerunassociation", "results"]
-    # header_order = ["submission_rank", "sample_id"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         self.submissiontype = pydant_obj.submissiontype

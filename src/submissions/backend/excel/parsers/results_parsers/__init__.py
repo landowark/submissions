@@ -5,10 +5,6 @@ from __future__ import annotations
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.excel.parsers import DefaultKEYVALUEParser, DefaultTABLEParser
 from typing import Tuple, Generator, Any
-import logging
-
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultResultsInfoParser(DefaultKEYVALUEParser):
@@ -29,7 +25,6 @@ class DefaultResultsInfoParser(DefaultKEYVALUEParser):
                 pass
             yield key, value
         
-
 
 class DefaultResultsSampleParser(DefaultTABLEParser):
     pyd_name = "PydResults"

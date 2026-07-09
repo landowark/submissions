@@ -7,11 +7,8 @@ from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
-import logging, os
-
 from tools import get_application_from_parent
-
-logger = logging.getLogger("submissions.frontend.widgets")
+from os import environ
 
 
 class CustomWebEnginePage(QWebEnginePage):
@@ -32,8 +29,8 @@ class DefaultWebDialog(QDialog):
 
     def __init__(self, parent) -> None:
         super().__init__(parent)
-        if 'QTWEBENGINE_REMOTE_DEBUGGING' not in os.environ:
-            os.environ['QTWEBENGINE_REMOTE_DEBUGGING'] = '9222'
+        if 'QTWEBENGINE_REMOTE_DEBUGGING' not in environ:
+            environ['QTWEBENGINE_REMOTE_DEBUGGING'] = '9222'
             logger.info('Enabled QTWEBENGINE_REMOTE_DEBUGGING=9222 for remote inspection')
         self.app = get_application_from_parent(parent)
         # Ensure remote debugging is enabled before the WebEngine is initialised.
@@ -110,7 +107,6 @@ class pandasModel(QAbstractTableModel):
 
 from .app import *
 from .concentration_viewer import *
-from .controls_chart import *
 from .date_type_picker import *
 from .excel_sheet_selector import *
 from .functions import *

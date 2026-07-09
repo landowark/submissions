@@ -1,9 +1,8 @@
 
 from __future__ import annotations
 from functools import cached_property
-import json
-from pprint import pformat
-import csv, logging, re, sys
+from re import compile as rcompile
+from csv import writer as csvwriter
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Generator, List, Tuple, TYPE_CHECKING
@@ -17,9 +16,6 @@ from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureTyp
 from tools import Alert, Report, find_first_matching_dict, row_keys, sort_dict_by_list, ensure_list
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
-
-logger = logging.getLogger(f"submissions.{__name__}")
-
 
 
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
@@ -103,9 +99,32 @@ class PydReagentLot(PydConcrete):
     missing: bool = Field(default=True, repr=False)
     active: bool = Field(default=True, description="Is this lot currently in use?", repr=False)
 
+    def __repr__(self) -> str:
+        return f"<PydReagentLot({self.constructed_name})>"
+    
+    @property
+    def constructed_name(self) -> str:
+        match self.reagent:
+            case PydReagent():
+                reagent = self.reagent.name
+            case _:
+                reagent = self.reagent or "Unassigned Reagent"
+        lot = self.lot or "Unassigned Lot"
+        return f"{reagent} - {lot}"
+
     @field_validator("active", mode="before")
     @classmethod
     def active_bool(cls, value):
+        match value:
+            case str():
+                if value.lower() in ["on", "true"," yes"]:
+                    value = True
+                elif value.lower() in ["off", "false", "no"]:
+                    value = False
+                else:
+                    raise ValueError(f"Unparsable string given to 'active' on {cls.__name__}: {value}")
+            case _:
+                pass
         return bool(value)
 
     # TODO: Move to shared along with PydTipsLot
@@ -139,10 +158,17 @@ class PydReagentLot(PydConcrete):
         except AttributeError:
             return f"{reagent} - Unknown Lot"
 
-    @property
-    def improved_dict(self) -> dict:
-        output = super().improved_dict
-        output['name'] = self.name
+    # @property
+    # def improved_dict(self) -> dict:
+    #     output = super().improved_dict
+    #     output['name'] = self.name
+    #     return output
+    
+    def to_sql(self, update: bool = True):
+        output = super().to_sql(update)
+        if update:
+            output.active = self.active
+        assert output.active == int(self.active), f"SQL.active = {output.active}, PYD.active = {int(self.active)}"
         return output
 
 
@@ -356,7 +382,7 @@ class PydContact(PydConcrete):
     @field_validator("tel")
     @classmethod
     def enforce_phone_number(cls, value):
-        area_regex = re.compile(r"^\(?(\d{3})\)?(-| )?")
+        area_regex = rcompile(r"^\(?(\d{3})\)?(-| )?")
         if len(value) > 8:
             match = area_regex.match(value)
             value = area_regex.sub(f"({match.group(1).strip()}) ", value)
@@ -405,7 +431,13 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
     @property
     def improved_dict(self) -> dict:
         return {k: v for k, v in super().improved_dict.items() if k not in ["procedure", "procedureequipmentassociation"]}
-        
+    
+    def to_sql(self, update: bool = True):
+        output = super().to_sql(update)
+        if update:
+            output.active = self.active
+        assert output.active == int(self.active), f"SQL.active = {output.active}, PYD.active = {int(self.active)}"
+        return output
 
 class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     
@@ -828,7 +860,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                         continue
                     process['tips'].insert(0, process['tips'].pop(tipslot_index))
         
-        repeat_regex = re.compile(r".*R\d$")
+        repeat_regex = rcompile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [
             item.name for item in self.run.sql_instance.procedure if 
             item.proceduretype.name == self.proceduretype.sql_instance.name 
@@ -1112,7 +1144,7 @@ class PydClientSubmission(PydConcrete):
         if isinstance(filename, str):
             filename = Path(filename)
         with open(filename, 'w', newline="") as f:
-            c = csv.writer(f)
+            c = csvwriter(f)
             for r in worksheet.rows:
                 c.writerow([cell.value for cell in r])
 
@@ -1352,6 +1384,12 @@ class PydTipsLot(PydConcrete):
             ref = "Unassigned manufacturer"
         return f"{manufacturer} - {ref} - {self.lot}"
 
+    def to_sql(self, update: bool = True):
+        output = super().to_sql(update)
+        if update:
+            output.active = self.active
+        assert output.active == int(self.active), f"SQL.active = {output.active}, PYD.active = {int(self.active)}"
+        return output
     
 class PydProcedureSampleAssociation(PydConcrete):
 

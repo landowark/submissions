@@ -1,16 +1,14 @@
 """
 Construct turnaround time charts
 """
-from pprint import pformat
 from . import CustomFigure
-import logging, plotly.express as px, pandas as pd
-
-logger = logging.getLogger(f"submissions.{__name__}")
+from pandas import DataFrame
+from plotly.express import scatter as pxscatter
 
 
 class TurnaroundChart(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, threshold: float | None = None, **kwargs):
+    def __init__(self, df: DataFrame, modes: list, settings: dict, threshold: float | None = None, **kwargs):
         df['dt_internal'] = None
         super().__init__(df=df, modes=modes, settings=settings, **kwargs)
         
@@ -20,19 +18,19 @@ class TurnaroundChart(CustomFigure):
         self.update_layout(showlegend=False)
 
     
-    def construct_chart(self, df: pd.DataFrame | None = None):
+    def construct_chart(self, df: DataFrame | None = None):
         if df:
             self.df = df
         try:
             self.df = self.df[self.df.days.notnull()]
             self.df = self.df.sort_values(['submitted_date', 'name'], ascending=[True, True]).reset_index(drop=True)
             self.df = self.df.reset_index().rename(columns={"index": "idx"})
-            scatter = px.scatter(data_frame=self.df, x='idx', y="days",
+            scatter = pxscatter(data_frame=self.df, x='idx', y="days",
                                  hover_data=["name", "submitted_date", "completed_date", "days"],
                                  color="acceptable", color_discrete_map={True: "green", False: "red"}
                                  )
         except (ValueError, AttributeError):
-            scatter = px.scatter()
+            scatter = pxscatter()
         self.add_traces(scatter.data)
         self.update_traces(marker={'size': 15})
         try:

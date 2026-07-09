@@ -3,15 +3,13 @@ All database related operations.
 """
 from datetime import datetime
 from getpass import getuser
-from sqlalchemy import event, inspect
+from sqlalchemy import event as sql_event, inspect as sql_inspect
 from sqlalchemy.engine import Engine
 from tools import ctx
-import logging
-
-logger = logging.getLogger(f"submissions.{__name__}")
+from .models import *
 
 
-@event.listens_for(Engine, "connect")
+@sql_event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     """
     *should* allow automatic creation of foreign keys in the database
@@ -32,8 +30,6 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 
-from .models import *
-
 def update_log(mapper, connection, target):
     """
     Updates log table whenever an object with LogMixin is updated.
@@ -46,7 +42,7 @@ def update_log(mapper, connection, target):
     Returns:
         None
     """
-    state = inspect(target)
+    state = sql_inspect(target)
     object_name = state.object.truncated_name
     update = dict(user=getuser(), time=datetime.now(), object=object_name, changes=[])
     for attr in state.attrs:
@@ -76,6 +72,5 @@ def update_log(mapper, connection, target):
         # logger.info(f"No changes detected, not updating logs.")
         pass
 
-event.listen(LogMixin, 'after_update', update_log, propagate=True)
-event.listen(LogMixin, 'after_insert', update_log, propagate=True)
-
+sql_event.listen(LogMixin, 'after_update', update_log, propagate=True)
+sql_event.listen(LogMixin, 'after_insert', update_log, propagate=True)

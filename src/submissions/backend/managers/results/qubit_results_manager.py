@@ -2,7 +2,6 @@
 
 """
 from __future__ import annotations
-import logging
 from pathlib import Path
 from backend.db.models import Procedure
 from openpyxl import Workbook
@@ -13,8 +12,6 @@ from frontend.widgets.functions import select_open_file
 from backend.excel.parsers.results_parsers.qubit_results_parser import QubitSampleParser, QubitInfoParser
 from . import DefaultResultsManager
 
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 class QubitManager(DefaultResultsManager):
 

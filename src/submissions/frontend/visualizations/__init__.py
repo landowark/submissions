@@ -3,22 +3,21 @@ Contains all operations for creating charts, graphs and visual effects.
 """
 from datetime import date
 from typing import Generator
-import plotly
-import pandas as pd, logging
+import pandas as pd
+from pandas import to_datetime as pd_to_datetime, DataFrame
+from plotly.offline import plot as pltplot
 from plotly.graph_objects import Figure
 from tools import divide_chunks
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class CustomFigure(Figure):
 
-    def __init__(self, df: pd.DataFrame, settings: dict, ytitle: str | None = None, **kwargs):
+    def __init__(self, df: DataFrame, settings: dict, ytitle: str | None = None, **kwargs):
         super().__init__()
         for k, v in settings.items():
             object.__setattr__(self, k, v)
         months = int(settings.get('months', 6))
-        df['dt_internal'] = pd.to_datetime(df["submitted_date"]).dt.normalize()
+        df['dt_internal'] = pd_to_datetime(df["submitted_date"]).dt.normalize()
         # Set dataframe on the instance using object.__setattr__ because
         # plotly.graph_objects.Figure implements a custom __setattr__ which
         # can raise AttributeError for arbitrary attribute names. Using the
@@ -129,7 +128,7 @@ class CustomFigure(Figure):
         html = f'<html><body>'
         if self is not None:
             # NOTE: Just cannot get this load from string to freaking work.
-            html += plotly.offline.plot(self, output_type='div', include_plotlyjs="cdn")
+            html += pltplot(self, output_type='div', include_plotlyjs="cdn")
         else:
             html += "<h1>No data was retrieved for the given parameters.</h1>"
         html += '</body></html>'
@@ -137,11 +136,11 @@ class CustomFigure(Figure):
     
 class ResultsFigure(CustomFigure):
     
-    def __init__(self, df: pd.DataFrame, settings: dict, **kwargs):
+    def __init__(self, df: DataFrame, settings: dict, **kwargs):
         
         super().__init__(df, settings, **kwargs)
-        object.__setattr__(self, 'start', pd.to_datetime(settings['start_date']).normalize())
-        object.__setattr__(self, 'end', pd.to_datetime(settings['end_date']).normalize())
+        object.__setattr__(self, 'start', pd_to_datetime(settings['start_date']).normalize())
+        object.__setattr__(self, 'end', pd_to_datetime(settings['end_date']).normalize())
         self.df['day_num'] = (self.df['dt_internal'] - self.start).dt.days
         sample_ranks = df.groupby('dt_internal')['procedure'].transform(lambda x: x.astype('category').cat.codes)
         
@@ -153,7 +152,7 @@ class ResultsFigure(CustomFigure):
         self.construct_chart(df=self.df, **kwargs)
         self.update_layout(showlegend=False)
 
-    def construct_chart(self, df: pd.DataFrame | None = None,  **kwargs):
+    def construct_chart(self, df: DataFrame | None = None,  **kwargs):
         """
         Constructs the chart by adding traces to the figure. To be implemented by child classes.
 

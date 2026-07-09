@@ -2,7 +2,6 @@
 Contains all procedure related frontend functions
 """
 from __future__ import annotations
-import sys, logging
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout, QSpinBox, QDoubleSpinBox,
     QComboBox, QDateEdit, QLineEdit, QLabel, QApplication
@@ -15,14 +14,11 @@ from backend.validators import PydClientSubmission, PydSample, SourcedField
 from backend.db.models import (
     ClientLab
 )
-from pprint import pformat
 from typing import List, Tuple, TYPE_CHECKING
 from datetime import date
 from .sample_checker import SampleChecker
 if TYPE_CHECKING:
     from backend.db.models import ClientSubmission, SubmissionType
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class MyQComboBox(QComboBox):

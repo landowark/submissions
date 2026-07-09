@@ -2,9 +2,7 @@
 Parser for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
-import logging
 from datetime import datetime
-from pprint import pformat
 from typing import Generator, List, TYPE_CHECKING, Tuple
 from dateutil.parser import parse
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
@@ -13,8 +11,6 @@ from openpyxl.worksheet.worksheet import Worksheet
 from tools import convert_well_to_row_column
 if TYPE_CHECKING:
     from submissions.backend.db.models.procedures import Procedure
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DiomniPCRInfoParser(DefaultResultsInfoParser):

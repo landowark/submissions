@@ -2,8 +2,6 @@
 Module for manager of Procedure object.
 """
 from __future__ import annotations
-from pprint import pformat
-import logging, sys
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.managers import DefaultManager
@@ -16,8 +14,6 @@ if TYPE_CHECKING:
     from backend.validators.pydant import PydProcedureType
     from backend.db.models import BaseClass
     from backend.validators.pydant import PydBaseClass
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultProcedureManager(DefaultManager):

@@ -2,12 +2,11 @@
 Contains all validators
 """
 from __future__ import annotations
-import logging, re
-import sys
+from re import search as rsearch
 from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
-from tools import jinja_template_loading
+from tools import jinja_env
 from jinja2 import Template
 from dateutil.parser import parse
 from datetime import date, datetime
@@ -15,7 +14,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.db.models import SubmissionType
 
-logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultNamer(object):
 
@@ -185,7 +183,7 @@ class RSLNamer(object):
                 submitted_date = submitted_date
             case _:
                 try:
-                    submitted_date = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", data['name'])
+                    submitted_date = rsearch(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", data['name'])
                     submitted_date = parse(submitted_date.group())
                 except (AttributeError, KeyError):
                     submitted_date = datetime.now()
@@ -215,8 +213,7 @@ class RSLNamer(object):
             if v is not None:
                 output[k] = v
             else: continue
-        environment = jinja_template_loading()
-        template = environment.from_string(source=template)
+        template = jinja_env.from_string(source=template)
         return template.render(**output)
     
 from .pydant import *

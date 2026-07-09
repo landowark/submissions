@@ -13,7 +13,7 @@ async function update_selection(value) {
 
 function instumentedattribute_change(field, value) {
     console.log("Field changed:", field, "New value:", value);
-    var editting = document.getElementById('name');
+    var editting = document.getElementById(field);
     console.log("Currently editting:", editting);
     try {
         if (editting.value === "Default SubmissionType") {

@@ -1,19 +1,14 @@
 """
 Contains miscellaneous widgets for frontend functions
 """
-import math, logging
+from math import ceil as math_ceiling
 from PyQt6.QtGui import QStandardItem, QIcon
 from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QComboBox, QDateEdit, QPushButton, QWidget,
     QHBoxLayout, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QDate, QSize
-from tools import jinja_template_loading
 from backend.db.models import *
-
-logger = logging.getLogger(f"submissions.{__name__}")
-
-env = jinja_template_loading()
 
 
 class StartEndDatePicker(QWidget):
@@ -75,7 +70,7 @@ class Pagifier(QWidget):
 
     def __init__(self, page_max: int):
         super().__init__()
-        self.page_max = math.ceil(page_max)
+        self.page_max = math_ceiling(page_max)
         self.page_anchor = 1
         next = QPushButton(parent=self, icon=QIcon.fromTheme(QIcon.ThemeIcon.GoNext))
         next.pressed.connect(self.increment_page)

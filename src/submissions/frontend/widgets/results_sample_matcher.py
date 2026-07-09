@@ -3,19 +3,15 @@
 """
 from __future__ import annotations
 from datetime import datetime
-import logging, sys, json
-from pprint import pformat
+from json import loads as jloads, JSONDecodeError
 from typing import List, Generator, TYPE_CHECKING
 from PyQt6.QtWidgets import (QDialog, QGridLayout, QDialogButtonBox)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import pyqtSlot
 from tools import render_details_template, row_keys
-
 if TYPE_CHECKING:
     from backend.db.models import Procedure
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ResultsSampleMatcher(QDialog):
@@ -57,8 +53,8 @@ class ResultsSampleMatcher(QDialog):
         if isinstance(result, str):
             result = result.replace("'", '"')
             try:
-                result = json.loads(result)
-            except json.JSONDecodeError as e:
+                result = jloads(result)
+            except JSONDecodeError as e:
                 logger.error(f"Could not decode string: {result} due to\n{e}")
                 return
         association = next((assoc for assoc in self.procedure.proceduresampleassociation if assoc.sample.sample_id == sample_id and assoc.row==row and assoc.column==column), None)

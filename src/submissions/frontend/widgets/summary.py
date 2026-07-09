@@ -6,9 +6,6 @@ from PyQt6.QtWidgets import QWidget, QLabel, QPushButton
 from backend.db.models import ClientLab
 from backend.excel.reports import ReportMaker
 from .misc import CheckableComboBox
-import logging
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class Summary(InfoPane):

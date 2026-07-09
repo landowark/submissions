@@ -5,9 +5,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QDialogButtonBox
 )
 from .misc import CheckableComboBox, StartEndDatePicker
-import logging
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DateTypePicker(QDialog):

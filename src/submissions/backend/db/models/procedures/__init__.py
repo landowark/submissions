@@ -6,9 +6,11 @@ process versions, tips, and related associations. It includes rich association t
 for flexible input types.
 """
 from __future__ import annotations
-from pprint import pformat
 from jinja2 import Template
-import zipfile, logging, re, numpy as np, json, sys
+from json import loads as jloads, JSONDecodeError
+from numpy import array as nparray, ndenumerate, sum as npsum
+from re import compile as rcompile, Pattern, IGNORECASE, VERBOSE, error as rerror, sub as rsub
+from zipfile import ZipFile
 from pydantic import BaseModel
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, cast, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -25,7 +27,7 @@ if TYPE_CHECKING:
     from backend.db.models.submissions import Run
     from backend.validators.pydant import PydProcedure
 
-logger = logging.getLogger(f'submissions.{__name__}')
+# logger = logging.getLogger(f'submissions.{__name__}')
 
 
 proceduretype_resulttype = Table(
@@ -444,27 +446,27 @@ class SubmissionType(BaseClass):
         super().save()
 
     @classproperty
-    def regexes(cls) -> re.Pattern:
+    def regexes(cls) -> Pattern:
         """
         Construct a catchall regular expression for all submission type regexes.
 
         :return: compiled regular expression covering all submission types.
-        :rtype: re.Pattern
+        :rtype: Pattern
         """
         res = [st.regex for st in cls.query() if st.regex]
         rstring = rf'{"|".join(res)}'
-        regex = re.compile(rstring, flags=re.IGNORECASE | re.VERBOSE)
+        regex = rcompile(rstring, flags=IGNORECASE | VERBOSE)
         return regex
     
     @classmethod
-    def get_regex(cls, submission_type: SubmissionType | str | dict | None = None) -> re.Pattern | None:
+    def get_regex(cls, submission_type: SubmissionType | str | dict | None = None) -> Pattern | None:
         """
         Get a compiled regex for a submission type or submission type list.
 
         :param submission_type: procedure type of interest. Defaults to None.
         :type submission_type: SubmissionType | str | dict | None
         :return: compiled regular expression for the submission type, or None.
-        :rtype: re.Pattern | None
+        :rtype: Pattern | None
         """
         if isinstance(submission_type, dict):
             submission_type = submission_type.get('value', None)
@@ -483,8 +485,8 @@ class SubmissionType(BaseClass):
                 regex = None
         if regex is not None:
             try:
-                regex = re.compile(rf"{regex}", flags=re.IGNORECASE | re.VERBOSE)
-            except re.error as e:
+                regex = rcompile(rf"{regex}", flags=IGNORECASE | VERBOSE)
+            except rerror as e:
                 regex = None
         return regex
     
@@ -902,8 +904,8 @@ class ProcedureType(BaseClass):
         :rtype: dict[int, tuple[int, int]]
         """
         # NOTE: rows/columns
-        matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
-        return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
+        matrix = nparray([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
+        return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(ndenumerate(matrix), start=1)}
 
     @property
     def total_wells(self) -> int:
@@ -1267,7 +1269,6 @@ class Procedure(BaseClass):
                 if check:
                     continue
                 # Check for existing association by comparing all primary key values
-                logger.debug(f"Checking {output} using {output.get_primary_keys()}")
                 if not self.already_in_collection(output, self.proceduresampleassociation):
                     self.proceduresampleassociation.append(output)
             else:
@@ -1295,7 +1296,7 @@ class Procedure(BaseClass):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:
@@ -1326,7 +1327,7 @@ class Procedure(BaseClass):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:
@@ -1427,7 +1428,6 @@ class Procedure(BaseClass):
                     continue
             if isinstance(output, tuple):
                 output = output[0]
-            logger.debug(f"\n{output.__class__.__name__}\n")
             if isinstance(output, Results):
                 if not self.already_in_collection(output, list_):
                     list_.append(output)
@@ -1625,19 +1625,18 @@ class Procedure(BaseClass):
                 sample_sql = sample_sql[0]
                 # NOTE: If the sql comes back without an association, try to find one by row/column if available.
                 if sample_sql.sampleprocedureassociation is None:
-                    logger.debug(f"Sample {sample_sql} has no sampleprocedureassociation for procedure {self.name}")
                     if hasattr(sample, "row") and hasattr(sample, "column"):
-                        logger.debug(f"Sample {sample.name} has row {sample.row} and col {sample.column} falling back to row/col association search.")
+                        logger.info(f"Sample {sample.name} has row {sample.row} and col {sample.column} falling back to row/col association search.")
+                        pass
                     else:
                         logger.error(f"Sample {sample.name} has no row/col attributes for procedure {self.name}, cannot find association.")
                         continue
                     assoc = next((assoc for assoc in self.proceduresampleassociation if assoc.row == sample.row and assoc.column == sample.column), None)
                     if assoc is None:
-                        logger.debug(f"No association found for sample {sample.name} at row {sample.row} and col {sample.column}")
+                        logger.warning(f"No association found for sample {sample.name} at row {sample.row} and col {sample.column}")
                         continue
                     else:
                         sample_sql.sampleprocedureassociation = assoc
-            logger.debug(f"Saving sample {sample_sql} for procedure {self.name}")
             sample_sql.save()
 
     def edit(self, obj):
@@ -1649,7 +1648,7 @@ class Procedure(BaseClass):
         :return: None
         """
         from frontend.widgets.procedure_creation import ProcedureCreation
-        logger.debug("Edit!")
+        logger.info("Edit!")
         procedure = self.construct_pyd_procedure_for_creation()
         procedure.new = False
         procedure.active_reagentroles = [assoc.reagentrole.name for assoc in self.procedurereagentlotassociation]
@@ -1680,10 +1679,9 @@ class Procedure(BaseClass):
         :return: None
         """
         from frontend.widgets.submission_details import SubmissionComment
-        logger.debug("Add Comment!")
+        logger.info("Add Comment!")
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
-            logger.debug(f"Comment dialog returned: {dlg.parse_form()}")
             self.comment = dlg.parse_form()
             self.save()
 
@@ -1699,7 +1697,7 @@ class Procedure(BaseClass):
                 try:
                     ass.tipslot = []
                 except Exception:
-                    logger.debug(f"Unable to clear tipslot associations for {ass}")
+                    logger.error(f"Unable to clear tipslot associations for {ass}")
             self.procedureequipmentassociation = []
             self.procedurereagentlotassociation = []
             self.proceduresampleassociation = []
@@ -1880,7 +1878,7 @@ class Procedure(BaseClass):
                 tip = tipassoc.tips
                 cost_per_tip = tip.cost_per_tip
                 numbers_array.append(cost_per_tip * len(self.sample))
-        samples_cost = np.sum(numbers_array)
+        samples_cost = npsum(numbers_array)
         try:
             plate_cost = self.proceduretype.plate_cost or 0.00
         except AttributeError:
@@ -2066,8 +2064,8 @@ class Results(BaseClass):
         if isinstance(value, str):
             logger.error(f"Got string {value}")
             try:
-                value = json.loads(value)
-            except json.JSONDecodeError as e:
+                value = jloads(value)
+            except JSONDecodeError as e:
                 logger.error(f"Error decoding JSON: {e}")
         match value:
             case dict():
@@ -2120,7 +2118,7 @@ class Results(BaseClass):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:
@@ -2247,7 +2245,7 @@ class Results(BaseClass):
             assert dir.exists()
         except AssertionError:
             return None
-        with zipfile.ZipFile(dir) as zf:
+        with ZipFile(dir) as zf:
             with zf.open(self._img) as f:
                 return f.read()
 

@@ -2,19 +2,16 @@
 Main module to construct the procedure form
 """
 from __future__ import annotations
-import json
-import sys, logging, datetime
-from pprint import pformat
+from json import dump as jdump
+from datetime import datetime
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import pyqtSlot, QVariant, Qt
 from typing import TYPE_CHECKING, List
 from backend.validators import SourcedField
-if TYPE_CHECKING:
-    from backend.validators import PydProcedure
 from . import DefaultWebDialog
 from tools import check_if_app, render_details_template, find_first_matching_dict
-
-logger = logging.getLogger(f"submissions.{__name__}")
+if TYPE_CHECKING:
+    from backend.validators import PydProcedure
 
 
 class ProcedureCreation(DefaultWebDialog):
@@ -79,7 +76,7 @@ class ProcedureCreation(DefaultWebDialog):
     def set_html(self):
         if not check_if_app():
             with open("proceduretype.json", "w") as f:
-                json.dump(self.proceduretype_dict, f, default=str, indent=4)
+                jdump(self.proceduretype_dict, f, default=str, indent=4)
         html = render_details_template(
             template="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
@@ -87,7 +84,7 @@ class ProcedureCreation(DefaultWebDialog):
             run=self.run.improved_dict,
             procedure=self.procedure,
             platemap=self.platemap,
-            now = datetime.datetime.now(),
+            now = datetime.now(),
             preprocessing_buttons = [item for item in self.preprocessing_functions.keys()],
             edit=self.edit
         )
@@ -131,8 +128,8 @@ class ProcedureCreation(DefaultWebDialog):
     def add_new_reagent(self, reagentrole: str, reagent: str, lot: str, expiry: str):
         from backend.validators.pydant import PydReagentLot
         from backend.db.models import ReagentLot
-        expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
-        expiry = datetime.datetime.combine(expiry, datetime.datetime.max.time())
+        expiry = datetime.strptime(expiry, "%Y-%m-%d")
+        expiry = datetime.combine(expiry, datetime.max.time())
         pyd = PydReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
         # If the underlying SQL instance has not been saved yet, ensure a DB row exists.
         if getattr(pyd.sql_instance, "id", None) is None:

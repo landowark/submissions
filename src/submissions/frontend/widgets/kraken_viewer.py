@@ -5,7 +5,6 @@ Handles display of control charts
 
 """
 from datetime import datetime
-from pprint import pformat
 from PyQt6.QtWidgets import (
     QCheckBox, QLabel, QWidget, QComboBox, QPushButton
 )
@@ -18,11 +17,12 @@ from frontend.visualizations import KrakenFigure
 from .info_tab import InfoPane
 from gql.transport.requests import RequestsHTTPTransport
 from base64 import b64encode
-import requests, io, csv, sys, logging, pandas as pd, re
-
+from re import search as rsearch
+from pandas import json_normalize as pd_json_normalize, to_numeric as pd_to_numeric
+from csv import DictReader as CSVDictReader
+from io import StringIO
+from requests import get as requests_get
 from decimal import Decimal
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class KrakenViewer(InfoPane):
@@ -76,12 +76,12 @@ class KrakenViewer(InfoPane):
     def read_csv_from_url(cls, url):
         """Downloads a CSV from a URL and returns a list of dictionaries."""
         try:
-            response = requests.get(url)
+            response = requests_get(url)
             response.raise_for_status()  # Check for HTTP errors
             
             # Use StringIO to treat the string as a file-like object for the csv library
-            f = io.StringIO(response.text)
-            reader = csv.DictReader(f)
+            f = StringIO(response.text)
+            reader = CSVDictReader(f)
             return [row for row in reader]
         except Exception as e:
             logger.error(f"  [!] Failed to read CSV: {e}")
@@ -270,7 +270,7 @@ class KrakenViewer(InfoPane):
             if matched_sample:
                 thing = self.write_metadata(sample_dict=sample, sql_sample=matched_sample)
             regex = r"(20\d{2}-?\d{2}-?\d{2})(?:-\d+)?$"
-            match = re.search(regex, sample['name'])
+            match = rsearch(regex, sample['name'])
             if match:
                 raw_date = match.group(1)
                 # Remove dashes if present for consistent strptime
@@ -366,11 +366,11 @@ class KrakenViewer(InfoPane):
         # 4. Perform the GroupBy
         merged_df = df.groupby(['meta.id', 'name'], as_index=False).agg(agg_map)
 
-        numeric_reads = pd.to_numeric(merged_df['kraken_assigned_reads'], errors='coerce')
+        numeric_reads = pd_to_numeric(merged_df['kraken_assigned_reads'], errors='coerce')
 
         # 2. Use the numeric series to calculate the fractions
         merged_df['fraction_total_reads'] = merged_df.groupby('meta.id')['kraken_assigned_reads'].transform(
-            lambda x: pd.to_numeric(x, errors='coerce').sum()
+            lambda x: pd_to_numeric(x, errors='coerce').sum()
         )
 
         # 3. Perform the division, handling the 'divide by zero' case
@@ -403,7 +403,7 @@ class KrakenViewer(InfoPane):
             species_or_genus = "Species" if self.metadata_box.isChecked() else "Genus"
         )
         try:
-            df = pd.json_normalize(
+            df = pd_json_normalize(
                 self.data, 
                 record_path=['data']
             )

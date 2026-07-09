@@ -11,9 +11,8 @@ from sqlalchemy.orm import Query
 from . import BaseClass, Base
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, func
 from datetime import date, datetime, timedelta
-import logging
 
-logger = logging.getLogger(f"submissions.{__name__}")
+# logger = logging.getLogger(f"submissions.{__name__}")
 
 # NOTE: Need a seperate base for this.
 # Base: DeclarativeMeta = declarative_base()

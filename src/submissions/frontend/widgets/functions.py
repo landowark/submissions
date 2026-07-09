@@ -2,14 +2,11 @@
 functions used by all windows in the application's frontend
 """
 from pathlib import Path
-import logging
 from PyQt6.QtCore import QMarginsF
 from PyQt6.QtGui import QPageLayout, QPageSize
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QMainWindow, QFileDialog
 from tools import get_application_from_parent
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Path:

@@ -1,28 +1,26 @@
 """
 Functions for constructing irida control graphs using plotly.
 """
-from pprint import pformat
-import logging, plotly.express as px, pandas as pd
+from pandas import to_datetime as pd_to_datetime, to_numeric as pd_to_numeric, DataFrame
+from plotly.express import bar as pxbar
 from typing import Literal
 from . import CustomFigure
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class KrakenFigure(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, settings: dict, **kwargs):
+    def __init__(self, df: DataFrame, settings: dict, **kwargs):
         
-        df['dt_internal'] = pd.to_datetime(df["submitted_date"]).dt.normalize()
-        start = pd.to_datetime(settings['start_date']).normalize()
-        end = pd.to_datetime(settings['end_date']).normalize()
+        df['dt_internal'] = pd_to_datetime(df["submitted_date"]).dt.normalize()
+        start = pd_to_datetime(settings['start_date']).normalize()
+        end = pd_to_datetime(settings['end_date']).normalize()
         
 
         # 2. Robust Jitter Calculation
         # We group by the date and rank the meta.id to ensure each unique sample 
         # on that day gets a unique integer offset (0, 1, 2...)
         target_col = 'new_est_reads' if 'new_est_reads' in df.columns else 'kraken_assigned_reads'
-        df[target_col] = pd.to_numeric(df[target_col], errors='coerce').fillna(0)
+        df[target_col] = pd_to_numeric(df[target_col], errors='coerce').fillna(0)
 
         df['day_num'] = (df['dt_internal'] - start).dt.days
         sample_ranks = df.groupby('dt_internal')['meta.id'].transform(lambda x: x.astype('category').cat.codes)
@@ -94,14 +92,14 @@ class KrakenFigure(CustomFigure):
 
 
 
-    def construct_chart(self, df: pd.DataFrame, start_date, end_date, **kwargs):
+    def construct_chart(self, df: DataFrame, start_date, end_date, **kwargs):
         """
         Creates a plotly chart for control from a pandas dataframe
 
         Args:
             end_date ():
             start_date ():
-            df (pd.DataFrame): input dataframe of control
+            df (DataFrame): input dataframe of control
             ytitle (str | None, optional): title on the y-axis. Defaults to None.
 
         Returns:
@@ -111,7 +109,7 @@ class KrakenFigure(CustomFigure):
         _, hover_templates = self.construct_datasets_and_hovers(mode="count")
         # This prevents stacking and ensures bars have a visible "category" width
         # Build the chart using 'adjusted_date'
-        bar = px.bar(
+        bar = pxbar(
             df, 
             x="x_pos", 
             y="new_est_reads", 
@@ -142,7 +140,7 @@ class KrakenFigure(CustomFigure):
             tickmode='array',
             tickvals=unique_days['x_pos'],
             ticktext=unique_days['display_name'],
-            range=[-1, (pd.to_datetime(end_date) - pd.to_datetime(start_date)).days + 1]
+            range=[-1, (pd_to_datetime(end_date) - pd_to_datetime(start_date)).days + 1]
         )
 
         

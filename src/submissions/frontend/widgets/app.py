@@ -1,8 +1,7 @@
 """
 Constructs main application.
 """
-import logging, webbrowser, sys
-from pprint import pformat
+from webbrowser import get as wb_get
 from PyQt6.QtCore import QEvent, QTimer, qInstallMessageHandler
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
@@ -15,8 +14,8 @@ from markdown import markdown
 from pandas import ExcelWriter
 from backend.validators.pydant import PydAbstract, PydConcrete
 from tools import (
-    check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
-    under_development, ctx
+    check_if_app, Settings, Report, check_authorization, page_size, is_power_user,
+    under_development, ctx, jinja_env
 )
 from .date_type_picker import DateTypePicker
 from .functions import select_save_file
@@ -30,8 +29,6 @@ from .concentration_viewer import ConcentrationViewer
 from .omni_search import SearchBox
 from .kraken_viewer import KrakenViewer
 from .pcr_viewer import PCRViewer
-
-logger = logging.getLogger(f'submissions.{__name__}')
 
 
 class App(QMainWindow):
@@ -166,8 +163,8 @@ class App(QMainWindow):
         """
         Show the 'about' message
         """
-        j_env = jinja_template_loading()
-        template = j_env.get_template("project.html")
+        # j_env = jinja_template_loading()
+        template = jinja_env.get_template("project.html")
         html = template.render(info=self.ctx.package.__dict__)
         about = HTMLPop(html=html, title="About")
         about.exec()
@@ -180,14 +177,14 @@ class App(QMainWindow):
             url = Path(sys._MEIPASS).joinpath("files", "docs", "index.html")
         else:
             url = Path("docs\\build\\index.html").absolute()
-        webbrowser.get('windows-default').open(f"file://{url.__str__()}")
+        wb_get('windows-default').open(f"file://{url.__str__()}")
 
     def openGithub(self):
         """
         Opens the github page
         """
         url = "https://github.com/landowark/submissions"
-        webbrowser.get('windows-default').open(url)
+        wb_get('windows-default').open(url)
 
     def openInstructions(self):
         if check_if_app():

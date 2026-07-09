@@ -2,8 +2,6 @@
 Webview to show procedure and sample details.
 """
 from __future__ import annotations
-
-import sys, logging
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -15,10 +13,6 @@ from .functions import select_save_file, save_pdf
 from . import CustomWebEnginePage
 from getpass import getuser
 from datetime import datetime
-from pprint import pformat
-
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class SubmissionDetails(QDialog):

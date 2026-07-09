@@ -8,9 +8,6 @@ from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
 from tools import Report, Alert
 from .misc import CheckableComboBox, StartEndDatePicker
 from .functions import select_save_file, save_pdf
-import logging
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class InfoPane(QWidget):

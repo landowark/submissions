@@ -2,8 +2,7 @@
 SQLAlchemy models for equipment and equipment roles, including associations with procedures and processes.
 """
 from __future__ import annotations
-from pprint import pformat
-import re, logging
+from re import sub as rsub, Pattern, compile as rcompile, VERBOSE
 from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, and_, cast, func, select, Table
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
@@ -18,7 +17,7 @@ if TYPE_CHECKING:
     from backend.validators.pydant import PydProcedureEquipmentAssociation
 
 
-logger = logging.getLogger(f"submissions.{__name__}")
+# logger = logging.getLogger(f"submissions.{__name__}")
 
 # Define the association table instance first
 equipmentroleequipmentassociation_process = Table(
@@ -405,7 +404,7 @@ class Equipment(BaseClass, LogMixin):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:
@@ -475,20 +474,20 @@ class Equipment(BaseClass, LogMixin):
         return cls.execute_query(query=query, limit=limit)
     
     @classmethod
-    def manufacturer_regex(cls) -> re.Pattern:
+    def manufacturer_regex(cls) -> Pattern:
         """
         Create a regex to determine tip manufacturer from a reference string.
 
         :return: compiled regular expression for tip manufacturers.
-        :rtype: re.Pattern
+        :rtype: Pattern
         """
-        return re.compile(r"""
+        return rcompile(r"""
                           (?P<PHAC>50\d{5}$)|
                           (?P<HC>HC-\d{6}$)|
                           (?P<Beckman>[^\d][A-Z0-9]{6}$)|
                           (?P<Axygen>[A-Z]{3}-\d{2}-[A-Z]-[A-Z]$)|
                           (?P<Labcon>\d{4}-\d{3}-\d{3}-\d$)""",
-                          re.VERBOSE)
+                          VERBOSE)
 
 
 class EquipmentRoleEquipmentAssociation(BaseClass):
@@ -1077,7 +1076,7 @@ class ProcessVersion(BaseClass):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:
@@ -1578,7 +1577,7 @@ class TipsLot(BaseClass, LogMixin):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:

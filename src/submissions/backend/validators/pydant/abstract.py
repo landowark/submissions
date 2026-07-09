@@ -2,9 +2,8 @@
 All abstract pyd models and associations between abstracts.
 """
 from __future__ import annotations
-import re
-import logging, sys, numpy as np
-from pprint import pformat
+from re import match as rmatch, I
+from numpy import array as nparray, ndenumerate
 from datetime import timedelta
 from typing import List, TYPE_CHECKING, Literal, Annotated
 from pydantic import computed_field, field_validator, Field
@@ -13,8 +12,6 @@ from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
 from tools import jinja_template_loading
 if TYPE_CHECKING:
     from .concrete import PydSample
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class PydReagent(PydAbstract):
@@ -242,10 +239,10 @@ class PydProcedureType(PydAbstract):
             dict: (rank: {row: value, column: value})
         """
         if direction == "row":
-            matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
+            matrix = nparray([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
         else:
-            matrix = np.array([[0 for xxx in range(1, self.plate_columns + 1 )] for yyy in range(1, self.plate_rows + 1 )])
-        return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
+            matrix = nparray([[0 for xxx in range(1, self.plate_columns + 1 )] for yyy in range(1, self.plate_rows + 1 )])
+        return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(ndenumerate(matrix), start=1)}
 
     @property
     def allowed_result_methods(self) -> List[str]:
@@ -265,7 +262,7 @@ class PydProcedureType(PydAbstract):
             if not cell_id:
                 raise ValueError("Either cell_id or both row_idx and col_idx must be provided.")
                 
-            match = re.match(r"([A-Z]+)([0-9]+)", cell_id, re.I)
+            match = rmatch(r"([A-Z]+)([0-9]+)", cell_id, I)
             if not match:
                 raise ValueError("Invalid cell ID format.")
             

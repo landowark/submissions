@@ -2,8 +2,6 @@
 Writers for PCR results from Design and Analysis Software
 """
 from __future__ import annotations
-import logging
-from pprint import pformat
 from typing import Generator
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -11,13 +9,10 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from pandas import DataFrame
 from . import DefaultResultsInfoWriter, DefaultResultsSampleWriter
 
-logger = logging.getLogger(f"submissions.{__name__}")
-
 
 class DiomniPCRInfoWriter(DefaultResultsInfoWriter):
 
     pass
-
     
 
 class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
@@ -79,5 +74,6 @@ class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
             df.caption = sheet
             logger.debug(df)
             yield df
+
 
 __all__ = ["DiomniPCRInfoWriter", "DiomniPCRSampleWriter"]

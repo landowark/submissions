@@ -2,8 +2,6 @@
 Module for manager defaults.
 """
 from copy import deepcopy
-import logging
-from pprint import pformat
 from pathlib import Path
 from frontend.widgets.functions import select_open_file
 from tools import get_application_from_parent
@@ -12,7 +10,7 @@ from backend.db.models import BaseClass
 from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
-import csv
+from csv import reader as csvreader
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -109,7 +107,7 @@ class DefaultManager(object):
         wb = Workbook()
         ws = wb.active
         with open(filepath, "r") as f:
-            reader = csv.reader(f, delimiter=",")
+            reader = csvreader(f, delimiter=",")
             for row in reader:
                 ws.append(row)
         return wb, ws

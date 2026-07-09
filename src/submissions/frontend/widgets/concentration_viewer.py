@@ -2,14 +2,9 @@
 Pane showing BC control concentrations summary.
 """
 from tools import report_result
-
 from .info_tab import PosNegPane
 from backend.excel.reports import ConcentrationMaker
 from frontend.visualizations.concentrations_chart import ConcentrationsChart
-import logging
-
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ConcentrationViewer(PosNegPane):

@@ -1,25 +1,22 @@
 """
 Construct BC control concentration charts
 """
-from pprint import pformat
 from . import ResultsFigure
-import logging, sys, plotly.express as px
-import pandas as pd
+from plotly.express import scatter as pxscatter
+from pandas import DataFrame
 from operator import itemgetter
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ConcentrationsChart(ResultsFigure):
 
-    def __init__(self, df: pd.DataFrame, settings: dict, **kwargs):
+    def __init__(self, df: DataFrame, settings: dict, **kwargs):
         super().__init__(df=df, settings=settings, **kwargs)
         
-    def construct_chart(self, df: pd.DataFrame | None = None,  **kwargs):
+    def construct_chart(self, df: DataFrame | None = None,  **kwargs):
         
         check = super().construct_chart(df=df, **kwargs)
         if not check:
-            scatter = px.scatter()
+            scatter = pxscatter()
             hover_template = None
         else:
             hover_template = (
@@ -28,7 +25,7 @@ class ConcentrationsChart(ResultsFigure):
                 "Concentration: %{y:,.2f}ng/uL<br>"
                 "Date: %{customdata[0]}<extra></extra>"
             )
-            scatter = px.scatter(
+            scatter = pxscatter(
                 data_frame=self.df,
                 x='x_pos',
                 y="original_sample_conc.",

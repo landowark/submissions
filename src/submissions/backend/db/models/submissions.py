@@ -3,11 +3,15 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from getpass import getuser
-import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
+from itertools import chain
+from types import GeneratorType, NoneType
+from pandas import DataFrame
+from numpy import sum as npsum, busday_count
+from re import sub as rsub
+from tempfile import TemporaryFile
 from uuid import uuid4
 from inspect import isclass
 from operator import itemgetter
-from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
@@ -28,7 +32,7 @@ if TYPE_CHECKING:
     from submissions.backend.db.models.procedures import ProcedureType, Procedure, Results
     from backend.validators.pydant import PydSample
 
-logger = logging.getLogger(f"submissions.{__name__}")
+# logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ClientSubmission(BaseClass, LogMixin):
@@ -317,7 +321,7 @@ class ClientSubmission(BaseClass, LogMixin):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:
@@ -478,7 +482,7 @@ class ClientSubmission(BaseClass, LogMixin):
 
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
-                          chronologic: bool = True, page: int = 1, page_size: int = 250) -> pd.DataFrame:
+                          chronologic: bool = True, page: int = 1, page_size: int = 250) -> DataFrame:
         """
         Convert all procedure to dataframe
 
@@ -490,13 +494,13 @@ class ClientSubmission(BaseClass, LogMixin):
             limit (int, optional): Maximum number of results to return. Defaults to 0.
 
         Returns:
-            pd.DataFrame: Pandas Dataframe of all relevant procedure
+            DataFrame: Pandas Dataframe of all relevant procedure
         """
         # NOTE: use lookup function to create list of dicts
         subs = [item.details_dict for item in
                 cls.query(submissiontype=submissiontype, limit=limit, chronologic=chronologic, page=page,
                           page_size=page_size)]
-        df = pd.DataFrame.from_records(subs)
+        df = DataFrame.from_records(subs)
         # NOTE: Exclude sub information
         exclude = ['control', 'extraction_info', 'pcr_info', 'comment', 'comments', 'sample', 'reagents',
                    'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
@@ -573,7 +577,7 @@ class ClientSubmission(BaseClass, LogMixin):
         :type obj: Any
         :return: None
         """
-        logger.debug("Add Comment!")
+        logger.info("Add Comment!")
         from frontend.widgets import SubmissionComment
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
@@ -909,7 +913,7 @@ class Run(BaseClass, LogMixin):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:
@@ -946,7 +950,7 @@ class Run(BaseClass, LogMixin):
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                string = rsub(r"(_|-)\d(R\d)?$", "", value)
                 try:
                     output = dateparse(string)
                 except ParserError as e:
@@ -1116,14 +1120,14 @@ class Run(BaseClass, LogMixin):
             for sub_type in submissiontype:
                 subs = cls.query(page_size=0, start_date=start_date, end_date=end_date, submissiontype=sub_type)
                 query_out.append(subs)
-            query_out = list(itertools.chain.from_iterable(query_out))
+            query_out = list(chain.from_iterable(query_out))
         else:
             query_out = cls.query(page_size=0, start_date=start_date, end_date=end_date)
         records = []
         for sub in query_out:
             output = sub.details_dict
             for k, v in output.items():
-                if isinstance(v, types.GeneratorType):
+                if isinstance(v, GeneratorType):
                     output[k] = [item for item in v]
             records.append(output)
         df = DataFrame.from_records(records)
@@ -1202,7 +1206,7 @@ class Run(BaseClass, LogMixin):
                     except AttributeError:
                         field_value = dict(value="NA", missing=True)
             new_dict[key] = field_value
-        new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
+        new_dict['filepath'] = Path(TemporaryFile().name)
         new_dict['name'] = self.rsl_plate_number
         new_dict['sql_instance'] = self
         dict_.update(new_dict)
@@ -1215,9 +1219,9 @@ class Run(BaseClass, LogMixin):
     def set_cost(self, include_repeat: bool = False):
         # NOTE: Sum all non-repeat procedure costs.
         if include_repeat:
-            cost = np.sum([procedure.cost if procedure.cost else 0.00 for procedure in self.procedure])
+            cost = npsum([procedure.cost if procedure.cost else 0.00 for procedure in self.procedure])
         else:
-            cost = np.sum([procedure.cost if procedure.cost else 0.00 for procedure in self.procedure if not procedure.repeat])
+            cost = npsum([procedure.cost if procedure.cost else 0.00 for procedure in self.procedure if not procedure.repeat])
         self._run_cost = cost
 
     def save(self, original: bool = True):
@@ -1466,7 +1470,7 @@ class Run(BaseClass, LogMixin):
         if not end_date:
             return None
         try:
-            delta = np.busday_count(start_date, end_date, holidays=create_holidays_for_year(start_date.year)) + 1
+            delta = busday_count(start_date, end_date, holidays=create_holidays_for_year(start_date.year)) + 1
         except ValueError:
             return None
         return delta
@@ -1825,7 +1829,7 @@ class Sample(BaseClass, LogMixin):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
     @classmethod
-    def samples_to_df(cls, sample_list: List[Sample], **kwargs) -> pd.DataFrame | None:
+    def samples_to_df(cls, sample_list: List[Sample], **kwargs) -> DataFrame | None:
         """
         Runs a fuzzy search and converts into a dataframe.
 
@@ -1833,14 +1837,14 @@ class Sample(BaseClass, LogMixin):
             sample_list (List[Sample]): List of sample to be parsed. Defaults to None.
 
         Returns:
-            pd.DataFrame: Dataframe all sample
+            DataFrame: Dataframe all sample
         """
         try:
             samples = [sample.details_dict for sample in sample_list]
         except TypeError as e:
             logger.error(f"Couldn't find any sample with data: {kwargs}\nDue to {e}")
             return None
-        df = pd.DataFrame.from_records(samples)
+        df = DataFrame.from_records(samples)
         # NOTE: Exclude sub information
         exclude = ['concentration', 'organism', 'colour', 'tooltip', 'comments', 'sample', 'reagents',
                    'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']
@@ -1860,7 +1864,7 @@ class Sample(BaseClass, LogMixin):
         """
         self.show_details(obj)
 
-    def save(self) -> Report | types.NoneType:
+    def save(self) -> Report | NoneType:
         if self.sample_id is None:
             return
         if self.sample_id.lower() in ["", "blank", "na", "n/a", "n\\a", "none"]:
@@ -1978,7 +1982,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
                 output = Sample.query_or_create(**value)
             case PydSample():
                 output = value.to_sql(update=False)
-                logger.debug(f"Output from ClientSubmissionSampleAssociation.sample.setter: {output}")
             case Sample():
                 output = value
             case _:

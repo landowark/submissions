@@ -2,9 +2,6 @@ from tools import report_result
 from frontend.widgets.info_tab import PosNegPane
 from backend.excel.reports import PCRMaker
 from frontend.visualizations.pcr_charts import PCRFigure
-import logging
-
-logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class PCRViewer(PosNegPane):
