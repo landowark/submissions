@@ -4,6 +4,7 @@ Constructs main application.
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
+from sys import exit
 from webbrowser import get as wb_get
 from PyQt6.QtCore import QEvent, QTimer, qInstallMessageHandler
 from PyQt6.QtWidgets import (
@@ -91,7 +92,7 @@ class App(QMainWindow):
         self.idle_timer.start()
 
     def handle_timeout(self):
-        sys.exit(ctx.run_teardown()) # Standard way to exit a PyQt6 application
+        exit(ctx.run_teardown()) # Standard way to exit a PyQt6 application
 
 
     def _createMenuBar(self):

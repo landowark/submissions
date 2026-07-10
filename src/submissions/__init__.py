@@ -28,9 +28,7 @@ def get_version() -> int:
     if not getattr(sys, 'frozen', False):
         dist_folders = Path(__file__).parents[2].joinpath("dist").iterdir()
         current_yyyymm = date.today().strftime('%Y%m')
-        
         max_num = -1
-        
         for path in dist_folders:
             filename = path.name
             # Match files that contain the current year-month substring
@@ -42,7 +40,6 @@ def get_version() -> int:
                     num = int(match.group(1))
                     if num > max_num:
                         max_num = num
-                        
         dist_num = max_num + 1 if max_num != -1 else 1
         return f"{year}{str(month).zfill(2)}.{dist_num}b"
     else:

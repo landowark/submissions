@@ -1061,7 +1061,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # env = jinja_template_loading()
         temp_name = f"{cls._sql_name.lower()}_details.html"
         try:
-            template = env.get_template(temp_name)
+            template = jinja_env.get_template(temp_name)
         except TemplateNotFound as e:
             logger.exception(f"Template {temp_name} not found.")
             try:

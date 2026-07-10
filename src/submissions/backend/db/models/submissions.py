@@ -689,7 +689,7 @@ class ClientSubmission(BaseClass, LogMixin):
                         for result in proceduresampleassociation.results:
                             yield result
 
-
+        
 class Run(BaseClass, LogMixin):
     """
     Object for an entire procedure procedure. Links to client procedure, reagents, equipment, process

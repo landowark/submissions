@@ -15,7 +15,6 @@ from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from csv import reader as csvreader
 
-logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultManager(object):
 
@@ -46,14 +45,21 @@ class DefaultManager(object):
     def __init__(self, parent, input_object: Path | str | pydant.PydBaseClass | BaseClass | Workbook | Worksheet | None = None, **kwargs):
         self.parent = parent
         self.input_object = input_object
-        self.sheets = kwargs.get("sheets", None)
-        if self.sheets is None:
-            try:
-                self.sheets = self.__class__.sheets
-            except AttributeError:
-                self.sheets = {}
+        self.sheets = self.set_sheets()
+        # self.sheets = kwargs.get("sheets", None)
+        # if self.sheets is None:
+        #     try:
+        #         self.sheets = self.__class__.sheets
+        #     except AttributeError:
+        #         self.sheets = {}
         self.set_pyd()
-        
+
+    def set_sheets(self) -> dict:
+        try:
+            return self.__class__.sheets
+        except AttributeError:
+            return [dict(sheet="Client Info", start_row=1)]
+
     def set_pyd(self, _depth: int=0):
         if _depth > 2:
             raise RecursionError("set_pyd called too many times; could not resolve input_object.")

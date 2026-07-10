@@ -1,18 +1,16 @@
 {
-    "name": "Omega Bacterial Extraction",
+    "name": "MVPII Extraction",
     "plate_columns": 12,
     "plate_rows": 8,
-    "plate_cost": 1.0,
+    "plate_cost": 0.0,
     "submissiontype": [
         "Default SubmissionType",
-        "Bacterial Culture"
+        "Wastewater"
     ],
-    "resultstype": [
-        "Qubit"
-    ],
+    "resultstype": [],
     "equipmentrole": [
         {
-            "name": "Omega Bacteria Extractor",
+            "name": "MVPII Extractor",
             "equipment": [
                 "Kingfisher 1",
                 "Kingfisher 2",
@@ -20,14 +18,14 @@
                 "Kingfisher 4"
             ],
             "proceduretype": [
-                "Omega Bacterial Extraction"
+                "MVPII Extraction"
             ],
             "excluded": [
                 "excluded"
             ],
             "equipmentroleequipmentassociation": [
                 {
-                    "equipmentrole": "Omega Bacteria Extractor",
+                    "equipmentrole": "MVPII Extractor",
                     "equipment": {
                         "asset_number": "5023808",
                         "name": "Kingfisher 1",
@@ -50,7 +48,7 @@
                     },
                     "process": [
                         {
-                            "name": "OBT_M4029_KFF",
+                            "name": "MVP_2Wash_400_Flex",
                             "tips": [],
                             "processversion": [
                                 {
@@ -60,20 +58,20 @@
                                         "_misc_info",
                                         "id"
                                     ],
-                                    "version": 1.0,
-                                    "date_verified": "2026-06-16",
+                                    "version": 2.0,
+                                    "date_verified": "2026-01-28",
                                     "project": "NA",
                                     "active": 1,
-                                    "process": "OBT_M4029_KFF",
-                                    "name": "OBT_M4029_KFF - v1.0",
+                                    "process": "MVP_2Wash_400_Flex",
+                                    "name": "MVP_2Wash_400_Flex - v2.0",
                                     "tips": []
                                 }
                             ],
                             "equipmentroleequipmentassociation": [
-                                "Omega Bacteria Extractor->Kingfisher 3",
-                                "Omega Bacteria Extractor->Kingfisher 2",
-                                "Omega Bacteria Extractor->Kingfisher 4",
-                                "Omega Bacteria Extractor->Kingfisher 1"
+                                "MVPII Extractor->Kingfisher 4",
+                                "MVPII Extractor->Kingfisher 3",
+                                "MVPII Extractor->Kingfisher 2",
+                                "MVPII Extractor->Kingfisher 1"
                             ],
                             "excluded": [
                                 "excluded"
@@ -83,10 +81,10 @@
                     "excluded": [
                         "excluded"
                     ],
-                    "name": "Omega Bacteria Extractor->Kingfisher 1"
+                    "name": "MVPII Extractor->Kingfisher 1"
                 },
                 {
-                    "equipmentrole": "Omega Bacteria Extractor",
+                    "equipmentrole": "MVPII Extractor",
                     "equipment": {
                         "asset_number": "5023809",
                         "name": "Kingfisher 2",
@@ -110,7 +108,7 @@
                     },
                     "process": [
                         {
-                            "name": "OBT_M4029_KFF",
+                            "name": "MVP_2Wash_400_Flex",
                             "tips": [],
                             "processversion": [
                                 {
@@ -120,20 +118,20 @@
                                         "_misc_info",
                                         "id"
                                     ],
-                                    "version": 1.0,
-                                    "date_verified": "2026-06-16",
+                                    "version": 2.0,
+                                    "date_verified": "2026-01-28",
                                     "project": "NA",
                                     "active": 1,
-                                    "process": "OBT_M4029_KFF",
-                                    "name": "OBT_M4029_KFF - v1.0",
+                                    "process": "MVP_2Wash_400_Flex",
+                                    "name": "MVP_2Wash_400_Flex - v2.0",
                                     "tips": []
                                 }
                             ],
                             "equipmentroleequipmentassociation": [
-                                "Omega Bacteria Extractor->Kingfisher 3",
-                                "Omega Bacteria Extractor->Kingfisher 2",
-                                "Omega Bacteria Extractor->Kingfisher 4",
-                                "Omega Bacteria Extractor->Kingfisher 1"
+                                "MVPII Extractor->Kingfisher 4",
+                                "MVPII Extractor->Kingfisher 3",
+                                "MVPII Extractor->Kingfisher 2",
+                                "MVPII Extractor->Kingfisher 1"
                             ],
                             "excluded": [
                                 "excluded"
@@ -143,10 +141,10 @@
                     "excluded": [
                         "excluded"
                     ],
-                    "name": "Omega Bacteria Extractor->Kingfisher 2"
+                    "name": "MVPII Extractor->Kingfisher 2"
                 },
                 {
-                    "equipmentrole": "Omega Bacteria Extractor",
+                    "equipmentrole": "MVPII Extractor",
                     "equipment": {
                         "asset_number": "5026044",
                         "name": "Kingfisher 3",
@@ -170,7 +168,7 @@
                     },
                     "process": [
                         {
-                            "name": "OBT_M4029_KFF",
+                            "name": "MVP_2Wash_400_Flex",
                             "tips": [],
                             "processversion": [
                                 {
@@ -180,20 +178,20 @@
                                         "_misc_info",
                                         "id"
                                     ],
-                                    "version": 1.0,
-                                    "date_verified": "2026-06-16",
+                                    "version": 2.0,
+                                    "date_verified": "2026-01-28",
                                     "project": "NA",
                                     "active": 1,
-                                    "process": "OBT_M4029_KFF",
-                                    "name": "OBT_M4029_KFF - v1.0",
+                                    "process": "MVP_2Wash_400_Flex",
+                                    "name": "MVP_2Wash_400_Flex - v2.0",
                                     "tips": []
                                 }
                             ],
                             "equipmentroleequipmentassociation": [
-                                "Omega Bacteria Extractor->Kingfisher 3",
-                                "Omega Bacteria Extractor->Kingfisher 2",
-                                "Omega Bacteria Extractor->Kingfisher 4",
-                                "Omega Bacteria Extractor->Kingfisher 1"
+                                "MVPII Extractor->Kingfisher 4",
+                                "MVPII Extractor->Kingfisher 3",
+                                "MVPII Extractor->Kingfisher 2",
+                                "MVPII Extractor->Kingfisher 1"
                             ],
                             "excluded": [
                                 "excluded"
@@ -203,10 +201,10 @@
                     "excluded": [
                         "excluded"
                     ],
-                    "name": "Omega Bacteria Extractor->Kingfisher 3"
+                    "name": "MVPII Extractor->Kingfisher 3"
                 },
                 {
-                    "equipmentrole": "Omega Bacteria Extractor",
+                    "equipmentrole": "MVPII Extractor",
                     "equipment": {
                         "asset_number": "5026045",
                         "name": "Kingfisher 4",
@@ -229,7 +227,7 @@
                     },
                     "process": [
                         {
-                            "name": "OBT_M4029_KFF",
+                            "name": "MVP_2Wash_400_Flex",
                             "tips": [],
                             "processversion": [
                                 {
@@ -239,20 +237,20 @@
                                         "_misc_info",
                                         "id"
                                     ],
-                                    "version": 1.0,
-                                    "date_verified": "2026-06-16",
+                                    "version": 2.0,
+                                    "date_verified": "2026-01-28",
                                     "project": "NA",
                                     "active": 1,
-                                    "process": "OBT_M4029_KFF",
-                                    "name": "OBT_M4029_KFF - v1.0",
+                                    "process": "MVP_2Wash_400_Flex",
+                                    "name": "MVP_2Wash_400_Flex - v2.0",
                                     "tips": []
                                 }
                             ],
                             "equipmentroleequipmentassociation": [
-                                "Omega Bacteria Extractor->Kingfisher 3",
-                                "Omega Bacteria Extractor->Kingfisher 2",
-                                "Omega Bacteria Extractor->Kingfisher 4",
-                                "Omega Bacteria Extractor->Kingfisher 1"
+                                "MVPII Extractor->Kingfisher 4",
+                                "MVPII Extractor->Kingfisher 3",
+                                "MVPII Extractor->Kingfisher 2",
+                                "MVPII Extractor->Kingfisher 1"
                             ],
                             "excluded": [
                                 "excluded"
@@ -262,205 +260,7 @@
                     "excluded": [
                         "excluded"
                     ],
-                    "name": "Omega Bacteria Extractor->Kingfisher 4"
-                }
-            ],
-            "process": "\"OBT_M4029_KFF\""
-        },
-        {
-            "name": "Omega gDNA Mover",
-            "equipment": [
-                "Biomek"
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "equipmentroleequipmentassociation": [
-                {
-                    "equipmentrole": "Omega gDNA Mover",
-                    "equipment": {
-                        "asset_number": "5015330",
-                        "name": "Biomek",
-                        "nickname": "Biomek",
-                        "manufacturer": "Beckman Coulter",
-                        "ref": "B87583",
-                        "serial_number": "B8758322L004",
-                        "equipmentrole": [
-                            "Omega gDNA Mover",
-                            "Wastewater PCR Liquid Handler"
-                        ],
-                        "calibration_date": "2000-01-01 00:00:00",
-                        "excluded": [
-                            "excluded"
-                        ],
-                        "equipmentequipmentroleassociation": [
-                            "Omega gDNA Mover->Biomek",
-                            "Wastewater PCR Liquid Handler->Biomek"
-                        ]
-                    },
-                    "process": [
-                        {
-                            "name": "Bacteria_Core_Submission",
-                            "tips": [
-                                {
-                                    "excluded": [
-                                        "excluded",
-                                        "misc_info",
-                                        "_misc_info",
-                                        "id"
-                                    ],
-                                    "tips": "Beckman Coulter - B85911(190uL)",
-                                    "lot": "P46428",
-                                    "expiry": "2026-12-31",
-                                    "active": 1,
-                                    "name": "Beckman Coulter - B85911 - P46428"
-                                }
-                            ],
-                            "processversion": [
-                                {
-                                    "excluded": [
-                                        "excluded",
-                                        "misc_info",
-                                        "_misc_info",
-                                        "id"
-                                    ],
-                                    "version": 2.0,
-                                    "date_verified": "2025-01-21",
-                                    "project": "NA",
-                                    "active": 1,
-                                    "process": "Bacteria_Core_Submission",
-                                    "name": "Bacteria_Core_Submission - v2.0",
-                                    "tips": [
-                                        {
-                                            "excluded": [
-                                                "excluded",
-                                                "misc_info",
-                                                "_misc_info",
-                                                "id"
-                                            ],
-                                            "tips": "Beckman Coulter - B85911(190uL)",
-                                            "lot": "P46428",
-                                            "expiry": "2026-12-31",
-                                            "active": 1,
-                                            "name": "Beckman Coulter - B85911 - P46428"
-                                        }
-                                    ]
-                                }
-                            ],
-                            "equipmentroleequipmentassociation": [
-                                "Omega gDNA Mover->Biomek"
-                            ],
-                            "excluded": [
-                                "excluded"
-                            ]
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "name": "Omega gDNA Mover->Biomek"
-                }
-            ]
-        },
-        {
-            "name": "Omega Bead Plate Robot",
-            "equipment": [
-                "Assist Plus"
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "equipmentroleequipmentassociation": [
-                {
-                    "equipmentrole": "Omega Bead Plate Robot",
-                    "equipment": {
-                        "asset_number": "5029954",
-                        "name": "Assist Plus",
-                        "nickname": "Assist Plus",
-                        "manufacturer": "Integra Biosciences",
-                        "ref": "4505",
-                        "serial_number": "NA",
-                        "equipmentrole": [
-                            "Omega Bead Plate Robot"
-                        ],
-                        "calibration_date": "2000-01-01 00:00:00",
-                        "excluded": [
-                            "excluded"
-                        ],
-                        "equipmentequipmentroleassociation": [
-                            "Omega Bead Plate Robot->Assist Plus"
-                        ],
-                        "process": [
-                            "BCTransfer"
-                        ]
-                    },
-                    "process": [
-                        {
-                            "name": "BCTransfer",
-                            "tips": [
-                                {
-                                    "excluded": [
-                                        "excluded",
-                                        "misc_info",
-                                        "_misc_info",
-                                        "id"
-                                    ],
-                                    "tips": "Integra Biosciences - 6645(1250uL)",
-                                    "lot": "100000782",
-                                    "expiry": "2030-12-31",
-                                    "active": 1,
-                                    "name": "Integra Biosciences - 6645 - 100000782"
-                                }
-                            ],
-                            "processversion": [
-                                {
-                                    "excluded": [
-                                        "excluded",
-                                        "misc_info",
-                                        "_misc_info",
-                                        "id"
-                                    ],
-                                    "version": 1.0,
-                                    "date_verified": "2025-04-21",
-                                    "project": "NA",
-                                    "active": 1,
-                                    "process": "BCTransfer",
-                                    "name": "BCTransfer - v1.0",
-                                    "tips": [
-                                        {
-                                            "excluded": [
-                                                "excluded",
-                                                "misc_info",
-                                                "_misc_info",
-                                                "id"
-                                            ],
-                                            "tips": "Integra Biosciences - 6645(1250uL)",
-                                            "lot": "100000782",
-                                            "expiry": "2030-12-31",
-                                            "active": 1,
-                                            "name": "Integra Biosciences - 6645 - 100000782"
-                                        }
-                                    ]
-                                }
-                            ],
-                            "equipmentroleequipmentassociation": [
-                                "Omega Bead Plate Robot->Assist Plus"
-                            ],
-                            "excluded": [
-                                "excluded"
-                            ]
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "name": "Omega Bead Plate Robot->Assist Plus"
+                    "name": "MVPII Extractor->Kingfisher 4"
                 }
             ]
         },
@@ -537,40 +337,42 @@
             "always_used": "on"
         },
         {
-            "name": "Bead Basher",
+            "name": "MVPII Workflow Scheduler",
             "equipment": [
-                "1600 MiniG"
+                "Momentum Extraction"
             ],
             "proceduretype": [
-                "Omega Bacterial Extraction"
+                "MVPII Extraction"
             ],
             "excluded": [
                 "excluded"
             ],
             "equipmentroleequipmentassociation": [
                 {
-                    "equipmentrole": "Bead Basher",
+                    "equipmentrole": "MVPII Workflow Scheduler",
                     "equipment": {
-                        "asset_number": "5012002",
-                        "name": "1600 MiniG",
-                        "nickname": "1600 MiniG",
-                        "manufacturer": "SPEXSamplePrep",
-                        "ref": "NA",
-                        "serial_number": "10611",
+                        "asset_number": "PHAC-5001330",
+                        "name": "Momentum Extraction",
+                        "nickname": "Momentum Extraction",
+                        "manufacturer": "Thermo Scientific",
+                        "ref": "MOMENTUM",
+                        "serial_number": "SPK2044298",
                         "equipmentrole": [
-                            "Bead Basher"
+                            "Omega Workflow Scheduler",
+                            "MVPII Workflow Scheduler"
                         ],
                         "calibration_date": "2000-01-01 00:00:00",
                         "excluded": [
                             "excluded"
                         ],
                         "equipmentequipmentroleassociation": [
-                            "Bead Basher->1600 MiniG"
+                            "Omega Workflow Scheduler->Momentum Extraction",
+                            "MVPII Workflow Scheduler->Momentum Extraction"
                         ]
                     },
                     "process": [
                         {
-                            "name": "5 min, 1000 rpm",
+                            "name": "Extraction Thermo_MagMax_Wastewater_no_dispense",
                             "tips": [],
                             "processversion": [
                                 {
@@ -584,13 +386,13 @@
                                     "date_verified": "2026-06-19",
                                     "project": "NA",
                                     "active": 1,
-                                    "process": "5 min, 1000 rpm",
-                                    "name": "5 min, 1000 rpm - v1.0",
+                                    "process": "Extraction Thermo_MagMax_Wastewater_no_dispense",
+                                    "name": "Extraction Thermo_MagMax_Wastewater_no_dispense - v1.0",
                                     "tips": []
                                 }
                             ],
                             "equipmentroleequipmentassociation": [
-                                "Bead Basher->1600 MiniG"
+                                "MVPII Workflow Scheduler->Momentum Extraction"
                             ],
                             "excluded": [
                                 "excluded"
@@ -600,339 +402,41 @@
                     "excluded": [
                         "excluded"
                     ],
-                    "name": "Bead Basher->1600 MiniG"
+                    "name": "MVPII Workflow Scheduler->Momentum Extraction"
                 }
-            ],
-            "always_used": "on"
+            ]
         }
     ],
     "reagentrole": [
         {
-            "name": "Omega Wash 1",
+            "name": "MVPII Binding Buffer",
             "reagent": [
                 {
                     "reagentrole": [
-                        "Omega Wash 1"
+                        "MVPII Binding Buffer"
                     ],
                     "eol_ext": 0,
-                    "name": "Omega VHB Buffer",
+                    "name": "MagMAX Viral/Pathogen Binding Solution",
                     "manufacturer": "NA",
                     "ref": "NA",
-                    "comment": "\"\"",
+                    "comment": "",
                     "cost_per_ml": 0.0,
                     "reagentlot": [
                         {
-                            "lot": "64145GG259",
-                            "reagent": "Omega VHB Buffer",
+                            "lot": "2963314",
+                            "reagent": "MagMAX Viral/Pathogen Binding Solution",
                             "reagentrole": null,
-                            "expiry": "2028-08-22 00:00:00",
+                            "expiry": "2026-04-30 00:00:00",
                             "missing": true,
                             "active": true,
                             "excluded": [
                                 "excluded"
                             ],
-                            "name": "Omega VHB Buffer - 64145GG259"
+                            "name": "MagMAX Viral/Pathogen Binding Solution - 2963314"
                         },
                         {
-                            "lot": "71888GG283",
-                            "reagent": "Omega VHB Buffer",
-                            "reagentrole": null,
-                            "expiry": "2029-06-18 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega VHB Buffer - 71888GG283"
-                        },
-                        {
-                            "lot": "70100GG278",
-                            "reagent": "Omega VHB Buffer",
-                            "reagentrole": null,
-                            "expiry": "2029-02-20 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega VHB Buffer - 70100GG278"
-                        },
-                        {
-                            "lot": "Test lot",
-                            "reagent": "Omega VHB Buffer",
-                            "reagentrole": null,
-                            "expiry": "2027-07-03 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega VHB Buffer - Test lot"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Wash 1->Omega VHB Buffer"
-                    ]
-                }
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Omega Wash 1->Omega VHB Buffer"
-            ]
-        },
-        {
-            "name": "Omega Wash 2",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Omega Wash 2"
-                    ],
-                    "eol_ext": 0,
-                    "name": "Omega SPM Buffer",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "61219FV114",
-                            "reagent": "Omega SPM Buffer",
-                            "reagentrole": null,
-                            "expiry": "2029-06-12 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega SPM Buffer - 61219FV114"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Wash 2->Omega SPM Buffer"
-                    ]
-                }
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Omega Wash 2->Omega SPM Buffer"
-            ]
-        },
-        {
-            "name": "Omega Elution Buffer",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Omega Elution Buffer"
-                    ],
-                    "eol_ext": 0,
-                    "name": "Omega Elution Buffer",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "50642BD476",
-                            "reagent": "Omega Elution Buffer",
-                            "reagentrole": null,
-                            "expiry": "2026-08-26 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega Elution Buffer - 50642BD476"
-                        },
-                        {
-                            "lot": "76639DB616",
-                            "reagent": "Omega Elution Buffer",
-                            "reagentrole": null,
-                            "expiry": "2028-10-16 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega Elution Buffer - 76639DB616"
-                        },
-                        {
-                            "lot": "49044BD465",
-                            "reagent": "Omega Elution Buffer",
-                            "reagentrole": null,
-                            "expiry": "2026-07-09 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega Elution Buffer - 49044BD465"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Elution Buffer->Omega Elution Buffer"
-                    ]
-                }
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Omega Elution Buffer->Omega Elution Buffer"
-            ]
-        },
-        {
-            "name": "Omega Binding Buffer",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Omega Binding Buffer"
-                    ],
-                    "eol_ext": 0,
-                    "name": "Omega XP2 Buffer",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "63854GL159",
-                            "reagent": "Omega XP2 Buffer",
-                            "reagentrole": null,
-                            "expiry": "2028-02-28 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega XP2 Buffer - 63854GL159"
-                        },
-                        {
-                            "lot": "71997GL176",
-                            "reagent": "Omega XP2 Buffer",
-                            "reagentrole": null,
-                            "expiry": "2028-11-19 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega XP2 Buffer - 71997GL176"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Binding Buffer->Omega XP2 Buffer"
-                    ]
-                }
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Omega Binding Buffer->Omega XP2 Buffer"
-            ]
-        },
-        {
-            "name": "Omega Magnetic Beads",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Omega Magnetic Beads"
-                    ],
-                    "eol_ext": 0,
-                    "name": "Omega Mag Bind RQ",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "72595DB227",
-                            "reagent": "Omega Mag Bind RQ",
-                            "reagentrole": null,
-                            "expiry": "2027-08-14 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega Mag Bind RQ - 72595DB227"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Magnetic Beads->Omega Mag Bind RQ"
-                    ]
-                }
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Omega Magnetic Beads->Omega Mag Bind RQ"
-            ]
-        },
-        {
-            "name": "Omega Enhancer Buffer",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Omega Enhancer Buffer"
-                    ],
-                    "eol_ext": 0,
-                    "name": "Omega RBB Buffer",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "72220ER86",
-                            "reagent": "Omega RBB Buffer",
-                            "reagentrole": null,
-                            "expiry": "2027-12-01 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega RBB Buffer - 72220ER86"
-                        },
-                        {
-                            "lot": "50977ER61",
-                            "reagent": "Omega RBB Buffer",
+                            "lot": "2986946EOL",
+                            "reagent": "MagMAX Viral/Pathogen Binding Solution",
                             "reagentrole": null,
                             "expiry": "2026-01-31 00:00:00",
                             "missing": true,
@@ -940,248 +444,110 @@
                             "excluded": [
                                 "excluded"
                             ],
-                            "name": "Omega RBB Buffer - 50977ER61"
-                        },
-                        {
-                            "lot": "69663ER81",
-                            "reagent": "Omega RBB Buffer",
-                            "reagentrole": null,
-                            "expiry": "2027-08-11 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega RBB Buffer - 69663ER81"
-                        },
-                        {
-                            "lot": "76658ER91",
-                            "reagent": "Omega RBB Buffer",
-                            "reagentrole": null,
-                            "expiry": "2028-04-08 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega RBB Buffer - 76658ER91"
+                            "name": "MagMAX Viral/Pathogen Binding Solution - 2986946EOL"
                         }
                     ],
                     "excluded": [
                         "excluded"
                     ],
                     "reagentreagentroleassociation": [
-                        "Omega Enhancer Buffer->Omega RBB Buffer"
+                        "MVPII Binding Buffer->MagMAX Viral/Pathogen Binding Solution"
                     ]
                 }
             ],
             "proceduretype": [
-                "Omega Bacterial Extraction"
+                "MVPII Extraction"
             ],
             "excluded": [
                 "excluded"
             ],
             "reagentrolereagentassociation": [
-                "Omega Enhancer Buffer->Omega RBB Buffer"
+                "MVPII Binding Buffer->MagMAX Viral/Pathogen Binding Solution"
             ]
         },
         {
-            "name": "Omega Resuspension Buffer",
+            "name": "MVPII Binding Beads",
             "reagent": [
                 {
                     "reagentrole": [
-                        "Omega Resuspension Buffer"
+                        "MVPII Binding Beads"
                     ],
                     "eol_ext": 0,
-                    "name": "100 mM Tris-HCl",
+                    "name": "MVPII Binding Beads",
                     "manufacturer": "NA",
                     "ref": "NA",
-                    "comment": "\"\"",
+                    "comment": "",
                     "cost_per_ml": 0.0,
                     "reagentlot": [
                         {
-                            "lot": "81744",
-                            "reagent": "100 mM Tris-HCl",
+                            "lot": "3004881-3EOL",
+                            "reagent": "MVPII Binding Beads",
                             "reagentrole": null,
-                            "expiry": "2026-12-23 00:00:00",
+                            "expiry": "2026-06-18 00:00:00",
                             "missing": true,
                             "active": true,
                             "excluded": [
                                 "excluded"
                             ],
-                            "name": "100 mM Tris-HCl - 81744"
+                            "name": "MVPII Binding Beads - 3004881-3EOL"
                         },
                         {
-                            "lot": "82432",
-                            "reagent": "100 mM Tris-HCl",
+                            "lot": "3004881-1",
+                            "reagent": "MVPII Binding Beads",
                             "reagentrole": null,
-                            "expiry": "2026-03-06 00:00:00",
+                            "expiry": "2026-06-18 00:00:00",
                             "missing": true,
                             "active": true,
                             "excluded": [
                                 "excluded"
                             ],
-                            "name": "100 mM Tris-HCl - 82432"
+                            "name": "MVPII Binding Beads - 3004881-1"
                         },
                         {
-                            "lot": "NA",
-                            "reagent": "100 mM Tris-HCl",
+                            "lot": "3004881-1EOL",
+                            "reagent": "MVPII Binding Beads",
                             "reagentrole": null,
-                            "expiry": "1970-01-01 00:00:00",
+                            "expiry": "2026-12-18 00:00:00",
                             "missing": true,
                             "active": true,
                             "excluded": [
                                 "excluded"
                             ],
-                            "name": "100 mM Tris-HCl - NA"
+                            "name": "MVPII Binding Beads - 3004881-1EOL"
+                        },
+                        {
+                            "lot": "3004881-2EOL",
+                            "reagent": "MVPII Binding Beads",
+                            "reagentrole": null,
+                            "expiry": "2026-12-18 00:00:00",
+                            "missing": true,
+                            "active": true,
+                            "excluded": [
+                                "excluded"
+                            ],
+                            "name": "MVPII Binding Beads - 3004881-2EOL"
                         }
                     ],
                     "excluded": [
                         "excluded"
                     ],
                     "reagentreagentroleassociation": [
-                        "Omega Resuspension Buffer->100 mM Tris-HCl"
+                        "MVPII Binding Beads->MVPII Binding Beads"
                     ]
                 }
             ],
             "proceduretype": [
-                "Omega Bacterial Extraction"
+                "MVPII Extraction"
             ],
             "excluded": [
                 "excluded"
             ],
             "reagentrolereagentassociation": [
-                "Omega Resuspension Buffer->100 mM Tris-HCl"
+                "MVPII Binding Beads->MVPII Binding Beads"
             ]
         },
         {
-            "name": "Omega Proteinase K",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Omega Proteinase K"
-                    ],
-                    "eol_ext": 0,
-                    "name": "Omega Proteinase K",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "74598EM649",
-                            "reagent": "Omega Proteinase K",
-                            "reagentrole": null,
-                            "expiry": "2027-07-27 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega Proteinase K - 74598EM649"
-                        },
-                        {
-                            "lot": "77440EM673",
-                            "reagent": "Omega Proteinase K",
-                            "reagentrole": null,
-                            "expiry": "2027-11-18 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega Proteinase K - 77440EM673"
-                        },
-                        {
-                            "lot": "72766EM645",
-                            "reagent": "Omega Proteinase K",
-                            "reagentrole": null,
-                            "expiry": "2027-06-24 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega Proteinase K - 72766EM645"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Proteinase K->Omega Proteinase K"
-                    ]
-                }
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Omega Proteinase K->Omega Proteinase K"
-            ]
-        },
-        {
-            "name": "Omega Prote K Buffer",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Omega Prote K Buffer"
-                    ],
-                    "eol_ext": 0,
-                    "name": "Omega DS Buffer",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "46571AQ114",
-                            "reagent": "Omega DS Buffer",
-                            "reagentrole": null,
-                            "expiry": "2025-03-12 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega DS Buffer - 46571AQ114"
-                        },
-                        {
-                            "lot": "67377AQ152",
-                            "reagent": "Omega DS Buffer",
-                            "reagentrole": null,
-                            "expiry": "2027-02-19 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "Omega DS Buffer - 67377AQ152"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Prote K Buffer->Omega DS Buffer"
-                    ]
-                }
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Omega Prote K Buffer->Omega DS Buffer"
-            ]
-        },
-        {
-            "name": "Omega Ethanol",
+            "name": "MVPII 80% Ethanol",
             "reagent": [
                 {
                     "reagentrole": [
@@ -1219,321 +585,145 @@
                 }
             ],
             "proceduretype": [
-                "Omega Bacterial Extraction"
+                "MVPII Extraction"
             ],
             "excluded": [
                 "excluded"
             ],
             "reagentrolereagentassociation": [
-                "Omega Ethanol->CA 100% Ethanol"
-            ]
+                "MVPII 80% Ethanol->CA 100% Ethanol"
+            ],
+            "ml_used_per_sample": "0.56"
         },
         {
-            "name": "Omega Bead Plate",
+            "name": "MVPII Wash Solution",
             "reagent": [
                 {
                     "reagentrole": [
-                        "Omega Bead Plate"
+                        "MVPII Wash Solution"
                     ],
                     "eol_ext": 0,
-                    "name": "MN96 Type B Bead Plate",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "BEP23128",
-                            "reagent": "MN96 Type B Bead Plate",
-                            "reagentrole": null,
-                            "expiry": "2030-02-28 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "MN96 Type B Bead Plate - BEP23128"
-                        },
-                        {
-                            "lot": "BEP2332B",
-                            "reagent": "MN96 Type B Bead Plate",
-                            "reagentrole": null,
-                            "expiry": "2027-01-31 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "MN96 Type B Bead Plate - BEP2332B"
-                        },
-                        {
-                            "lot": "BEP2313B",
-                            "reagent": "MN96 Type B Bead Plate",
-                            "reagentrole": null,
-                            "expiry": "2030-06-30 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "MN96 Type B Bead Plate - BEP2313B"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Bead Plate->MN96 Type B Bead Plate"
-                    ],
-                    "ml_used_per_sample": "\"0.0\""
-                }
-            ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Omega Bead Plate->MN96 Type B Bead Plate"
-            ]
-        },
-        {
-            "name": "Omega Positive Control",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Omega Positive Control"
-                    ],
-                    "eol_ext": 0,
-                    "name": "ZymoBiomics MCS",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "\"\"",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "238716",
-                            "reagent": "ZymoBiomics MCS",
-                            "reagentrole": null,
-                            "expiry": "2026-06-30 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "ZymoBiomics MCS - 238716"
-                        },
-                        {
-                            "lot": "261689",
-                            "reagent": "ZymoBiomics MCS",
-                            "reagentrole": null,
-                            "expiry": "2027-11-30 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "ZymoBiomics MCS - 261689"
-                        },
-                        {
-                            "lot": "ATCC49619-743-20260402",
-                            "reagent": "ZymoBiomics MCS",
-                            "reagentrole": null,
-                            "expiry": "2026-04-02 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "ZymoBiomics MCS - ATCC49619-743-20260402"
-                        },
-                        {
-                            "lot": "24027865",
-                            "reagent": "ZymoBiomics MCS",
-                            "reagentrole": null,
-                            "expiry": "2026-09-30 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "ZymoBiomics MCS - 24027865"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Positive Control->ZymoBiomics MCS"
-                    ]
-                },
-                {
-                    "reagentrole": [
-                        "Omega Positive Control"
-                    ],
-                    "eol_ext": 0,
-                    "name": "ATCC49619",
-                    "manufacturer": "NA",
-                    "ref": "NA",
+                    "name": "MagMax Viral/Pathogen II Wash Solution",
+                    "manufacturer": "Applied Biosystems",
+                    "ref": "A42360",
                     "comment": "",
                     "cost_per_ml": 0.0,
                     "reagentlot": [
                         {
-                            "lot": "Client ATCC49619",
-                            "reagent": "ATCC49619",
+                            "lot": "2963270EOL",
+                            "reagent": "MagMax Viral/Pathogen II Wash Solution",
                             "reagentrole": null,
-                            "expiry": "2027-05-20 00:00:00",
+                            "expiry": "2027-10-30 00:00:00",
                             "missing": true,
                             "active": true,
                             "excluded": [
                                 "excluded"
                             ],
-                            "name": "ATCC49619 - Client ATCC49619"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Omega Positive Control->ATCC49619"
-                    ],
-                    "ml_used_per_sample": "0.075"
-                },
-                {
-                    "reagentrole": [
-                        "Omega Positive Control"
-                    ],
-                    "eol_ext": 0,
-                    "name": "ATCC49226",
-                    "manufacturer": "NA",
-                    "ref": "NA",
-                    "comment": "",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
+                            "name": "MagMax Viral/Pathogen II Wash Solution - 2963270EOL"
+                        },
                         {
-                            "lot": "Client ATCC49226",
-                            "reagent": "ATCC49226",
+                            "lot": "2402268-2EOL",
+                            "reagent": "MagMax Viral/Pathogen II Wash Solution",
                             "reagentrole": null,
-                            "expiry": "2027-05-28 00:00:00",
+                            "expiry": "2027-05-29 00:00:00",
                             "missing": true,
                             "active": true,
                             "excluded": [
                                 "excluded"
                             ],
-                            "name": "ATCC49226 - Client ATCC49226"
+                            "name": "MagMax Viral/Pathogen II Wash Solution - 2402268-2EOL"
                         }
                     ],
                     "excluded": [
                         "excluded"
                     ],
                     "reagentreagentroleassociation": [
-                        "Omega Positive Control->ATCC49226"
-                    ]
+                        "MVPII Wash Solution->MagMax Viral/Pathogen II Wash Solution"
+                    ],
+                    "ml_used_per_sample": "0.700"
                 }
             ],
             "proceduretype": [
-                "Omega Bacterial Extraction"
+                "MVPII Extraction"
             ],
             "excluded": [
                 "excluded"
             ],
             "reagentrolereagentassociation": [
-                "Omega Positive Control->ZymoBiomics MCS",
-                "Omega Positive Control->ATCC49619",
-                "Omega Positive Control->ATCC49226"
+                "MVPII Wash Solution->MagMax Viral/Pathogen II Wash Solution"
             ],
-            "ml_used_per_sample": "0.0"
+            "ml_used_per_sample": "0.700"
         },
         {
-            "name": "Phage Enzyme",
+            "name": "MVPII Elution Buffer",
             "reagent": [
                 {
                     "reagentrole": [
-                        "Phage Enzyme"
+                        "MVPII Elution Buffer"
                     ],
                     "eol_ext": 0,
-                    "name": "NEB DNaseI-XT ",
-                    "manufacturer": "New England Biolabs",
-                    "ref": "NA",
+                    "name": "MagMax Viral/Pathogen II Elution Buffer",
+                    "manufacturer": "Applied Biosystems",
+                    "ref": "A42364",
                     "comment": "",
                     "cost_per_ml": 0.0,
                     "reagentlot": [
                         {
-                            "lot": "10253406",
-                            "reagent": "NEB DNaseI-XT ",
+                            "lot": "2402086-3",
+                            "reagent": "MagMax Viral/Pathogen II Elution Buffer",
                             "reagentrole": null,
-                            "expiry": "2026-08-31 00:00:00",
+                            "expiry": "2025-11-08 00:00:00",
                             "missing": true,
                             "active": true,
                             "excluded": [
                                 "excluded"
                             ],
-                            "name": "NEB DNaseI-XT  - 10253406"
+                            "name": "MagMax Viral/Pathogen II Elution Buffer - 2402086-3"
+                        },
+                        {
+                            "lot": "2506091",
+                            "reagent": "MagMax Viral/Pathogen II Elution Buffer",
+                            "reagentrole": null,
+                            "expiry": "2027-04-01 00:00:00",
+                            "missing": true,
+                            "active": true,
+                            "excluded": [
+                                "excluded"
+                            ],
+                            "name": "MagMax Viral/Pathogen II Elution Buffer - 2506091"
+                        },
+                        {
+                            "lot": "240296-3",
+                            "reagent": "MagMax Viral/Pathogen II Elution Buffer",
+                            "reagentrole": null,
+                            "expiry": "2025-11-08 00:00:00",
+                            "missing": true,
+                            "active": true,
+                            "excluded": [
+                                "excluded"
+                            ],
+                            "name": "MagMax Viral/Pathogen II Elution Buffer - 240296-3"
                         }
                     ],
                     "excluded": [
                         "excluded"
                     ],
                     "reagentreagentroleassociation": [
-                        "Phage Enzyme->NEB DNaseI-XT "
-                    ]
+                        "MVPII Elution Buffer->MagMax Viral/Pathogen II Elution Buffer"
+                    ],
+                    "ml_used_per_sample": "0.06"
                 }
             ],
             "proceduretype": [
-                "Omega Bacterial Extraction"
+                "MVPII Extraction"
             ],
             "excluded": [
                 "excluded"
             ],
             "reagentrolereagentassociation": [
-                "Phage Enzyme->NEB DNaseI-XT "
-            ]
-        },
-        {
-            "name": "Phage Enzyme Buffer",
-            "reagent": [
-                {
-                    "reagentrole": [
-                        "Phage Enzyme Buffer"
-                    ],
-                    "eol_ext": 0,
-                    "name": "NEB 10X DNaseI Buffer",
-                    "manufacturer": "New England Biolabs",
-                    "ref": "NA",
-                    "comment": "",
-                    "cost_per_ml": 0.0,
-                    "reagentlot": [
-                        {
-                            "lot": "10252661",
-                            "reagent": "NEB 10X DNaseI Buffer",
-                            "reagentrole": null,
-                            "expiry": "2027-08-31 00:00:00",
-                            "missing": true,
-                            "active": true,
-                            "excluded": [
-                                "excluded"
-                            ],
-                            "name": "NEB 10X DNaseI Buffer - 10252661"
-                        }
-                    ],
-                    "excluded": [
-                        "excluded"
-                    ],
-                    "reagentreagentroleassociation": [
-                        "Phage Enzyme Buffer->NEB 10X DNaseI Buffer"
-                    ]
-                }
+                "MVPII Elution Buffer->MagMax Viral/Pathogen II Elution Buffer"
             ],
-            "proceduretype": [
-                "Omega Bacterial Extraction"
-            ],
-            "excluded": [
-                "excluded"
-            ],
-            "reagentrolereagentassociation": [
-                "Phage Enzyme Buffer->NEB 10X DNaseI Buffer"
-            ]
+            "ml_used_per_sample": "0.06"
         }
     ],
     "excluded": [
@@ -1541,31 +731,20 @@
     ],
     "discount": [],
     "proceduretypeequipmentroleassociation": [
-        "Omega Bacterial Extraction->Omega Bacteria Extractor",
-        "Omega Bacterial Extraction->Omega gDNA Mover",
-        "Omega Bacterial Extraction->Omega Bead Plate Robot",
-        "Omega Bacterial Extraction->Omega Workflow Scheduler",
-        "Omega Bacterial Extraction->Bead Basher"
+        "MVPII Extraction->MVPII Extractor",
+        "MVPII Extraction->Omega Workflow Scheduler",
+        "MVPII Extraction->MVPII Workflow Scheduler"
     ],
     "proceduretypereagentroleassociation": [
-        "Omega Bacterial Extraction->Omega Wash 1",
-        "Omega Bacterial Extraction->Omega Wash 2",
-        "Omega Bacterial Extraction->Omega Elution Buffer",
-        "Omega Bacterial Extraction->Omega Binding Buffer",
-        "Omega Bacterial Extraction->Omega Magnetic Beads",
-        "Omega Bacterial Extraction->Omega Enhancer Buffer",
-        "Omega Bacterial Extraction->Omega Resuspension Buffer",
-        "Omega Bacterial Extraction->Omega Proteinase K",
-        "Omega Bacterial Extraction->Omega Prote K Buffer",
-        "Omega Bacterial Extraction->Omega Ethanol",
-        "Omega Bacterial Extraction->Omega Bead Plate",
-        "Omega Bacterial Extraction->Omega Positive Control",
-        "Omega Bacterial Extraction->Phage Enzyme",
-        "Omega Bacterial Extraction->Phage Enzyme Buffer"
+        "MVPII Extraction->MVPII Binding Buffer",
+        "MVPII Extraction->MVPII Binding Beads",
+        "MVPII Extraction->MVPII 80% Ethanol",
+        "MVPII Extraction->MVPII Wash Solution",
+        "MVPII Extraction->MVPII Elution Buffer"
     ],
-    "static": "on",
     "previous": [
-        ""
+        "",
+        "RSL-WW-20260710-1 - MVPII Extraction - 2026-07-10T13:28"
     ],
-    "platemap": "\n        <div class=\"plate\" id=\"plate-container\" style=\"grid-template-rows: repeat(8, 1fr); \n            aspect-ratio: 12 / 8;\">\n            \n                <div class=\"well negativecontrol\" draggable=\"true\" id=\"EN1-769-20260707\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"EN1-769-20260707\">EN1-769-20260707</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3716-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3716-P\">SC26-3716-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3728-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3728-P\">SC26-3728-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3740-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3740-A\">SC26-3740-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3752-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3752-P\">SC26-3752-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3764-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3764-A\">SC26-3764-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3776-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3776-P\">SC26-3776-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3787-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3787-A\">SC26-3787-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3703-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3703-A\">SC26-3703-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3717-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3717-P\">SC26-3717-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3729-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3729-P\">SC26-3729-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3741-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3741-A\">SC26-3741-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3753-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3753-P\">SC26-3753-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3765-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3765-A\">SC26-3765-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3777-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3777-P\">SC26-3777-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3789-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3789-A\">SC26-3789-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3704-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3704-A\">SC26-3704-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3718-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3718-P\">SC26-3718-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3730-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3730-A\">SC26-3730-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3742-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3742-A\">SC26-3742-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3754-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3754-P\">SC26-3754-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3766-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3766-A\">SC26-3766-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3778-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3778-P\">SC26-3778-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3790-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3790-A\">SC26-3790-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3706-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3706-A\">SC26-3706-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3719-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3719-P\">SC26-3719-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3731-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3731-A\">SC26-3731-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3743-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3743-A\">SC26-3743-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3755-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3755-P\">SC26-3755-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3767-B\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3767-B\">SC26-3767-B</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3779-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3779-P\">SC26-3779-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3791-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3791-A\">SC26-3791-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3707-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3707-A\">SC26-3707-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3720-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3720-P\">SC26-3720-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3732-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3732-P\">SC26-3732-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3744-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3744-A\">SC26-3744-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3756-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3756-A\">SC26-3756-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3768-B\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3768-B\">SC26-3768-B</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3780-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3780-P\">SC26-3780-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3792-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3792-A\">SC26-3792-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3709-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3709-A\">SC26-3709-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3721-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3721-P\">SC26-3721-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3733-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3733-P\">SC26-3733-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3745-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3745-A\">SC26-3745-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3757-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3757-A\">SC26-3757-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3769-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3769-P\">SC26-3769-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3781-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3781-A\">SC26-3781-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3793-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3793-A\">SC26-3793-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3710-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3710-A\">SC26-3710-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3722-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3722-A\">SC26-3722-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3734-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3734-P\">SC26-3734-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3746-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3746-A\">SC26-3746-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3758-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3758-A\">SC26-3758-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3770-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3770-P\">SC26-3770-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3782-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3782-A\">SC26-3782-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3794-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3794-P\">SC26-3794-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3711-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3711-A\">SC26-3711-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3723-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3723-P\">SC26-3723-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3735-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3735-P\">SC26-3735-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3747-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3747-A\">SC26-3747-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3759-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3759-A\">SC26-3759-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3771-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3771-P\">SC26-3771-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3783-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3783-A\">SC26-3783-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3795-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3795-P\">SC26-3795-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3713-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3713-A\">SC26-3713-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3724-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3724-P\">SC26-3724-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3736-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3736-P\">SC26-3736-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3748-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3748-A\">SC26-3748-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3760-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3760-A\">SC26-3760-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3772-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3772-P\">SC26-3772-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well negativecontrol\" draggable=\"true\" id=\"EN2-769-20260707\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"EN2-769-20260707\">EN2-769-20260707</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3796-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3796-P\">SC26-3796-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3714-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3714-P\">SC26-3714-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3725-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3725-A\">SC26-3725-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3737-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3737-A\">SC26-3737-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3749-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3749-A\">SC26-3749-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3761-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3761-A\">SC26-3761-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3773-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3773-A\">SC26-3773-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3784-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3784-A\">SC26-3784-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3797-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3797-P\">SC26-3797-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3715-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3715-P\">SC26-3715-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3726-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3726-A\">SC26-3726-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3738-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3738-A\">SC26-3738-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3750-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3750-A\">SC26-3750-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3762-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3762-A\">SC26-3762-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3774-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3774-A\">SC26-3774-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3785-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3785-A\">SC26-3785-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3798-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3798-P\">SC26-3798-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well positivecontrol\" draggable=\"true\" id=\"ATCC49619-769-20260707\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"ATCC49619-769-20260707\">ATCC49619-769-20260707</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3727-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3727-A\">SC26-3727-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3739-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3739-A\">SC26-3739-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3751-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3751-P\">SC26-3751-P</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3763-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3763-A\">SC26-3763-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3775-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3775-A\">SC26-3775-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3786-A\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3786-A\">SC26-3786-A</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"SC26-3799-P\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"SC26-3799-P\">SC26-3799-P</a><br>\n                  \n                </div>\n            \n        </div><br/>"
+    "platemap": "\n        <div class=\"plate\" id=\"plate-container\" style=\"grid-template-rows: repeat(8, 1fr); \n            aspect-ratio: 12 / 8;\">\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601828-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601828-02\">RSL-WW-901-2601828-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601829-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601829-02\">RSL-WW-901-2601829-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601873-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601873-02\">RSL-WW-901-2601873-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601876-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601876-02\">RSL-WW-901-2601876-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601879-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601879-02\">RSL-WW-901-2601879-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601886-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601886-02\">RSL-WW-901-2601886-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601910-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601910-02\">RSL-WW-901-2601910-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601911-01\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601911-01\">RSL-WW-901-2601911-01</a><br>\n                  \n                </div>\n            \n                <div class=\"well negativecontrol\" draggable=\"true\" id=\"EN1-RSL-WW-20260710-1 - MVPII EXTRACTION - 2026-07-10T10:30\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"EN1-RSL-WW-20260710-1 - MVPII EXTRACTION - 2026-07-10T10:30\">EN1-RSL-WW-20260710-1 - MVPII EXTRACTION - 2026-07-10T10:30</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601914-01\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601914-01\">RSL-WW-901-2601914-01</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601922-01\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601922-01\">RSL-WW-901-2601922-01</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601924-01\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601924-01\">RSL-WW-901-2601924-01</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601931-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601931-02\">RSL-WW-901-2601931-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601932-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601932-02\">RSL-WW-901-2601932-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601934-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601934-02\">RSL-WW-901-2601934-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601941-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601941-02\">RSL-WW-901-2601941-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601942-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601942-02\">RSL-WW-901-2601942-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601947-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601947-02\">RSL-WW-901-2601947-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601948-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601948-02\">RSL-WW-901-2601948-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601952\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601952\">RSL-WW-901-2601952</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601953\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601953\">RSL-WW-901-2601953</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601954\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601954\">RSL-WW-901-2601954</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601955\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601955\">RSL-WW-901-2601955</a><br>\n                  \n                </div>\n            \n                <div class=\"well regular\" draggable=\"true\" id=\"RSL-WW-901-2601962-02\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"RSL-WW-901-2601962-02\">RSL-WW-901-2601962-02</a><br>\n                  \n                </div>\n            \n                <div class=\"well negativecontrol\" draggable=\"true\" id=\"PBS-RSL-WW-20260710-1\">\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"PBS-RSL-WW-20260710-1\">PBS-RSL-WW-20260710-1</a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n                <div class=\"well\" draggable=\"true\" >\n                  \n                    <a class=\"data-link proceduresampleassociation\" id=\"\"></a><br>\n                  \n                </div>\n            \n        </div><br/>"
 }

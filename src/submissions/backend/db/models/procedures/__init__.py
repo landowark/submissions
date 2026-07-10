@@ -271,6 +271,10 @@ class SubmissionType(BaseClass):
                                     back_populates="_submissiontype", cascade="all, delete-orphan")  #: Instances of this submission type
     _proceduretype = relationship("ProcedureType", back_populates="_submissiontype",
                                  secondary=submissiontype_proceduretype)  #: Procedures associated with this submission type
+    _info_sheets = Column(JSON, default=[])
+    _sample_sheets = Column(JSON, default=[])
+    _procedure_sheets = Column(JSON, default=[])
+    _results_sheets = Column(JSON, default=[])
 
     def __init__(self, *args, **kwargs):
         """
@@ -520,6 +524,23 @@ class SubmissionType(BaseClass):
         submissiontypes = cls.__database_session__.query(cls).join(cls._proceduretype).join(ProcedureType._resultstype).filter(ResultsType.id == resultstype.id).all()
         return submissiontypes
 
+    @property
+    def info_sheets(self) -> Generator[dict, None, None]:
+        yield from [dict(sheet="Client Info", start_row=1)] + self._info_sheets
+    
+    @property
+    def sample_sheets(self) -> Generator[dict, None, None]:
+        yield from [dict(sheet="Client Info", start_row=1)] + self._sample_sheets
+    
+    @property
+    def quality_sheets(self) -> Generator[dict, None, None]:
+        yield from [dict(sheet=f"{proceduretype.name[:20]} Quality", start_row=1) for proceduretype in self.proceduretype]
+
+    @property
+    def results_sheets(self) -> Generator[dict, None, None]:
+        for proceduretype in self.proceduretype:
+            for resultstype in proceduretype.resultstype:
+                yield dict(sheet=f"{proceduretype.name[:10]} {resultstype.name[:10]}", start_row=1)
 
 class ProcedureType(BaseClass):
     """
