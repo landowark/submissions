@@ -1,3 +1,7 @@
+# 202607.07
+
+- Upgrades to database to better index proceduresampleassociations.
+
 # 202607.06
 
 - Streamlining of imports.
