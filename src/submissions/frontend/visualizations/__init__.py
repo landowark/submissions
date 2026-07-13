@@ -85,8 +85,9 @@ class CustomFigure(Figure):
         if months > date.today().month:
             buttons += [dict(count=1, label="YTD", step="year", stepmode="todate")]
         buttons += [dict(step="all")]
-        for button in buttons:
-            yield button
+        # for button in buttons:
+        #     yield button
+        yield from buttons
 
     def make_pyqt_buttons(self, modes: list=[]) -> Generator[dict, None, None]:
         """

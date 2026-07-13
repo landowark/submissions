@@ -68,7 +68,7 @@ class Discount(BaseClass):
     :vartype amount: float
     """
 
-    id = Column(INTEGER, primary_key=True)  #: primary key
+    id  = Column(INTEGER, primary_key=True)  #: primary key
     _proceduretype = relationship("ProcedureType")  #: joined parent proceduretype
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete='SET NULL',
                                                   name="fk_DIS_procedure_type_id"))  #: id of joined proceduretype
@@ -273,8 +273,7 @@ class SubmissionType(BaseClass):
                                  secondary=submissiontype_proceduretype)  #: Procedures associated with this submission type
     _info_sheets = Column(JSON, default=[])
     _sample_sheets = Column(JSON, default=[])
-    _procedure_sheets = Column(JSON, default=[])
-    _results_sheets = Column(JSON, default=[])
+    
 
     def __init__(self, *args, **kwargs):
         """
@@ -541,6 +540,7 @@ class SubmissionType(BaseClass):
         for proceduretype in self.proceduretype:
             for resultstype in proceduretype.resultstype:
                 yield dict(sheet=f"{proceduretype.name[:10]} {resultstype.name[:10]}", start_row=1)
+
 
 class ProcedureType(BaseClass):
     """
@@ -1257,6 +1257,7 @@ class Procedure(BaseClass):
         if not isinstance(value, list):
             value = [value]
         self.proceduresampleassociation = []  # Clear existing associations to prevent duplicates when resetting samples
+        seen = set()
         for iii, item in enumerate(value, start=1):
             match item:
                 case str():
@@ -1290,6 +1291,10 @@ class Procedure(BaseClass):
                     check = True
                 if check:
                     continue
+                key = (getattr(output.sample, "sample_id", None), output.procedure_rank)
+                if key in seen:
+                    continue
+                seen.add(key)
                 # Check for existing association by comparing all primary key values
                 if not self.already_in_collection(output, self.proceduresampleassociation):
                     self.proceduresampleassociation.append(output)
@@ -1684,9 +1689,9 @@ class Procedure(BaseClass):
             sql: Procedure = dlg.return_sql()
             sql.update_last_useds()
             # Use the edited PydProcedure from the dialog to populate SQL relationships
-            pyd = dlg.procedure
-            sql.sample = pyd.sample
-            sql.equipment = pyd.equipment
+            # pyd = dlg.procedure
+            # sql.sample = pyd.sample
+            # sql.equipment = pyd.equipment
             sql.save()
         obj.set_data()
 

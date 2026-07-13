@@ -19,7 +19,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, cast, func, select, or_
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, UniqueConstraint, cast, func, select, or_
 from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
@@ -2542,13 +2542,20 @@ class RunSampleAssociation(BaseClass):
 
 class ProcedureSampleAssociation(BaseClass):
 
-    id = Column(INTEGER, unique=True, nullable=False) #: Exists to connect with results
-    procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
-    sample_id = Column(INTEGER, ForeignKey("_sample.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated equipment
-    row = Column(INTEGER)
-    column = Column(INTEGER)
-    procedure_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
-    _comment = Column(JSON, nullable=True) #: comments on sample
+    # columns: id becomes the sole PK; the old composite becomes a UNIQUE constraint
+    id             = Column(INTEGER, primary_key=True, autoincrement=True)          # was: unique=True, nullable=False
+    procedure_id   = Column(INTEGER, ForeignKey("_procedure.id", ondelete="CASCADE"),  nullable=False)  # drop primary_key=True
+    sample_id      = Column(INTEGER, ForeignKey("_sample.id",    ondelete="RESTRICT"), nullable=False)  # drop primary_key=True
+    row            = Column(INTEGER)
+    column         = Column(INTEGER)
+    procedure_rank = Column(INTEGER, nullable=False, default=0)                     # drop primary_key=True
+    _comment       = Column(JSON, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("procedure_id", "sample_id", "procedure_rank",
+                        name="uq_proc_sample_rank"),
+        {"sqlite_autoincrement": True, "extend_existing": True},   # keep extend_existing from BaseClass
+    )
 
     _procedure = relationship(Procedure,
                              back_populates="proceduresampleassociation")  #: associated procedure
@@ -2691,10 +2698,8 @@ class ProcedureSampleAssociation(BaseClass):
             except Exception:
                 logger.error(f"Couldn't set results to {results} for {self.__class__.__qualname__} with name {self.name}")
         self.procedure_rank = procedure_rank
-        if new_id:
+        if new_id is not None:
             self.id = new_id
-        else:
-            self.id = self.__class__.autoincrement_id(procedure_rank=self.procedure_rank)
         self._comment = [] if self._comment is None else self._comment
     
     @hybrid_property

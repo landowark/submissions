@@ -102,17 +102,18 @@ class SearchBox(QDialog):
         self.results.setData(df=data)
 
     def return_selected_rows(self) -> Generator[dict, None, None]:
-        """
-        Yields data from selected rows
-
+        """Yields data from selected rows
+        
         Returns:
             dict: Dictionary of column name: data
         """
         rows = sorted(set(index.row() for index in self.results.selectedIndexes()))
-        for index in rows:
-            output = {column: self.results.model().data(self.results.model().index(index, ii)) for ii, column in
-                      enumerate(self.results.data.columns)}
-            yield output
+        
+        yield from [
+            {column: self.results.model().data(self.results.model().index(index, ii)) 
+            for ii, column in enumerate(self.results.data.columns)}
+            for index in rows
+        ]
 
 
 class FieldSearch(QWidget):
