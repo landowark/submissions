@@ -59,15 +59,15 @@ CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
 # 1. Generate single letters: ['A', 'B', ..., 'Z']
-single = list(ascii_uppercase)
+# single = list(ascii_uppercase)
 
-# 2. Generate double letters: ['AA', 'AB', ..., 'ZZ']
-double = [''.join(p) for p in iterproduct(ascii_uppercase, repeat=2)]
+# # 2. Generate double letters: ['AA', 'AB', ..., 'ZZ']
+# double = [''.join(p) for p in iterproduct(ascii_uppercase, repeat=2)]
 
 # 3. Combine and enumerate starting from index 1
-row_map = dict(enumerate(single + double, start=1))
-# 4. Reverse lookup. 
-row_keys = {v: k for k, v in row_map.items()}
+# row_map = dict(enumerate(single + double, start=1))
+# # 4. Reverse lookup. 
+# row_keys = {v: k for k, v in row_map.items()}
 
 # NOTE: Sets background for uneditable comboboxes and date edits.
 main_form_style = '''
@@ -418,23 +418,73 @@ def render_details_template(template: str | Template, css_in: List[str] | str = 
     return template.render(css=css_out, js=js_out, **kwargs)
 
 
-def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
+def convert_well_to_row_column(input_str: str) -> Tuple[int | None, int | None]:
     """
-    Converts typical alphanumeric (i.e. "A2") to row, column
-
+    Converts alphanumeric coordinates to 1-based row and column integers.
+    Will still return a row index if the column numbers are missing.
+    
     Args:
-        input_str (str): Input string. Ex. "A2"
-
+        input_str (str): Input string. Ex. "AA10" or "AA"
+        
     Returns:
-        Tuple[int, int]: row, column
+        Tuple[int | None, int | None]: (row, column) integers.
     """
-    row_keys = {v: k for k, v in row_map.items()}
-    try:
-        row = int(row_keys[input_str[0].upper()])
-        column = int(input_str[1:])
-    except IndexError:
+    # row_keys = {v: k for k, v in row_map.items()}
+    # try:
+    #     row = int(row_keys[input_str[0].upper()])
+    #     column = int(input_str[1:])
+    # except IndexError:
+    #     return None, None
+    # return row, column
+    # Match an arbitrary number of letters followed by an arbitrary number of digits
+    clean_str = input_str.strip()
+    if not clean_str:
         return None, None
+
+    # Match starting letters and optional trailing digits
+    match = rmatch(r"^([A-Za-z]+)([0-9]*)$", clean_str)
+    if not match:
+        return None, None
+        
+    row_str, col_str = match.groups()
+    
+    # Convert arbitrary row letters to a 1-based index (A=1, B=2, AA=27)
+    row = 0
+    for char in row_str.upper():
+        row = row * 26 + (ord(char) - ord('A') + 1)
+        
+    # Safely convert column if digits exist
+    column = int(col_str) if col_str else None
+    
     return row, column
+
+
+def convert_row_column_to_well(row: int, column: int|None=None) -> str | None:
+    """
+    Converts 1-based integer row and column coordinates back to an alphanumeric string.
+    
+    Args:
+        row (int): 1-based row index (e.g., 1, 27).
+        column (int | None): 1-based column index (e.g., 2, 10). Defaults to None
+        
+    Returns:
+        str | None: Alphanumeric coordinate string (e.g., "A2", "AA10"), 
+                    or None if inputs are invalid.
+    """
+    if not isinstance(row, int):
+        return None
+    # Guard against invalid 1-based indices
+    if row <= 0:
+        return None
+    if column is None or column <= 0:
+        column = ""
+    # Convert row integer back to Excel-style letters (base-26)
+    row_str = ""
+    while row > 0:
+        row, remainder = divmod(row - 1, 26)
+        row_str = chr(65 + remainder) + row_str
+        
+    return f"{row_str}{column}"
 
 
 def list_str_comparator(target_str: str, list_: List[str], mode: Literal["starts_with", "contains"] = "starts_with") -> bool:

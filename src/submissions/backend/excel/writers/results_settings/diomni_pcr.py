@@ -4,7 +4,7 @@ logger = getLogger(f"submissions.{__name__}")
 from . import DefaultSettings
 from csv import writer as csvwriter
 from frontend.widgets.functions import select_save_file
-from tools import row_map
+from tools import convert_row_column_to_well
 
 
 class DiomniPCRSettings(DefaultSettings):
@@ -50,7 +50,7 @@ class DiomniPCRSettings(DefaultSettings):
             for setting in self.settings:
                 output = [
                     self.proceduretype.get_well_index(row_idx=sample.row, col_idx=sample.column, direction="col"),
-                    f"{row_map[sample.row]}{sample.column}",
+                    convert_row_column_to_well(sample.row, sample.column),
                     sample.sample_id,
                     "",
                     "",

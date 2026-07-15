@@ -26,8 +26,8 @@ from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (
-    check_authorization, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
-    is_power_user, row_map, timezone, Report, get_application_from_parent, iterable_enforcer
+    check_authorization, convert_row_column_to_well, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
+    is_power_user, timezone, Report, get_application_from_parent, iterable_enforcer
 )
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
@@ -2734,13 +2734,14 @@ class ProcedureSampleAssociation(BaseClass):
   
     @property
     def well(self):
-        if self.row > 0:
-            if self.column > 0:
-                return f"{row_map[self.row]}{self.column}"
-            else:
-                return self.row
-        else:
-            return None
+        # if self.row > 0:
+        #     if self.column > 0:
+        #         return f"{row_map[self.row]}{self.column}"
+        #     else:
+        #         return self.row
+        # else:
+        #     return None
+        return convert_row_column_to_well(self.row, self.column)
 
     @classmethod
     def query(cls, sample: Sample | str | None = None, procedure: Procedure | str | None = None, limit: int = 0,

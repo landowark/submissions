@@ -3,12 +3,13 @@ Module for clientsubmission parsing
 """
 from __future__ import annotations
 from logging import getLogger
+
+from tools import convert_well_to_row_column
 logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime
 from string import ascii_lowercase
 from typing import Generator, TYPE_CHECKING, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
-from tools import row_keys
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
 from backend.validators import ClientSubmissionNamer
 if TYPE_CHECKING:
@@ -73,7 +74,7 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):
         for ii, sample in enumerate(output, start=1):
             try:
                 if isinstance(sample["row"], str) and sample["row"].lower() in ascii_lowercase[0:8]:
-                    sample["row"] = row_keys[sample["row"]]
+                    sample["row"] = convert_well_to_row_column(sample["row"])
             except KeyError:
                 pass
             sample['rank'] = ii

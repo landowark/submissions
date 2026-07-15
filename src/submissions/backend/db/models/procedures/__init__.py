@@ -7,7 +7,6 @@ for flexible input types.
 """
 from __future__ import annotations
 from logging import getLogger
-import sys
 logger = getLogger(f"submissions.{__name__}")
 from jinja2 import Template
 from json import loads as jloads, JSONDecodeError
@@ -21,7 +20,7 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
-from tools import check_authorization, setup_lookup, flatten_list, timezone
+from tools import check_authorization, iterable_enforcer, setup_lookup, flatten_list, timezone
 from typing import Any, Generator, Iterator, List, TYPE_CHECKING
 from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
@@ -1255,8 +1254,7 @@ class Procedure(BaseClass):
     def sample(self, value):
         from ..submissions import ProcedureSampleAssociation, Sample
         from backend.validators.pydant import PydSample, PydProcedureSampleAssociation
-        if not isinstance(value, list):
-            value = [value]
+        value = iterable_enforcer(value)
         self.proceduresampleassociation = []  # Clear existing associations to prevent duplicates when resetting samples
         seen = set()
         for iii, item in enumerate(value, start=1):

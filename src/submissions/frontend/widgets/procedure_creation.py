@@ -76,9 +76,6 @@ class ProcedureCreation(DefaultWebDialog):
             yield output
 
     def set_html(self):
-        if not check_if_app():
-            with open("proceduretype.json", "w") as f:
-                jdump(self.proceduretype_dict, f, default=str, indent=4)
         html = render_details_template(
             template="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],

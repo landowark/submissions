@@ -27,9 +27,9 @@ class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
         start_row += 1
         self.start_row = start_row + 1
         try:
-            self.worksheet = workbook[self.sheet]
+            self.worksheet = workbook[self.write_sheet]
         except KeyError:
-            self.worksheet = workbook.create_sheet(title=self.sheet)
+            self.worksheet = workbook.create_sheet(title=self.write_sheet)
         for df in self.create_results_dataframes():
             rows = dataframe_to_rows(df, index=False)
             cell = self.worksheet.cell(row=start_row, column=1, value=df.caption)
@@ -52,7 +52,6 @@ class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
         """
         
         sheets = {key for obj in self.pydant_obj for key in obj.result.keys()}
-        logger.debug(sheets)
         for sheet in sheets:
             all_rows = []
             for obj in self.pydant_obj:

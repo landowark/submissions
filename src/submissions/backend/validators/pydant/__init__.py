@@ -15,7 +15,7 @@ from pydantic.fields import FieldInfo
 from datetime import date, datetime
 from typing import Any, Generator, List, Generic, TypeVar, Annotated, get_args, get_origin
 from types import UnionType
-from tools import classproperty, row_keys, DotDict, sort_dict_by_list, jinja_env
+from tools import classproperty, DotDict, convert_well_to_row_column, sort_dict_by_list, jinja_env
 from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
@@ -423,7 +423,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             if key == "row" and isinstance(value, str):
                 if value.lower() in ascii_lowercase[0:8]:
                     try:
-                        value = row_keys[value]
+                        value, _ = convert_well_to_row_column(value)
                     except KeyError:
                         pass
                 object.__setattr__(self, key, value)

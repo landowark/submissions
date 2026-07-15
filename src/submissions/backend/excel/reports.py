@@ -8,7 +8,7 @@ from pandas import DataFrame, ExcelWriter, to_numeric
 from pathlib import Path
 from datetime import date
 from typing import Generator, Tuple, List, TYPE_CHECKING
-from tools import find_paths_to_value, get_first_blank_df_row, row_map, convert_strings, jinja_env
+from tools import convert_row_column_to_well, find_paths_to_value, get_first_blank_df_row, convert_strings, jinja_env
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 if TYPE_CHECKING:
@@ -147,7 +147,7 @@ class ReportMaker(object):
                 logger.exception(f"Couldn't resize column {col} due to {e}")
         blank_row = get_first_blank_df_row(self.summary_df) + 1
         for col in range(3, 6):
-            col_letter = row_map[col]
+            col_letter = convert_row_column_to_well(col)
             worksheet.cell(row=blank_row, column=col, value=f"=SUM({col_letter}2:{col_letter}{str(blank_row - 1)})")
         for cell in worksheet['D']:
             if cell.row > 1:

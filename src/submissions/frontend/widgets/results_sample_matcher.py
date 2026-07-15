@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (QDialog, QGridLayout, QDialogButtonBox)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import pyqtSlot
-from tools import render_details_template, row_keys
+from tools import convert_well_to_row_column, render_details_template
 if TYPE_CHECKING:
     from backend.db.models import Procedure
 
@@ -47,8 +47,9 @@ class ResultsSampleMatcher(QDialog):
         if ":" in sample:
             sample_id = sample.split(":")[0]
             well = sample.split(":")[1]
-            row = row_keys[well[0]]
-            column = int(well[1:])
+            # row = row_keys[well[0]]
+            # column = int(well[1:])
+            row, column = convert_well_to_row_column(well)
         else:
             row = None
             column = None
@@ -79,8 +80,9 @@ class ResultsSampleMatcher(QDialog):
         if ":" in sample:
             sample_id = sample.split(":")[0]
             well = sample.split(":")[1]
-            row = row_keys[well[0]]
-            column = int(well[1:])
+            # row = row_keys[well[0]]
+            # column = int(well[1:])
+            row, column = convert_well_to_row_column(well)
         else:
             row = None
             column = None 
