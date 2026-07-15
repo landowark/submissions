@@ -42,9 +42,16 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        # addendum = ["", "--New--"]
-        object_list = [dict(name="", active=True)] + sorted([dict(name=item.name, active=item.is_active) for item in self.sql_type.query() 
-                                                             if item.name != "Default SubmissionType"], key=itemgetter("active"), reverse=True)
+        q = self.sql_type.query()
+        if q is not None:
+            objects = sorted(
+                [dict(name=item.name, active=item.is_active) for item in q if item.name != "Default SubmissionType"], key=itemgetter("active"), reverse=True)
+        else:
+            objects = []
+        object_list = [
+            dict(name="", active=True), 
+            dict(name="--New--", active=True)
+            ] + objects
         object_name = self.sql_type.__name__
         html = render_details_template("managers/default_manager", js_in=['manager'], object_name=object_name, object_list=object_list)
         self.webview.setHtml(html)

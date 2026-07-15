@@ -26,7 +26,6 @@ class ConcentrationViewer(PosNegPane):
         try:
             self.report_obj = ConcentrationMaker(**self.chart_settings)
         except (TypeError,  AttributeError) as e:
-            logger.exception(f"Error creating chart {e}")
             self.report_obj = None
         if self.report_obj is None or self.report_obj.df.empty:
             self.webview.setHtml("<h3>No data available for the selected date range and control types.</h3>")

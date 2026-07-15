@@ -15,7 +15,7 @@ from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, Report, find_first_matching_dict, row_keys, sort_dict_by_list, ensure_list
+from tools import Alert, Report, find_first_matching_dict, iterable_enforcer, row_keys, sort_dict_by_list, ensure_list
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -69,6 +69,10 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
             output['sample_id'] = self.sample.name if isinstance(self.sample, PydSample) else self.sample
         return output
 
+    @property
+    def write_sheet_name(self) -> str:
+        return self.sql_instance.write_sheet_name
+
     def to_sql(self):
         from backend.db.models import Results
         lookup = dict(resultstype=self.resultstype, result=self.result)
@@ -84,8 +88,8 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
         if not sql.date_analyzed:
             sql.date_analyzed = self.date_analyzed
         sql.procedure = self.procedure
-        logger.debug(f"Sample going into to_sql: {self.sample}")
         if self.sample:
+            sql.is_sample = True
             sql.sampleprocedureassociation = self.sample
             if sql.sampleprocedureassociation is None:
                 logger.warning(f"Sample {self.sample} has no sampleprocedureassociation for procedure {self.procedure}")
@@ -326,8 +330,8 @@ class PydSample(PydConcrete):
             logger.exception(f"Failed to set is_control={self.is_control} on {self.sql_instance}")
         return self.sql_instance, None
 
-    @classmethod
-    def is_sample_id_valid(cls, sample: str | PydSample | dict) -> bool:
+    @staticmethod
+    def is_sample_id_valid(sample) -> bool:
         match sample:
             case PydSample():
                 sample_id = sample.sample_id
@@ -335,7 +339,7 @@ class PydSample(PydConcrete):
                 sample_id = sample.get('sample_id', '')
             case str():
                 sample_id = sample
-            case PydProcedureSampleAssociation():
+            case PydProcedureSampleAssociation() | PydClientSubmissionSampleAssociation():
                 sample_id = sample.sample
             case _:
                 logger.warning(f"{type(sample)} is not a valid type")
@@ -440,6 +444,7 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
             output.active = self.active
         assert output.active == int(self.active), f"SQL.active = {output.active}, PYD.active = {int(self.active)}"
         return output
+
 
 class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     
@@ -908,8 +913,9 @@ class PydClientSubmission(PydConcrete):
                          'clientsubmissionsampleassociation',
                          'endrow', 
                          "abbreviation",
-                         "full_batch_size", "name"
+                         "full_batch_size", "name", "sql_instance", "new"
                          ],
+            "recover": ['filepath', 'sample', 'csv', 'comment', 'equipment', 'run'],
             "key_value_order": ["submitter_plate_id",
                        "submitted_date",
                        "clientlab",
@@ -1173,14 +1179,15 @@ class PydRun(PydConcrete):
     started_date:      SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=datetime.now(), missing=True))
     completed_date:    SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     comment: SourcedField[list] = Field(default_factory=lambda: SourcedField(value=[], missing=True))
-    sample: Annotated[List[PydSample] | Generator, AfterValidator(ensure_list), RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
+    sample: Annotated[List[PydSample] | Generator, AfterValidator(iterable_enforcer), RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
     run_cost:          SourcedField[float]    = Field(default_factory=lambda: SourcedField(value=0.0, missing=True))
     signed_by:         SourcedField[str]      = Field(default_factory=lambda: SourcedField(value="", missing=True))
     procedure: Annotated[List[PydProcedure] | Generator, RelationshipField(uselist=True)] = Field(default=[], repr=False)
 
     model_config = ConfigDict(
         json_schema_extra = {
-            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath", "uploaded_by", "comment"]
+            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath", "uploaded_by", "comment"],
+            "recover": ['sample', 'comment']
         }
     )
 
@@ -1287,6 +1294,7 @@ class PydRun(PydConcrete):
 
     def to_sql(self, update: bool = True):
         from backend.db.models import Run
+        logger.debug(list(self.sample))
         self.sql_instance: Run = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
@@ -1297,10 +1305,10 @@ class PydRun(PydConcrete):
         self.sql_instance.completed_date = self.completed_date.value
         self.sql_instance.signed_by      = self.signed_by.value
         self.sql_instance.run_cost       = self.run_cost.value
-        self.sql_instance.sample = [
-            s for s in self.sample if s.__class__.__name__ == "PydSample" and
-            s.__class__.is_sample_id_valid(s)
-        ]
+        samples = [s for s in self.sample if PydSample.is_sample_id_valid(s)]
+        # As of here, there, samples == []
+        logger.debug(f"Samples before setting: {pformat(samples)}")
+        self.sql_instance.sample = samples
         return self.sql_instance, None
 
     @property
@@ -1392,7 +1400,8 @@ class PydTipsLot(PydConcrete):
             output.active = self.active
         assert output.active == int(self.active), f"SQL.active = {output.active}, PYD.active = {int(self.active)}"
         return output
-    
+
+
 class PydProcedureSampleAssociation(PydConcrete):
 
     row: int = Field(default=0)

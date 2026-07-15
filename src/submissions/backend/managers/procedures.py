@@ -117,7 +117,8 @@ class DefaultProcedureManager(DefaultManager):
             info_result = parents['info']
             try:
                 info_result = info_result.to_pydantic()
-            except AttributeError:
+            except AttributeError as e:
+                logger.exception(e)
                 info_result = None
             if info_result is not None:
                 try:

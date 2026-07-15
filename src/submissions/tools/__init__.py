@@ -2,6 +2,7 @@
 Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
+from collections.abc import Iterable
 from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
 logger = getLogger(f"submissions.{__name__}")
 from html import escape as html_escape
@@ -384,7 +385,7 @@ def jinja_template_loading() -> Environment:
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     env.filters['get_type'] = get_type
-    env.filters['extract_value'] = handle_results
+    # env.filters['extract_value'] = handle_results
     env.filters['sanitize'] = sanitize_object_for_json
     env.filters['handle_key'] = handle_keys
     env.filters['handle_results'] = handle_results
@@ -434,9 +435,6 @@ def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
     except IndexError:
         return None, None
     return row, column
-
-
-
 
 
 def list_str_comparator(target_str: str, list_: List[str], mode: Literal["starts_with", "contains"] = "starts_with") -> bool:
@@ -897,29 +895,37 @@ def handle_keys(key:str) -> str:
     return key
 
 
-def handle_results(input_value:dict|str) -> str:
+def handle_results(input_value:dict|str, html: bool=True, keep_iso: bool = False) -> str|None:
     if isinstance(input_value, dict):
         input_value = input_value.get("value", input_value)
-    
     match input_value:
         case bool():
             output = str(input_value).title()
         case str() | int() | float():
-            output = html_escape(str(input_value))
+            output = str(input_value)
+            if html:
+                output = html_escape(output)
         case datetime() | date():
-            output = input_value.isoformat(timespec='hours').split("T")[0]
+            output = input_value.isoformat(timespec='minutes')
+            if not html:
+                output = output.split("T")[0]
+            elif not keep_iso:
+                output = output.split("T")[0]
         case None:
             output = html_escape("NA")
         case _:
+            if not input_value:
+                return None
             try:
-                output = f"<pre>{html_escape(jdumps(input_value, indent=4))}</pre>"
+                output = jdumps(input_value, indent=4)
             except (TypeError, ValueError):
                 logger.error(f"Could not convert {input_value} to json for display. Displaying as string instead.")
-                output = f"{html_escape(str(input_value))}"
-            
+                output = str(input_value)
+            if html:
+                f"<pre>{html_escape(output)}</pre>"
     output = rsub(r'[{}]|&quot;|,', '', output)
     return output
-    
+
 
 def sanitize_object_for_json(input_obj):
 
@@ -936,6 +942,13 @@ def sanitize_object_for_json(input_obj):
         case _:
             return input_obj
 
+def iterable_enforcer(value) -> list:
+        if value is None:
+            return []
+        if isinstance(value, Iterable):
+            if not isinstance(value, str):
+                return list(value)    
+        return [value]
 
 _MISC_INFO_INTERNAL_MARKERS = ("AssociationProxy", "sa_instance_state", "_sa_")
 

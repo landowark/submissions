@@ -454,7 +454,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             try:
                 return value['value']
             except KeyError as e:
-                logger.exception(f"Could not filter {key} with value {value}")
+                # logger.exception(f"Could not filter {key} with value {value}")
                 return None
         return value
 
@@ -1175,6 +1175,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         config['excluded'] = config.get("excluded", ["excluded"])
         config['key_value_order'] = config.get("key_value_order", [])
         config['write_sheet'] = config.get('write_sheet', cls._sql_name)
+        config['recover'] = config.get('recover', [])
         return DotDict(config)
 
     @classproperty

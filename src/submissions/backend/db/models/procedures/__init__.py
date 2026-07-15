@@ -7,6 +7,7 @@ for flexible input types.
 """
 from __future__ import annotations
 from logging import getLogger
+import sys
 logger = getLogger(f"submissions.{__name__}")
 from jinja2 import Template
 from json import loads as jloads, JSONDecodeError
@@ -1687,11 +1688,9 @@ class Procedure(BaseClass):
             # does not update results, so avoid re-binding the old list back onto
             # the SQL instance.
             sql: Procedure = dlg.return_sql()
+            logger.debug(pformat(sql.proceduresampleassociation))
             sql.update_last_useds()
             # Use the edited PydProcedure from the dialog to populate SQL relationships
-            # pyd = dlg.procedure
-            # sql.sample = pyd.sample
-            # sql.equipment = pyd.equipment
             sql.save()
         obj.set_data()
 
@@ -1769,7 +1768,7 @@ class Procedure(BaseClass):
         output['equipment'] = [equipment.details_dict for equipment in self.procedureequipmentassociation]
         output['repeat'] = self.repeat
         output['run'] = self.run.name
-        output['excluded'] += self.get_default_info("details_ignore")
+        # output['excluded'] += self.get_default_info("details_ignore")
         output['sample_count'] = len(active_samples)
         output['comment'] = self.comment
         try:
@@ -1804,7 +1803,7 @@ class Procedure(BaseClass):
 
         sample_list = []
         for assoc in self.proceduresampleassociation:
-            sample = assoc.sample.to_pydantic() if hasattr(assoc.sample, "to_pydantic") else assoc.sample
+            sample = assoc.to_pydantic() if hasattr(assoc, "to_pydantic") else assoc
             if isinstance(sample, PydSample):
                 sample.row = assoc.row
                 sample.column = assoc.column
@@ -1815,6 +1814,8 @@ class Procedure(BaseClass):
         # Build a PydProcedureType instance and attach expanded relationship
         # dicts (reagentrole/equipmentrole) to its model_extra. Mark which
         # roles are already present on this Procedure with a 'filled' flag.
+        # As of right here, sample list is correct
+        
         try:
             pyd_proc_type = self.proceduretype.to_pydantic()
             expanded = pyd_proc_type.improved_dict_expand_fields([
@@ -1828,6 +1829,7 @@ class Procedure(BaseClass):
             logger.error(f"Couldn't build expanded proceduretype for {self.__class__.__qualname__} with name {self.name}")
             logger.exception(f"Error: {e}")
             pyd_proc_type = self.proceduretype.to_pydantic() if hasattr(self.proceduretype, 'to_pydantic') else self.proceduretype
+        print(f"\n\n{self.started_date}\n\n")
         output = dict(
             proceduretype=pyd_proc_type,
             run=self.run.to_pydantic(),
@@ -1845,40 +1847,40 @@ class Procedure(BaseClass):
         pyd = PydProcedure(**output)
         return pyd
 
-    @classmethod
-    def get_default_info(cls, *args) -> dict | list | str:
-        """
-        Return default field visibility and serialization settings.
+    # @classmethod
+    # def get_default_info(cls, *args) -> dict | list | str:
+    #     """
+    #     Return default field visibility and serialization settings.
 
-        :param args: Specific keys to filter in the returned dictionary.
-        :type args: tuple
-        :return: Default metadata configuration for this class.
-        :rtype: dict | list | str
-        """
-        dicto = super().get_default_info()
-        recover = ['filepath', 'sample', 'csv', 'comment', 'equipment']
-        dicto.update(dict(
-            details_ignore=['excluded', 'reagents', 'sample', 'extraction_info', 'comment', 'barcode',
-                            'platemap', 'export_map', 'equipment', 'tips', 'custom', 'reagentlot', 'reagent_lot',
-                            "results", "proceduresampleassociation", "sample",
-                            "procedurereagentlotassociation",
-                            "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
-                            "tips", "control"],
-            # NOTE: Fields not placed in ui form
-            form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
-                         'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
-                         'control', "origin_plate"] + recover,
-            # NOTE: Fields not placed in ui form to be moved to pydantic
-            form_recover=recover
-        ))
-        if args:
-            if len(args) > 1:
-                output = {k: v for k, v in dicto.items() if k in args}
-            else:
-                output = dicto[args[0]]
-        else:
-            output = {k: v for k, v in dicto.items()}
-        return output
+    #     :param args: Specific keys to filter in the returned dictionary.
+    #     :type args: tuple
+    #     :return: Default metadata configuration for this class.
+    #     :rtype: dict | list | str
+    #     """
+    #     dicto = super().get_default_info()
+    #     recover = ['filepath', 'sample', 'csv', 'comment', 'equipment']
+    #     dicto.update(dict(
+    #         details_ignore=['excluded', 'reagents', 'sample', 'extraction_info', 'comment', 'barcode',
+    #                         'platemap', 'export_map', 'equipment', 'tips', 'custom', 'reagentlot', 'reagent_lot',
+    #                         "results", "proceduresampleassociation", "sample",
+    #                         "procedurereagentlotassociation",
+    #                         "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
+    #                         "tips", "control"],
+    #         # NOTE: Fields not placed in ui form
+    #         form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
+    #                      'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
+    #                      'control', "origin_plate"] + recover,
+    #         # NOTE: Fields not placed in ui form to be moved to pydantic
+    #         form_recover=recover
+    #     ))
+    #     if args:
+    #         if len(args) > 1:
+    #             output = {k: v for k, v in dicto.items() if k in args}
+    #         else:
+    #             output = dicto[args[0]]
+    #     else:
+    #         output = {k: v for k, v in dicto.items()}
+    #     return output
 
     @property
     def submissiontype(self):
@@ -2292,6 +2294,14 @@ class Results(BaseClass):
         if value is None:
             value = False
         self._is_sample = int(value)
+
+    @property
+    def proceduretype(self) -> ProcedureType:
+        return self.procedure.proceduretype
+
+    @property
+    def write_sheet_name(self) -> str:
+        return f"{self.proceduretype.name[:10]} {self.resultstype.name[:10]}"
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)

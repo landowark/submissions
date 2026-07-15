@@ -30,11 +30,11 @@
                     {% endfor %}
                   </select><br><br>
                   <label for="started_dated">Started Date:</label><br>
-                  <input type="datetime-local" id="started_date" class="form_text" value="{{ procedure['started_date']  | handle_results }}"><br>
+                  <input type="datetime-local" id="started_date" class="form_text" value="{{ procedure['started_date'] | handle_results(keep_iso=True) }}"><br>
                   {% if edit %}
                     <br>
                     <label for="completed_date">Completed date:</label><br>
-                    <input type="datetime-local" id="completed_date" class="form_text" value="{{ procedure['completed_date'] | handle_results }}"><br>
+                    <input type="datetime-local" id="completed_date" class="form_text" value="{{ procedure['completed_date'] | handle_results(keep_iso=True) }}"><br>
                   {% endif %}
                   {% if proceduretype['reagentrole'] %}
                     <br>

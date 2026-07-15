@@ -4,6 +4,7 @@ Models for the main procedure and sample types.
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
+from pydantic import BaseModel
 from getpass import getuser
 from itertools import chain
 from types import GeneratorType, NoneType
@@ -24,8 +25,10 @@ from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from tools import (check_authorization, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
-                   is_power_user, row_map, timezone, Report, get_application_from_parent)
+from tools import (
+    check_authorization, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
+    is_power_user, row_map, timezone, Report, get_application_from_parent, iterable_enforcer
+)
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
 from typing import Generator, List, TYPE_CHECKING, Literal, Set
@@ -531,13 +534,13 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def add_run(self, obj):
         from frontend.widgets.sample_checker import SampleChecker
-        samples = [assoc.sample.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
+        samples = [assoc.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
+        logger.debug(f"Initial samples: {pformat(samples)}")
         run = Run.construct_dummy_run(clientsubmission=self)
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, run=run)
         if checker.exec():
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             try:
-                
                 # Rank the selected pydantic samples, then convert them back to SQL Sample
                 selected_samples = []
                 for iii, sample in enumerate(samples, start=1):
@@ -546,11 +549,17 @@ class ClientSubmission(BaseClass, LogMixin):
                         continue
                     else:
                         sample = self.rank_sample(sample, iii)
+                        logger.debug(f"Sample coming out of rank: {sample}")
                         selected_samples.append(sample)
-                run.sample = selected_samples
+                
+                run.sample = [s for s in selected_samples]
+                logger.debug(pformat(list(run.sample)))
+
                 run = run.to_sql()
+                
                 if isinstance(run, tuple):
                     run = run[0]
+                logger.debug(list(run.sample))
                 run.save()
             finally:
                 QApplication.restoreOverrideCursor()
@@ -849,11 +858,12 @@ class Run(BaseClass, LogMixin):
     
     @sample.setter
     def sample(self, value):
-        from backend.validators.pydant import PydSample
-        if not isinstance(value, list):
-            value = [value]
+        from backend.validators.pydant import PydSample, PydClientSubmissionSampleAssociation
+        value = iterable_enforcer(value)
+        logger.debug(f"Value coming in to sample: {value}")
         list_ = []
         for iii, item in enumerate(value):
+            logger.debug(f"Checking item: {item}")
             match item:
                 case str():
                     try:
@@ -866,6 +876,9 @@ class Run(BaseClass, LogMixin):
                     output = RunSampleAssociation(sample=sam, run=self, rank = item.get("rank", iii), **{k: v for k, v in item.items() if k not in ['sample_id', 'rank']})
                 case PydSample():
                     output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii), **{k: v for k, v in item.__dict__.items() if k not in ['sample_id', 'rank']})
+                case PydClientSubmissionSampleAssociation():
+                    logger.debug(f"Received PydClientSubmissionSampleAssociation: {item}")
+                    output = RunSampleAssociation(run=self, rank = getattr(item, "rank", iii), **{k: v for k, v in item.__dict__.items() if k not in ['sample_id', 'rank']})
                 case Sample():
                     output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii))#, **{k: v for k, v in item.__dict__.items() if k not in ['name', 'rank']})
                 case RunSampleAssociation():
@@ -986,63 +999,6 @@ class Run(BaseClass, LogMixin):
     @hybrid_property
     def run_cost(self):
         return self._run_cost
-
-    @classmethod
-    def get_default_info(cls, *args, submissiontype: SubmissionType | None = None) -> dict:
-        """
-        Gets default info from the database for a given procedure type.
-
-        Args:
-            *args (): List of fields to get
-            submissiontype (SubmissionType): the procedure type of interest. Necessary due to generic procedure types.
-
-        Returns:
-            dict: Default info
-
-        """
-        # NOTE: Create defaults for all proceduretype
-        # NOTE: Singles tells the query which fields to set limit to 1
-        dicto = super().get_default_info()
-        recover = ['filepath', 'sample', 'csv', 'comment', 'equipment', 'run']
-        dicto.update(dict(
-            details_ignore=['excluded', 'reagents', 'sample',
-                            'extraction_info', 'comment', 'barcode',
-                            'platemap', 'export_map', 'equipment', 'tips', 'custom'],
-            # NOTE: Fields not placed in ui form
-            form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
-                         'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
-                         'control', "origin_plate", "new", "sql_instance", "name", "full_batch_size", "sample_count"] + recover,
-            # NOTE: Fields not placed in ui form to be moved to pydantic
-            form_recover=recover
-        ))
-        # NOTE: Grab mode_sub_type specific info.
-        if args:
-            output = {k: v for k, v in dicto.items() if k in args}
-        else:
-            output = {k: v for k, v in dicto.items()}
-        if isinstance(submissiontype, SubmissionType):
-            st = submissiontype
-        else:
-            st = cls.get_submission_type(submissiontype)
-        if st is None:
-            pass
-        else:
-            output['submissiontype'] = st.name
-            for k, v in st.defaults.items():
-                if args and k not in args:
-                    continue
-                else:
-                    match v:
-                        case list():
-                            output[k] += v
-                        case _:
-                            output[k] = v
-        if len(args) == 1:
-            try:
-                return output[args[0]]
-            except KeyError as e:
-                raise KeyError(f"{args[0]} not found in {output}")
-        return output
 
     @classmethod
     def get_submission_type(cls, submissiontype: str | SubmissionType | None = None) -> SubmissionType:
@@ -1637,8 +1593,9 @@ class Sample(BaseClass, LogMixin):
     
     @clientsubmission.setter
     def clientsubmission(self, value):
-        if not isinstance(value, list):
-            value = [value]
+        # if not isinstance(value, list):
+        #     value = [value]
+        value = iterable_enforcer(value)
         list_ = []
         for item in value:
             match item:
@@ -1672,8 +1629,9 @@ class Sample(BaseClass, LogMixin):
     @run.setter
     def run(self, value):
         from backend.db.models import Run
-        if not isinstance(value, list):
-            value = [value]
+        # if not isinstance(value, list):
+        #     value = [value]
+        value = iterable_enforcer(value)
         list_ = []
         for item in value:
             match item:
@@ -1706,8 +1664,9 @@ class Sample(BaseClass, LogMixin):
     
     @procedure.setter
     def procedure(self, value):
-        if not isinstance(value, list):
-            value = [value]
+        # if not isinstance(value, list):
+        #     value = [value]
+        value = iterable_enforcer(value)
         list_ = []
         for item in value:
             match item:
@@ -2050,6 +2009,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output['misc_info'] = misc
         output['rank'] = self.submission_rank
         output['comment'] = self.comment
+        output['sample'] = self.sample.sample_id
         return output
 
     @classmethod
@@ -2169,7 +2129,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
                 query_kwarg="clientsubmission", ctor_kwarg="submission", sample=sample, id=id, **kwargs
             )
 
-
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
@@ -2203,6 +2162,11 @@ class ClientSubmissionSampleAssociation(BaseClass):
             comment = dlg.parse_form()
             self.comment = comment
             self.save(original=False)
+
+    def to_pydantic(self, **kwargs) -> BaseModel:
+        output = super().to_pydantic(**kwargs)
+        output.rank = self.submission_rank
+        return output
 
 
 class RunSampleAssociation(BaseClass):
@@ -2739,10 +2703,11 @@ class ProcedureSampleAssociation(BaseClass):
     def results(self, value):
         from backend.validators.pydant import PydResults
         from backend.db.models import Results
-        if value is None:
-            value = []
-        if not isinstance(value, list):
-            value = [value]
+        # if value is None:
+        #     value = []
+        # if not isinstance(value, list):
+        #     value = [value]
+        value = iterable_enforcer(value)
         list_ = []
         for item in value:
             match item:
@@ -2854,6 +2819,7 @@ class ProcedureSampleAssociation(BaseClass):
                     output.background_color = "#66ff66"
                 else:
                     output.background_color = "white"
+        output.rank = self.procedure_rank
         return output
 
     def save(self):

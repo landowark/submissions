@@ -26,7 +26,10 @@ class DefaultWriter(object):
 
     def __init__(self, pydant_obj, *args, **kwargs):
         self.pydant_obj = pydant_obj
-        self.write_sheet = pydant_obj.class_config.write_sheet
+        if isinstance(self.pydant_obj, list):
+            self.write_sheet = pydant_obj[0].class_config.write_sheet
+        else:
+            self.write_sheet = pydant_obj.class_config.write_sheet
         
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs):
@@ -117,11 +120,11 @@ class DefaultKEYVALUEWriter(DefaultWriter):
                           start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row)
         for ii, (k, v) in enumerate(self.fill_dictionary.items(), start=self.start_row):
-            value = handle_results(v)
+            self.worksheet.cell(column=1, row=ii, value=handle_keys(k))
+            value = handle_results(v, html=False)
             if value is None:
                 continue
-            self.worksheet.cell(column=1, row=ii, value=handle_keys(k))
-            self.worksheet.cell(column=2, row=ii, value=handle_results(value))
+            self.worksheet.cell(column=2, row=ii, value=value)
         self.worksheet = self.postwrite(self.worksheet)
         
         return workbook
@@ -184,7 +187,10 @@ class DefaultTABLEWriter(DefaultWriter):
         rows = dataframe_to_rows(df, index=False, header=True)
         for r_idx, row in enumerate(rows, start_row + 1 ):
             for c_idx, value in enumerate(row, 1):
-                self.worksheet.cell(row=r_idx, column=c_idx, value=handle_results(value))
+                value = handle_results(value, html=False)
+                if value is None:
+                    continue
+                self.worksheet.cell(row=r_idx, column=c_idx, value=value)
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
 

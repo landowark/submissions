@@ -465,22 +465,6 @@ class BaseClass(Base):
         return output
 
     @classmethod
-    def get_default_info(cls, *args) -> dict | list | str:
-        """
-        Get default metadata information for this model.
-        
-        Returns default configuration including singleton fields that should be 
-        limited to single results in queries.
-
-        :param args: Variable-length argument list containing keys to extract 
-                     (e.g., 'singles' to get singleton field names).
-        :return: Dictionary of defaults or specific extracted value.
-        :rtype: dict | list | str
-        """
-        # NOTE: singles is a list of fields that need to be limited to 1 result.
-        return dict(singles=list(set(cls.singles + BaseClass.singles)))
-
-    @classmethod
     def fuzzy_search(cls, **kwargs) -> List[Any]:
         """
         Perform a fuzzy search on this model using wildcard matching.
@@ -638,7 +622,7 @@ class BaseClass(Base):
         return cls.execute_query(**kwargs)
 
     @classmethod
-    @trace
+    # @trace
     def execute_query(cls, query: Query = None, limit: int = 0, offset: int | None = None,
                       **kwargs) -> Any | List[Any]:
         """
@@ -927,7 +911,7 @@ class BaseClass(Base):
             try:
                 return super().__setattr__(key, value)
             except AttributeError as e:
-                logger.exception(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
+                logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
                 
     @classmethod
     def get_relationship_sqlclass(cls, key: str) -> BaseClass | None:

@@ -197,7 +197,7 @@ class SubmissionFormWidget(QWidget):
     
     def __init__(self, parent: QWidget, pyd: PydClientSubmission, disable: list | None = None) -> None:
         super().__init__(parent)
-        from backend.db.models import Run, SubmissionType
+        from backend.db.models import SubmissionType
         if disable is None:
             disable = []
         self.app = get_application_from_parent(parent)
@@ -205,12 +205,11 @@ class SubmissionFormWidget(QWidget):
         # NOTE: pyd contains run up to this point.
         self.missing_info = []
         self.submissiontype = SubmissionType.query(name=self.pyd.submissiontype.get('value'))
-        defaults = Run.get_default_info("form_recover", "form_ignore", submissiontype=self.pyd.submissiontype.get('value'))
-        self.recover = defaults['form_recover']
-        self.ignore = defaults['form_ignore']
         self.layout = QVBoxLayout()
+        self.excluded = self.pyd.class_config.excluded + ["sample_count"]
+        self.recover = self.pyd.class_config.recover
         for k in list(self.pyd.__class__.model_fields.keys()):
-            if k in self.ignore:
+            if k in self.excluded:
                 # logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue
             try:
@@ -255,7 +254,7 @@ class SubmissionFormWidget(QWidget):
         from backend.db.models import SubmissionType
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
-        if key not in self.ignore:
+        if key not in self.excluded:
             return self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
                                            clientsubmission_object=clientsubmission_object, disable=disable)
         return None
@@ -299,8 +298,7 @@ class SubmissionFormWidget(QWidget):
                 info[field] = value
         for item in self.recover:
             if hasattr(self, item):
-                value = getattr(self, item)
-                info[item] = value
+                info[item] = getattr(self, item, None)
         for k, v in info.items():
             self.pyd.__setattr__(k, v)
         report.add_result(report)
@@ -323,6 +321,8 @@ class SubmissionFormWidget(QWidget):
                 self.missing: bool = value.missing
             except (TypeError, KeyError):
                 self.missing: bool = True
+            except AttributeError as e:
+                raise AttributeError(f"Attribute error for {key}: {value}")
             try:
                 self.location: dict|None = value['location']
             except (TypeError, KeyError):
@@ -414,8 +414,11 @@ class SubmissionFormWidget(QWidget):
                     if value in categories:
                         add_widget.setCurrentIndex(categories.index(value))
                 case _:
-                    
-                    field_type = ClientSubmission.determine_field_type(key)
+                    try:
+                        field_type = ClientSubmission.determine_field_type(key)
+                    except AttributeError as e:
+                        logger.error(f"Could not get fieldtype for {key}")
+                        field_type = "Invalid"
                     match field_type:
                         case "TIMESTAMP":
                             add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
