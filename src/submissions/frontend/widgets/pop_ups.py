@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog,
     QDialogButtonBox, QMessageBox, QComboBox
 )
+from tools import AlertStatus
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from typing import Literal, Any
 
@@ -38,14 +39,13 @@ class AlertPop(QMessageBox):
     Dialog to show an alert.
     """
 
-    def __init__(self, message: str, status: Literal['Information', 'Question', 'Warning', 'Critical'],
-                 owner: str | None = None):
+    def __init__(self, message: str, status: AlertStatus, owner: str | None = None):
         super().__init__()
         # NOTE: select icon by string
-        icon = getattr(QMessageBox.Icon, status)
+        icon = getattr(QMessageBox.Icon, status.value)
         self.setIcon(icon)
         self.setInformativeText(message)
-        self.setWindowTitle(f"{owner} - {status.title()}")
+        self.setWindowTitle(f"{owner} - {status.value}")
 
 
 class HTMLPop(QDialog):

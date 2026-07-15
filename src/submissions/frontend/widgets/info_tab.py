@@ -8,7 +8,7 @@ from datetime import date, datetime
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
-from tools import Report, Alert
+from tools import AlertStatus, Report, Alert
 from .misc import CheckableComboBox, StartEndDatePicker
 from .functions import select_save_file, save_pdf
 
@@ -60,7 +60,7 @@ class InfoPane(QWidget):
             # NOTE: block signal that will rerun control getter and set start date without triggering this function again
             with QSignalBlocker(self.datepicker.start_date) as blocker:
                 self.datepicker.start_date.setDate(lastmonth)
-            report.add_result(Alert(owner=self.__str__(), msg=msg, status="Warning"))
+            report.add_result(Alert(owner=self.__str__(), msg=msg, status=AlertStatus.WARNING.value))
         self.start_date = datetime.combine(self.datepicker.start_date.date().toPyDate(), datetime.min.time())
         self.end_date = datetime.combine(self.datepicker.end_date.date().toPyDate(), datetime.max.time())
         if hasattr(self, "submission_type"):

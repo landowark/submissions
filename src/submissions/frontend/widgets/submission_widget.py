@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal, Qt
 from .functions import select_open_file, select_save_file
 from pathlib import Path
-from tools import Report, Alert, main_form_style, report_result, get_application_from_parent
+from tools import Report, Alert, AlertStatus, main_form_style, report_result, get_application_from_parent
 from backend.validators import PydClientSubmission, PydSample, SourcedField
 from backend.db.models import (
     ClientLab
@@ -171,7 +171,7 @@ class SubmissionFormContainer(QWidget):
         if isinstance(fname, bool) or fname is None:
             fname = select_open_file(self, file_extension="xlsx")
         if not fname:
-            report.add_result(Alert(msg=f"File {fname.__str__()} not found.", status="critical"))
+            report.add_result(Alert(msg=f"File {fname.__str__()} not found.", status=AlertStatus.CRITICAL.value))
             return report
         # NOTE: create sheetparser using excel sheet and context from gui
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
@@ -189,7 +189,7 @@ class SubmissionFormContainer(QWidget):
         else:
             message = "Submission cancelled."
             logger.warning(message)
-            report.add_result(Alert(msg=message, owner=self.__class__.__name__, status="Warning"))
+            report.add_result(Alert(msg=message, owner=self.__class__.__name__, status=AlertStatus.WARNING.value))
         return report
 
     

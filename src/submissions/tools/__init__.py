@@ -2,7 +2,6 @@
 Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
-from collections.abc import Iterable
 from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
 logger = getLogger(f"submissions.{__name__}")
 from html import escape as html_escape
@@ -38,6 +37,8 @@ from configparser import ConfigParser
 from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 from pytz import timezone as tz
 from functools import wraps
+from collections.abc import Iterable
+from enum import Enum
 import builtins, sys
 
 builtins.pformat = pformat
@@ -626,19 +627,42 @@ def get_application_from_parent(widget):
     return widget
 
 
+class AlertStatus(str, Enum):
+    """
+    Deliberately uses the exact PyQt6 QMessageBox.Icon member names as values,
+    so AlertPop can resolve an icon with getattr(QMessageBox.Icon, status.value)
+    without re-validating the string at the point of use.
+    """
+    NO_ICON = "NoIcon"
+    QUESTION = "Question"
+    INFORMATION = "Information"
+    WARNING = "Warning"
+    CRITICAL = "Critical"
+
+
 class Alert(BaseModel, arbitrary_types_allowed=True):
     owner: str = Field(default="", validate_default=True)
     code: int = Field(default=0)
     msg: str | Exception
-    status: Literal["NoIcon", "Question", "Information", "Warning", "Critical"] = Field(default="NoIcon")
+    status: AlertStatus = Field(default=AlertStatus.NO_ICON.value)
 
     @field_validator('status', mode='before')
     @classmethod
-    def to_title(cls, value: str):
-        if value.lower().replace(" ", "") == "noicon":
-            return "NoIcon"
-        else:
-            return value.title()
+    def to_title(cls, value: AlertStatus | str) -> AlertStatus:
+        # NOTE: still accepts old-style strings ("warning", "Critical", etc.)
+        # for backward compatibility with existing call sites, but now
+        # validates against real AlertStatus members instead of blindly
+        # .title()-casing whatever comes in.
+        if isinstance(value, AlertStatus):
+            return value.value
+        normalized = str(value).strip().lower().replace(" ", "")
+        try:
+            return next(s for s in AlertStatus if s.value.lower() == normalized)
+        except StopIteration:
+            raise ValueError(
+                f"{value!r} is not a valid AlertStatus. "
+                f"Choose one of: {[s.value for s in AlertStatus]}"
+            )
 
     @field_validator('msg')
     @classmethod
@@ -763,7 +787,7 @@ def check_authorization(func):
             logger.error(error_msg)
             report = Report()
             report.add_result(
-                Alert(owner=func.__str__(), code=1, msg=error_msg, status="warning"))
+                Alert(owner=func.__str__(), code=1, msg=error_msg, status=AlertStatus.WARNING.value))
             return report, kwargs
     return wrapper
 
@@ -787,8 +811,7 @@ def under_development(func):
             logger.error(error_msg)
             report = Report()
             report.add_result(
-                Alert(owner=func.__str__(), code=1, msg=error_msg,
-                       status="warning"))
+                Alert(owner=func.__str__(), code=1, msg=error_msg, status=AlertStatus.WARNING.value))
             return report
     return wrapper
 
@@ -992,6 +1015,7 @@ def sanitize_object_for_json(input_obj):
         case _:
             return input_obj
 
+
 def iterable_enforcer(value) -> list:
         if value is None:
             return []
@@ -999,6 +1023,7 @@ def iterable_enforcer(value) -> list:
             if not isinstance(value, str):
                 return list(value)    
         return [value]
+
 
 _MISC_INFO_INTERNAL_MARKERS = ("AssociationProxy", "sa_instance_state", "_sa_")
 
@@ -1013,7 +1038,13 @@ def is_internal_attr_key(key) -> bool:
     return isinstance(key, str) and key.startswith("_") and any(m in key for m in _MISC_INFO_INTERNAL_MARKERS)
 
 
-def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["pop", "return", "index"] = "pop") -> dict | Tuple[int, dict]:
+class DictMode(Enum):
+    POP = "pop"
+    RETURN = "return"
+    INDEX = "index"    
+
+
+def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: DictMode = DictMode.POP) -> dict | Tuple[int, dict]:
     """
     Removes and returns the first dictionary in the list where
     the specified key's value matches the value_to_match.
@@ -1043,48 +1074,22 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["
             case _:
                 raise ValueError(f"Unmatched value {type(d)}")
         if d_value == value_to_match:
-            if mode == "pop":
+            if mode.value == "pop":
                 # Pop and return the dictionary at the found index
                 return list_of_dicts.pop(index)
-            elif mode == "return":
+            elif mode.value == "return":
                 return d
-            elif mode == "index":
+            elif mode.value == "index":
                 return index, d
+            else:
+                pass
     # Return None if no matching dictionary is found
     raise StopIteration(f"Could not find {key} value")
 
 
-def get_well_index(cell_id:str, grid_height:int=8, grid_width:int=12, direction:Literal['col', 'row'] = 'col'):
-    """
-    Finds the 1-based index of a cell.
-    direction='col': Top-to-bottom, then left-to-right (A1, B1, C1...)
-    direction='row': Left-to-right, then top-to-bottom (A1, A2, A3...)
-    """
-    match = rmatch(r"([A-Z]+)([0-9]+)", cell_id, I)
-    if not match:
-        raise ValueError("Invalid cell ID format.")
-    
-    row_str, col_str = match.groups()
-    
-    # Convert Row Letter to 0-based index
-    row_idx = 0
-    for char in row_str.upper():
-        row_idx = row_idx * 26 + (ord(char) - ord('A') + 1)
-    row_idx -= 1 
-    
-    # Convert Column to 0-based index
-    col_idx = int(col_str) - 1
-    
-    # Validation
-    if row_idx >= grid_height or col_idx >= grid_width:
-        raise IndexError(f"Cell {cell_id} is outside the {grid_height}x{grid_width} grid.")
-
-    if direction.lower() == 'col':
-        # Vertical: (Columns passed * rows per column) + current row
-        return (col_idx * grid_height) + (row_idx + 1)
-    else:
-        # Horizontal: (Rows passed * columns per row) + current column
-        return (row_idx * grid_width) + (col_idx + 1)
+class IndexDirection(Enum):
+    COL = "col"
+    ROW = "row"
 
 
 def ensure_list(v: Any) -> List:
@@ -1130,6 +1135,13 @@ class DotDict(dict):
             del self[name]
         except KeyError:
             raise AttributeError(f"No attribute named '{name}'")
+
+
+class AlembicModes(Enum):
+        PATH = "path"
+        SCHEMA = "schema"
+        USER = "user"
+        PASS = "pass"
 
 
 class Settings(BaseSettings, extra="allow"):
@@ -1420,9 +1432,10 @@ class Settings(BaseSettings, extra="allow"):
             self.close_database()
             
     @classmethod
-    def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:
+    def get_alembic_db_path(cls, alembic_path, mode:AlembicModes = AlembicModes.PATH) -> Path | str:
         """
         Retrieves database variables from alembic.ini file.
+        Currently uused, but will keep it around.
 
         Args:
             alembic_path (Any): Path of the alembic.ini file.
@@ -1435,20 +1448,20 @@ class Settings(BaseSettings, extra="allow"):
         c.read(alembic_path)
         url = c['alembic']['sqlalchemy.url']
         match mode:
-            case 'path':
+            case AlembicModes.PATH:
                 path = rsub(r"^.*//", "", url)
                 path = rsub(r"^.*@", "", path)
                 return Path(path)
-            case "schema":
+            case AlembicModes.SCHEMA:
                 return url[:url.index(":")]
-            case "user":
+            case AlembicModes.USER:
                 url = rsub(r"^.*//", "", url)
                 try:
                     return url[:url.index("@")].split(":")[0]
                 except (IndexError, ValueError) as e:
                     logger.exception(f"Couldn't parse url: {url}")
                     return None
-            case "pass":
+            case AlembicModes.PASS:
                 url = rsub(r"^.*//", "", url)
                 try:
                     return url[:url.index("@")].split(":")[1]

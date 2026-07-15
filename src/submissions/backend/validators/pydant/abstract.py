@@ -11,7 +11,7 @@ from typing import List, TYPE_CHECKING, Literal, Annotated
 from pydantic import computed_field, field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField
 from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
-from tools import jinja_template_loading
+from tools import jinja_template_loading, IndexDirection
 if TYPE_CHECKING:
     from .concrete import PydSample
 
@@ -254,45 +254,46 @@ class PydProcedureType(PydAbstract):
     def preprocessing_methods(self):
         return self.sql_instance.preprocessing_methods
     
-    def get_well_index(self, cell_id: str = None, row_idx: int = None, col_idx: int = None, direction: Literal['col', 'row'] = 'col'):
+    def get_well_index(self, cell_id: str = None, row: int = None, column: int = None, direction: IndexDirection = IndexDirection.COL):
         """
         Finds the 1-based index of a cell.
         direction='col': Top-to-bottom, then left-to-right (A1, B1, C1...)
         direction='row': Left-to-right, then top-to-bottom (A1, A2, A3...)
         """
-        if row_idx is None or col_idx is None:
+        if row is None or column is None:
             if not cell_id:
                 raise ValueError("Either cell_id or both row_idx and col_idx must be provided.")
-                
-            match = rmatch(r"([A-Z]+)([0-9]+)", cell_id, I)
-            if not match:
-                raise ValueError("Invalid cell ID format.")
             
-            row_str, col_str = match.groups()
+            row, column = convert_well_to_row_column(cell_id)
+            # match = rmatch(r"([A-Z]+)([0-9]+)", cell_id, I)
+            # if not match:
+            #     raise ValueError("Invalid cell ID format.")
             
-            # Convert Row Letter to 0-based index
-            row_idx = 0
-            for char in row_str.upper():
-                row_idx = row_idx * 26 + (ord(char) - ord('A') + 1)
-            row_idx -= 1 
+            # row_str, col_str = match.groups()
             
-            # Convert Column to 0-based index
-            col_idx = int(col_str) - 1
+            # # Convert Row Letter to 0-based index
+            # row_idx = 0
+            # for char in row_str.upper():
+            #     row_idx = row_idx * 26 + (ord(char) - ord('A') + 1)
+            # row_idx -= 1 
+            
+            # # Convert Column to 0-based index
+            # col_idx = int(col_str) - 1
 
         else:
-            row_idx -= 1
-            col_idx -= 1
+            row -= 1
+            column -= 1
         
         # Validation
-        if row_idx >= self.plate_rows or col_idx >= self.plate_columns:
-            raise IndexError(f"Indices ({row_idx}, {col_idx}) are outside the {self.plate_rows}x{self.plate_columns} grid.")
+        if row >= self.plate_rows or column >= self.plate_columns:
+            raise IndexError(f"Indices ({row}, {column}) are outside the {self.plate_rows}x{self.plate_columns} grid.")
 
-        if direction.lower() == 'col':
+        if direction == IndexDirection.COL:
             # Vertical: (Columns passed * rows per column) + current row
-            return (col_idx * self.plate_rows) + (row_idx + 1)
+            return (column * self.plate_rows) + (row + 1)
         else:
             # Horizontal: (Rows passed * columns per row) + current column
-            return (row_idx * self.plate_columns) + (col_idx + 1)
+            return (row * self.plate_columns) + (column + 1)
 
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
