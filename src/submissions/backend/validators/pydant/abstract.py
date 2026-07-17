@@ -11,7 +11,7 @@ from typing import List, TYPE_CHECKING, Literal, Annotated
 from pydantic import computed_field, field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField
 from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
-from tools import jinja_template_loading, IndexDirection
+from tools import convert_well_to_row_column, jinja_template_loading, IndexDirection
 if TYPE_CHECKING:
     from .concrete import PydSample
 
@@ -254,7 +254,7 @@ class PydProcedureType(PydAbstract):
     def preprocessing_methods(self):
         return self.sql_instance.preprocessing_methods
     
-    def get_well_index(self, cell_id: str = None, row: int = None, column: int = None, direction: IndexDirection = IndexDirection.COL):
+    def get_well_index(self, cell_id: str | None = None, row: int | None = None, column: int | None = None, direction: IndexDirection = IndexDirection.COL):
         """
         Finds the 1-based index of a cell.
         direction='col': Top-to-bottom, then left-to-right (A1, B1, C1...)

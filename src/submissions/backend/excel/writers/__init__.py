@@ -126,7 +126,6 @@ class DefaultKEYVALUEWriter(DefaultWriter):
                 continue
             self.worksheet.cell(column=2, row=ii, value=value)
         self.worksheet = self.postwrite(self.worksheet)
-        
         return workbook
 
     def postwrite(self, worksheet: Worksheet) -> Worksheet:

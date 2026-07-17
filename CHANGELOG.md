@@ -1,6 +1,11 @@
+# 202607.10
+
+- Fix of Diomni csv generation.
+
 # 202607.09
 
 - Troubleshooting of edit functions.
+- Consolidated some validator functions.
 
 # 202607.07
 

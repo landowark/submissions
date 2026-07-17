@@ -20,7 +20,7 @@ class DefaultResultsInfoWriter(DefaultKEYVALUEWriter):
     # NOTE: Required to pass self.sheet to function.
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
-        workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet, start_row=start_row)
+        workbook = super().write_to_workbook(workbook=workbook, sheet=self.write_sheet, start_row=start_row)
         return workbook
 
 
@@ -30,7 +30,7 @@ class DefaultResultsSampleWriter(DefaultTABLEWriter):
                "image", 'img', "plate_barcode", "resultstype", "reagent_lot#", "is_sample"]
     header_order = ["sample_id"]
 
-    def __init__(self, pydant_obj, proceduretype, resultstype: str, *args, **kwargs):
+    def __init__(self, pydant_obj, proceduretype, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
         if isinstance(self.pydant_obj, list):
             self.write_sheet = self.pydant_obj[0].write_sheet_name

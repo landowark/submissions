@@ -5,17 +5,17 @@ logger = getLogger(f"submissions.{__name__}")
 from functools import cached_property
 from re import compile as rcompile
 from csv import writer as csvwriter
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Generator, List, Tuple, TYPE_CHECKING
 from pydantic import AfterValidator, ConfigDict, Field, field_validator, computed_field, model_validator
 from PyQt6.QtWidgets import QWidget
-from dateutil.parser import parse, ParserError
 from backend.validators import RSLNamer
-from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool
+from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool, parse_optional_datetime
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
 from tools import Alert, AlertStatus, Report, convert_well_to_row_column, find_first_matching_dict, iterable_enforcer, sort_dict_by_list
+from ..shared import parse_expiry
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -34,19 +34,19 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     @field_validator("date_analyzed", mode="before")
     @classmethod
     def parse_analyzed(cls, value):
-        match value:
-            case str():
-                try:
-                    value = parse(value)
-                except ParserError:
-                    value = None
-            case datetime():
-                pass
-            case date():
-                 value = datetime.combine(value, datetime.min.time())
-            case _:
-                value = None
-        return value
+        # match value:
+        #     case str():
+        #         try:
+        #             value = parse(value)
+        #         except ParserError:
+        #             value = None
+        #     case datetime():
+        #         pass
+        #     case date():
+        #          value = datetime.combine(value, datetime.min.time())
+        #     case _:
+        #         value = None
+        return parse_optional_datetime(value)
     
     @computed_field
     @property
@@ -136,20 +136,20 @@ class PydReagentLot(PydConcrete):
     # TODO: Move to shared along with PydTipsLot
     @field_validator("expiry", mode="before")
     @classmethod
-    def parse_expiry(cls, value):
-        if not value:
-            value = date.today() + timedelta(days=365)
-        match value:
-            case str():
-                try:
-                    value = parse(value)
-                except ParserError:
-                    value = None
-            case date() | datetime():
-                value = datetime.combine(value, datetime.max.time())
-            case _:
-                raise ValueError(f"Could not parse expiry date: {value}")
-        return value
+    def enforce_expiry(cls, value):
+        # if not value:
+        #     value = date.today() + timedelta(days=365)
+        # match value:
+        #     case str():
+        #         try:
+        #             value = dateparse(value)
+        #         except ParserError:
+        #             value = None
+        #     case date() | datetime():
+        #         value = datetime.combine(value, datetime.max.time())
+        #     case _:
+        #         raise ValueError(f"Could not parse expiry date: {value}")
+        return parse_expiry(value)
 
     @computed_field
     @property
@@ -413,19 +413,19 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
     @field_validator("date_verified", mode="before")
     @classmethod
     def parse_date_verified(cls, value):
-        if not value:
-            value = date.today()
-        match value:
-            case str():
-                try:
-                    value = parse(value)
-                except ParserError:
-                    value = None
-            case date() | datetime():
-                value = datetime.combine(value, datetime.min.time())    
-            case _:
-                value = None
-        return value
+        # if not value:
+        #     value = date.today()
+        # match value:
+        #     case str():
+        #         try:
+        #             value = parse(value)
+        #         except ParserError:
+        #             value = None
+        #     case date() | datetime():
+        #         value = datetime.combine(value, datetime.min.time())    
+        #     case _:
+        #         value = None
+        return parse_optional_datetime(value)
     
     _validate_na = field_validator("active", mode="before")(coerce_int_to_bool)
 
@@ -562,27 +562,27 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @field_validator("started_date", mode="before")
     @classmethod
     def create_started_date(cls, value):
-        if not value:
-            value = datetime.now()
-        if isinstance(value, dict):
-            value = value.get("value", datetime.now())
-        if isinstance(value, str):
-            value = parse(value)
-        return value
+        # if not value:
+        #     value = datetime.now()
+        # if isinstance(value, dict):
+        #     value = value.get("value", datetime.now())
+        # if isinstance(value, str):
+        #     value = dateparse(value)
+        return parse_optional_datetime(value)
     
     @field_validator("completed_date", mode="before")
     @classmethod
     def create_completed_date(cls, value):
-        if isinstance(value, dict):
-            value = value.get("value", None)
-        if isinstance(value, str):
-            if value.lower() == "None":
-                return None
-            try:
-                value = parse(value)
-            except ValueError:
-                return None
-        return value
+        # if isinstance(value, dict):
+        #     value = value.get("value", None)
+        # if isinstance(value, str):
+        #     if value.lower() == "None":
+        #         return None
+        #     try:
+        #         value = dateparse(value)
+        #     except ValueError:
+        #         return None
+        return parse_optional_datetime(value)
 
     @field_validator("sample", mode="before")
     @classmethod
@@ -1351,7 +1351,7 @@ class PydRun(PydConcrete):
 class PydTipsLot(PydConcrete):
     
     lot: str = Field(default="NA", description="Lot number of the tips")
-    expiry: datetime = Field(default_factory=lambda: datetime.now() + timedelta(365), description="Expiry date of the tips", validate_default=True)
+    expiry: datetime = Field(default_factory=lambda: datetime.now() + timedelta(3650), description="Expiry date of the tips", validate_default=True)
     active: bool = Field(default=True, description="Is this tips lot active?", validate_default=True)
     tips: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA", description="The Tips this lot belongs to.", repr=True)
 
@@ -1363,22 +1363,22 @@ class PydTipsLot(PydConcrete):
         return value
 
     # TODO: Move to shared along with PydReagentLot
-    @field_validator("expiry")
+    @field_validator("expiry", mode="before")
     @classmethod
-    def parse_expiry(cls, value):
-        if not value:
-            value = date.today() + timedelta(days=3650)
-        match value:
-            case str():
-                try:
-                    value = parse(value)
-                except ParserError:
-                    value = None
-            case date() | datetime():
-                value = datetime.combine(value, datetime.max.time())
-            case _:
-                value = None
-        return value
+    def tipslot_enforce_expiry(cls, value):
+        # if not value:
+        #     value = date.today() + timedelta(days=3650)
+        # match value:
+        #     case str():
+        #         try:
+        #             value = parse(value)
+        #         except ParserError:
+        #             value = None
+        #     case date() | datetime():
+        #         value = datetime.combine(value, datetime.max.time())
+        #     case _:
+        #         value = None
+        return parse_expiry(value, days=3650)
     
     _validate_bool = field_validator("active", mode="before")(coerce_int_to_bool)
 

@@ -4,14 +4,15 @@ SQLAlchemy models for equipment and equipment roles, including associations with
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
-from re import sub as rsub, Pattern, compile as rcompile, VERBOSE
-from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, and_, cast, func, select, Table
+from re import Pattern, compile as rcompile, VERBOSE
+from sqlalchemy import JSON, Column, ForeignKeyConstraint, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, and_, cast, func, select, Table
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
-from datetime import date, datetime
-from dateutil.parser import parse as dateparse, ParserError
-from tools import check_authorization, setup_lookup, flatten_list, timezone
+from sqlalchemy.ext.mutable import MutableList
+from datetime import datetime
+from tools import check_authorization, setup_lookup, flatten_list, timezone, TimeFill
+from backend.validators.shared import parse_optional_datetime, coerce_int_to_bool, parse_expiry, vet_comment
 from typing import List, Any, TYPE_CHECKING
 from .. import BaseClass, Base, LogMixin
 from . import ProcedureType, Procedure
@@ -398,27 +399,27 @@ class Equipment(BaseClass, LogMixin):
     
     @calibration_date.setter
     def calibration_date(self, value):
-        match value:
-            case datetime() | date():
-                output = value
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
-        output = datetime.combine(output, datetime.min.time())
-        value = output.replace(tzinfo=timezone)
-        self._calibration_date = value
+        # match value:
+        #     case datetime() | date():
+        #         output = value
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
+        # output = datetime.combine(output, datetime.min.time())
+        # value = output.replace(tzinfo=timezone)
+        self._calibration_date = parse_optional_datetime(value, timefill=TimeFill.MIN)
 
     @classmethod
     @setup_lookup
@@ -1066,30 +1067,30 @@ class ProcessVersion(BaseClass):
     
     @date_verified.setter
     def date_verified(self, value):
-        if isinstance(value, dict):
-            value = value.get("value", datetime.now())
-        match value:
-            case datetime():
-                output = value
-            case date():
-                output = datetime.combine(value, datetime.min.time())
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._date_verified")
-        value = output.replace(tzinfo=timezone)
-        self._date_verified = value
+        # if isinstance(value, dict):
+        #     value = value.get("value", datetime.now())
+        # match value:
+        #     case datetime():
+        #         output = value
+        #     case date():
+        #         output = datetime.combine(value, datetime.min.time())
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._date_verified")
+        # value = output.replace(tzinfo=timezone)
+        self._date_verified = parse_optional_datetime(value, timefill=TimeFill.MIN)
 
     @hybrid_property
     def process(self):
@@ -1161,21 +1162,21 @@ class ProcessVersion(BaseClass):
 
     @active.setter
     def active(self, value):
-        match value:
-            case int():
-                output = value
-            case bool():
-                output = int(value)
-            case str():
-                if value.lower() in ["false", "0", "no", "off"]:
-                    output = 0
-                elif value.lower() in ["true", "1", "yes", "on"]:
-                    output = 1
-                else:
-                    raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
-            case _:
-                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.active")
-        self._active = output
+        # match value:
+        #     case int():
+        #         output = value
+        #     case bool():
+        #         output = int(value)
+        #     case str():
+        #         if value.lower() in ["false", "0", "no", "off"]:
+        #             output = 0
+        #         elif value.lower() in ["true", "1", "yes", "on"]:
+        #             output = 1
+        #         else:
+        #             raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
+        #     case _:
+        #         logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.active")
+        self._active = int(coerce_int_to_bool(value))
 
     @property
     def details_dict(self) -> dict:
@@ -1569,28 +1570,28 @@ class TipsLot(BaseClass, LogMixin):
         :type value: datetime | date | int | str
         :return: None
         """
-        match value:
-            case datetime():
-                output = value
-            case date():
-                output = datetime.combine(value, datetime.max.time())
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
-        value = output.replace(tzinfo=timezone)
-        self._expiry = value
+        # match value:
+        #     case datetime():
+        #         output = value
+        #     case date():
+        #         output = datetime.combine(value, datetime.max.time())
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
+        # value = output.replace(tzinfo=timezone)
+        self._expiry = parse_expiry(value, days=3650)
     
     @hybrid_property
     def tips(self):
@@ -1737,21 +1738,21 @@ class TipsLot(BaseClass, LogMixin):
         :raises ValueError: If string value cannot be converted to boolean.
         :raises TypeError: If type is not supported.
         """
-        match value:
-            case int():
-                output = value
-            case bool():
-                output = int(value)
-            case str():
-                if value.lower() in ["false", "0", "no", "off"]:
-                    output = 0
-                elif value.lower() in ["true", "1", "yes", "on"]:
-                    output = 1
-                else:
-                    raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._active")
-            case _:
-                raise TypeError(f"Unsupported type: {type(value)} for {self.__class__.__qualname__}._active")
-        self._active = output
+        # match value:
+            # case int():
+            #     output = value
+            # case bool():
+            #     output = int(value)
+            # case str():
+            #     if value.lower() in ["false", "0", "no", "off"]:
+            #         output = 0
+            #     elif value.lower() in ["true", "1", "yes", "on"]:
+            #         output = 1
+            #     else:
+            #         raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._active")
+            # case _:
+            #     raise TypeError(f"Unsupported type: {type(value)} for {self.__class__.__qualname__}._active")
+        self._active = int(coerce_int_to_bool(value))
 
     
     @classmethod
@@ -2052,7 +2053,7 @@ class ProcedureEquipmentAssociation(BaseClass):
                                                    name="SEA_Process_id"))  #: Foreign key of process id
     _start_time = Column(TIMESTAMP)  #: start time of equipment use
     _end_time = Column(TIMESTAMP)  #: end time of equipment use
-    _comment = Column(String(1024))  #: comments about equipment
+    _comment = Column(MutableList.as_mutable(JSON))
     _calibration_date = Column(TIMESTAMP)
 
     _procedure = relationship(Procedure,
@@ -2389,6 +2390,10 @@ class ProcedureEquipmentAssociation(BaseClass):
     @hybrid_property
     def comment(self):
         return self._comment
+    
+    @comment.setter
+    def comment(self, value):
+        self._comment = vet_comment(value, current=self._comment)
 
     def to_pydantic(self) -> PydProcedureEquipmentAssociation:
         """

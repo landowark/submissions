@@ -102,6 +102,7 @@ class DefaultProcedureManager(DefaultManager):
         return self.procedure
 
     def write(self, workbook: Workbook) -> Workbook:
+        from backend.db import Results
         self.info_writer = self._resolve_operator("write", "info")(pydant_obj=self.pyd)
         workbook = self.info_writer.write_to_workbook(workbook)
         self.reagent_writer = self._resolve_operator("write", "reagent")(pydant_obj=self.pyd)
@@ -115,11 +116,18 @@ class DefaultProcedureManager(DefaultManager):
         for resulttype_name, parents in self.pyd.sql_instance.grouped_results.items():
             grouped_writer = {}
             info_result = parents['info']
-            try:
-                info_result = info_result.to_pydantic()
-            except AttributeError as e:
-                logger.exception(e)
-                info_result = None
+            if isinstance(info_result, list):
+                if len(info_result) > 0:
+                    info_result = info_result[-1]
+                else:
+                    info_result = None
+            if isinstance(info_result, Results):
+                try:
+                    info_result = info_result.to_pydantic()
+                except AttributeError as e:
+                    logger.exception(e)
+                    logger.error(pformat(info_result))
+                    info_result = None
             if info_result is not None:
                 try:
                     Writer = getattr(results_writers, f"{resulttype_name.replace(" ", "")}InfoWriter")

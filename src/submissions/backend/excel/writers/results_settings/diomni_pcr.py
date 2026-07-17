@@ -47,9 +47,11 @@ class DiomniPCRSettings(DefaultSettings):
         ]
         samples = []
         for sample in self.procedure.sample:
+            if not sample.sample_id:
+                continue
             for setting in self.settings:
                 output = [
-                    self.proceduretype.get_well_index(row_idx=sample.row, col_idx=sample.column, direction=IndexDirection.COL),
+                    self.proceduretype.get_well_index(row=sample.row, column=sample.column, direction=IndexDirection.COL),
                     convert_row_column_to_well(sample.row, sample.column),
                     sample.sample_id,
                     "",

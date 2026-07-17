@@ -10,7 +10,6 @@ from itertools import chain
 from types import GeneratorType, NoneType
 from pandas import DataFrame
 from numpy import sum as npsum, busday_count
-from re import sub as rsub
 from tempfile import TemporaryFile
 from uuid import uuid4
 from inspect import isclass
@@ -24,13 +23,14 @@ from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLO
 from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
+from sqlalchemy.ext.mutable import MutableList
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (
     check_authorization, convert_row_column_to_well, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
-    is_power_user, timezone, Report, get_application_from_parent, iterable_enforcer
+    is_power_user, Report, get_application_from_parent, iterable_enforcer
 )
+from backend.validators.shared import parse_optional_datetime, vet_comment
 from datetime import datetime, date
-from dateutil.parser import parse as dateparse, ParserError
 from typing import Generator, List, TYPE_CHECKING, Literal, Set
 from pathlib import Path
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ class ClientSubmission(BaseClass, LogMixin):
                                               name="fk_BS_sublab_id"))  #: client lab id from _organizations
     submission_category = Column(String(64))  #: i.e. Surveillance
     full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
-    _comment = Column(JSON)  #: comment objects from users.
+    _comment = Column(MutableList.as_mutable(JSON))
     _run = relationship("Run", back_populates="_clientsubmission")  #: many-to-one relationship
     _contact = relationship("Contact", back_populates="_clientsubmission")  #: contact representing submitting lab.
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
@@ -314,30 +314,30 @@ class ClientSubmission(BaseClass, LogMixin):
 
     @submitted_date.setter
     def submitted_date(self, value):
-        if isinstance(value, dict):
-            value = value.get("value", datetime.now())
-        match value:
-            case datetime():
-                output = value
-            case date():
-                output = datetime.combine(value, datetime.min.time())
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                raise ValueError(f"Unmatched value {value['value']} for datetime")
-        value = output.replace(tzinfo=timezone)
-        self._submitted_date = value
+        # if isinstance(value, dict):
+        #     value = value.get("value", datetime.now())
+        # match value:
+        #     case datetime():
+        #         output = value
+        #     case date():
+        #         output = datetime.combine(value, datetime.min.time())
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value['value']} for datetime")
+        # value = output.replace(tzinfo=timezone)
+        self._submitted_date = parse_optional_datetime(value)
 
     @hybrid_property
     def completed_date(self):
@@ -359,20 +359,19 @@ class ClientSubmission(BaseClass, LogMixin):
     
     @comment.setter
     def comment(self, value):
-        if not isinstance(value, list):
-            value = [value]
-        current = self._comment or []
-        for comment in value:
-            if not isinstance(comment, dict):
-                logger.error(f"Invalid comment value {comment} for {self.__class__.__qualname__}, must be a dictionary.")
-                return
-            if comment['text'] in ["", None]:
-                return
+        # if not isinstance(value, list):
+        #     value = [value]
+        # current = self._comment or []
+        # for comment in value:
+        #     if not isinstance(comment, dict):
+        #         logger.error(f"Invalid comment value {comment} for {self.__class__.__qualname__}, must be a dictionary.")
+        #         return
+        #     if comment['text'] in ["", None]:
+        #         return
             
-            if any([comment['time'] == x['time'] for x in current]):
-                continue
-            current.append(comment)
-        self._comment = current
+            
+        #     current.append(comment)
+        self._comment = vet_comment(value, current=self._comment)
 
     @property
     def sample_count(self) -> int:
@@ -712,7 +711,7 @@ class Run(BaseClass, LogMixin):
     _started_date = Column(TIMESTAMP)  #: Date this procedure was started.
     _run_cost = Column(FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
     signed_by = Column(String(32))  #: user name of person who submitted the procedure to the database.
-    _comment = Column(JSON)  #: user notes
+    _comment = Column(MutableList.as_mutable(JSON))  #: user notes
     _completed_date = Column(TIMESTAMP)  #: Date this procedure was finished.
     _procedure = relationship("Procedure", back_populates="_run", uselist=True)  #: children procedures
 
@@ -914,32 +913,35 @@ class Run(BaseClass, LogMixin):
 
     @started_date.setter
     def started_date(self, value):
+        from backend.validators import SourcedField
         if not value:
             value = self.clientsubmission.submitted_date
         if isinstance(value, dict):
             value = value.get("value", self.clientsubmission.submitted_date)
-        match value:
-            case datetime():
-                output = value
-            case date():
-                output = datetime.combine(value, datetime.min.time())
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                raise ValueError(f"Unmatched value {value} for datetime")
-        value = output.replace(tzinfo=timezone)
-        self._started_date = value
+        elif isinstance(value, SourcedField):
+            value = value.value
+        # match value:
+        #     case datetime():
+        #         output = value
+        #     case date():
+        #         output = datetime.combine(value, datetime.min.time())
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value} for datetime")
+        # value = output.replace(tzinfo=timezone)
+        self._started_date = parse_optional_datetime(value)
 
     @hybrid_property
     def completed_date(self):
@@ -953,31 +955,31 @@ class Run(BaseClass, LogMixin):
 
     @completed_date.setter
     def completed_date(self, value):
-        if isinstance(value, dict):
-            value = value.get("value", datetime.now())
-        match value:
-            case datetime():
-                output = value
-            case date():
-                output = datetime.combine(value, datetime.min.time())
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                logger.error(f"Unmatched value {value} for Run.completed date")
-                return None
-        value = output.replace(tzinfo=timezone)
-        self._completed_date = value
+        # if isinstance(value, dict):
+        #     value = value.get("value", datetime.now())
+        # match value:
+        #     case datetime():
+        #         output = value
+        #     case date():
+        #         output = datetime.combine(value, datetime.min.time())
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         logger.error(f"Unmatched value {value} for Run.completed date")
+        #         return None
+        # value = output.replace(tzinfo=timezone)
+        self._completed_date = parse_optional_datetime(value)
 
     @hybrid_property
     def comment(self):
@@ -987,14 +989,15 @@ class Run(BaseClass, LogMixin):
     
     @comment.setter
     def comment(self, value):
-        if not isinstance(value, dict):
-            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-            return
-        if value['text'] in [""]:
-            return
-        current = self._comment or []
-        current.append(value)
-        self._comment = current
+        # if not isinstance(value, dict):
+        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+        #     return
+        # if value['text'] in [""]:
+        #     return
+        # value = vet_comment(value)
+        # current = self._comment or []
+        # current.append(value)
+        self._comment = vet_comment(value, current=self._comment)
 
     @hybrid_property
     def run_cost(self):
@@ -1528,7 +1531,7 @@ class Sample(BaseClass, LogMixin):
     id = Column(INTEGER, primary_key=True)  #: primary key
     sample_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
     _is_control = Column(INTEGER, default=0) #: 1 = positive, -1 = negative, 0 = not a control
-    _comment = Column(JSON, nullable=True) #: comments on sample
+    _comment = Column(MutableList.as_mutable(JSON))  #: user notes
 
     sampleclientsubmissionassociation = relationship(
         "ClientSubmissionSampleAssociation",
@@ -1734,14 +1737,15 @@ class Sample(BaseClass, LogMixin):
     
     @comment.setter
     def comment(self, value):
-        if not isinstance(value, dict):
-            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-            return
-        if value['text'] in [""]:
-            return
-        current = self._comment or []
-        current.append(value)
-        self._comment = current
+        # if not isinstance(value, dict):
+        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+        #     return
+        # if value['text'] in [""]:
+        #     return
+        # value = vet_comment(value)
+        # current = self._comment or []
+        # current.append(value)
+        self._comment = vet_comment(value, current=self._comment)
 
     @classmethod
     @declared_attr
@@ -1859,7 +1863,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="CASCADE"), primary_key=True)  #: id of associated client submission
     sample_id = Column(INTEGER, ForeignKey("_sample.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated sample
     submission_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
-    _comment = Column(JSON, nullable=True) #: comments on sample
+    _comment = Column(MutableList.as_mutable(JSON))  #: user notes
     # NOTE: reference to the Submission object
     _clientsubmission = relationship("ClientSubmission",
                                     back_populates="clientsubmissionsampleassociation")  #: associated procedure
@@ -1989,14 +1993,10 @@ class ClientSubmissionSampleAssociation(BaseClass):
     
     @comment.setter
     def comment(self, value):
-        if not isinstance(value, dict):
-            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-            return
-        if value['text'] in [""]:
-            return
-        current = self._comment or []
-        current.append(value)
-        self._comment = current
+        # value = vet_comment(value)
+        # current = self._comment or []
+        # current.append(value)
+        self._comment = vet_comment(value, current=self._comment)
 
     @property
     def details_dict(self) -> dict:
@@ -2178,8 +2178,8 @@ class RunSampleAssociation(BaseClass):
     run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
     sample_id = Column(INTEGER, ForeignKey("_sample.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated sample
     run_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
-    _comment = Column(JSON, nullable=True) #: comments on sample
-
+    _comment = Column(MutableList.as_mutable(JSON))
+    
     # NOTE: reference to the Submission object
 
     _run = relationship(Run,
@@ -2307,14 +2307,14 @@ class RunSampleAssociation(BaseClass):
     
     @comment.setter
     def comment(self, value):
-        if not isinstance(value, dict):
-            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-            return
-        if value['text'] in [""]:
-            return
-        current = self._comment or []
-        current.append(value)
-        self._comment = current
+        # if not isinstance(value, dict):
+        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+        #     return
+        # if value['text'] in [""]:
+        #     return
+        # current = self._comment or []
+        # current.append(value)
+        self._comment = vet_comment(value, current=self._comment)
 
     def to_pydantic(self) -> PydSample:
         """
@@ -2513,7 +2513,7 @@ class ProcedureSampleAssociation(BaseClass):
     row            = Column(INTEGER)
     column         = Column(INTEGER)
     procedure_rank = Column(INTEGER, nullable=False, default=0)                     # drop primary_key=True
-    _comment       = Column(JSON, nullable=True)
+    _comment = Column(MutableList.as_mutable(JSON))
 
     __table_args__ = (
         UniqueConstraint("procedure_id", "sample_id", "procedure_rank",
@@ -2601,14 +2601,14 @@ class ProcedureSampleAssociation(BaseClass):
     
     @comment.setter
     def comment(self, value):
-        if not isinstance(value, dict):
-            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-            return
-        if value['text'] in [""]:
-            return
-        current = self._comment or []
-        current.append(value)
-        self._comment = current
+        # if not isinstance(value, dict):
+        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+        #     return
+        # if value['text'] in [""]:
+        #     return
+        # current = self._comment or []
+        # current.append(value)
+        self._comment = vet_comment(value, current=self._comment)
 
     def add_comment(self, obj):
         """

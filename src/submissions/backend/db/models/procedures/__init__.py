@@ -18,13 +18,14 @@ from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Int
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.mutable import MutableList
 from datetime import date, datetime, timedelta
-from dateutil.parser import parse as dateparse, ParserError
-from tools import check_authorization, iterable_enforcer, setup_lookup, flatten_list, timezone
+from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list, timezone
 from typing import Any, Generator, Iterator, List, TYPE_CHECKING
 from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
+from backend.validators.shared import parse_optional_datetime, vet_comment
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
     from backend.validators.pydant import PydProcedure
@@ -1022,7 +1023,7 @@ class Procedure(BaseClass):
     run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="CASCADE",
                                         name="fk_PRO_basicrun_id"), nullable=False)  #: id of parent run, set to CASCADE on delete to remove procedures if run is deleted
     _run = relationship("Run", back_populates="_procedure")  #: Run this procedure is part of
-    _comment = Column(JSON)  #: user notes
+    _comment = Column(MutableList.as_mutable(JSON))  #: user notes
 
     proceduresampleassociation = relationship(
         "ProcedureSampleAssociation",
@@ -1306,36 +1307,36 @@ class Procedure(BaseClass):
 
     @started_date.setter
     def started_date(self, value):
-        from backend.validators.pydant import SourcedField
-        match value:
-            case dict():
-                value = value.get("value", datetime.now())
-            case SourcedField():
-                value = value.value
-            case _:
-                value = datetime.now()
-        match value:
-            case datetime():
-                output = value
-            case date():
-                output = datetime.combine(value, datetime.min.time())
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._started_date")
-        value = output.replace(tzinfo=timezone)
-        self._started_date = value
+        # from backend.validators.pydant import SourcedField
+        # match value:
+        #     case dict():
+        #         value = value.get("value", datetime.now())
+        #     case SourcedField():
+        #         value = value.value
+        #     case _:
+        #         value = datetime.now()
+        # match value:
+        #     case datetime():
+        #         output = value
+        #     case date():
+        #         output = datetime.combine(value, datetime.min.time())
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._started_date")
+        # value = output.replace(tzinfo=timezone)
+        self._started_date = parse_optional_datetime(value)
 
     @hybrid_property
     def completed_date(self):
@@ -1343,30 +1344,30 @@ class Procedure(BaseClass):
 
     @completed_date.setter
     def completed_date(self, value):
-        if isinstance(value, dict):
-            value = value.get("value", datetime.now())
-        match value:
-            case datetime():
-                output = value
-            case date():
-                output = datetime.combine(value, datetime.min.time())
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._completed_date")
-        value = output.replace(tzinfo=timezone)
-        self._completed_date = value
+        # if isinstance(value, dict):
+        #     value = value.get("value", datetime.now())
+        # match value:
+        #     case datetime():
+        #         output = value
+        #     case date():
+        #         output = datetime.combine(value, datetime.min.time())
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._completed_date")
+        # value = output.replace(tzinfo=timezone)
+        self._completed_date = parse_optional_datetime(value)
 
     @hybrid_property
     def proceduretype(self):
@@ -1547,14 +1548,15 @@ class Procedure(BaseClass):
     
     @comment.setter
     def comment(self, value):
-        if not isinstance(value, dict):
-            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-            return
-        if value['text'] in [""]:
-            return
-        current = self._comment or []
-        current.append(value)
-        self._comment = current
+        # if not isinstance(value, dict):
+        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+        #     return
+        # if value['text'] in [""]:
+        #     return
+        # current = self._comment or []
+        # current.append(value)
+        
+        self._comment = vet_comment(value, current=self._comment)
 
     @classmethod
     @setup_lookup
@@ -1707,6 +1709,7 @@ class Procedure(BaseClass):
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             self.comment = dlg.parse_form()
+            
             self.save()
 
     @check_authorization
@@ -1921,12 +1924,14 @@ class Procedure(BaseClass):
         from backend.db.models import RunSampleAssociation
         self.set_cost()
         assert self.run is not None
+        logger.debug(f"Saving with comment: {self.comment}")
         if hasattr(self, '_misc_info') and isinstance(self._misc_info, dict) and 'sample' in self._misc_info:
             try:
                 self._misc_info['sample'] = self.sanitize_obj_for_json(self._misc_info['sample'])
             except TypeError:
                 del self._misc_info['sample']
         super().save()
+        logger.debug(f"Saved with comment: {self.comment}")
         with self.run.__database_session__.no_autoflush:
             run_samples = [assoc.sample for assoc in self.run.runsampleassociation]
         try:
@@ -2135,30 +2140,30 @@ class Results(BaseClass):
     
     @date_analyzed.setter
     def date_analyzed(self, value):
-        if isinstance(value, dict):
-            value = value.get("value", datetime.now())
-        match value:
-            case datetime():
-                output = value
-            case date():
-                output = datetime.combine(value, datetime.now().time())
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        logger.exception(f"Problem with parse fallback: {e2}")
-                        return value
-            case _:
-                raise ValueError(f"Unmatched value {value} for {self.__class__.__qualname__}.date_analyzed")
-        value = output.replace(tzinfo=timezone)
-        self._date_analyzed = output
+        # if isinstance(value, dict):
+        #     value = value.get("value", datetime.now())
+        # match value:
+        #     case datetime():
+        #         output = value
+        #     case date():
+        #         output = datetime.combine(value, datetime.now().time())
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 logger.exception(f"Problem with parse fallback: {e2}")
+        #                 return value
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value} for {self.__class__.__qualname__}.date_analyzed")
+        # value = output.replace(tzinfo=timezone)
+        self._date_analyzed = parse_optional_datetime(value, timefill=TimeFill.MIN)
 
     @hybrid_property
     def resultstype(self):

@@ -1,17 +1,17 @@
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
-from re import sub as rsub
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Interval, FLOAT, select
+from sqlalchemy import JSON, Column, String, TIMESTAMP, INTEGER, ForeignKey, Interval, FLOAT, select
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from datetime import date, datetime, timedelta
-from dateutil.parser import parse as dateparse, ParserError
+from datetime import datetime, timedelta
 from tools import check_authorization, classproperty, setup_lookup, timezone
 from typing import List
+from backend.validators.shared import parse_expiry, coerce_int_to_bool, vet_comment
 from .. import BaseClass, LogMixin
 from . import ProcedureType, Procedure
 
@@ -573,28 +573,28 @@ class ReagentLot(BaseClass):
 
     @expiry.setter
     def expiry(self, value):
-        if isinstance(value, dict):
-            value = value.get("value", datetime.now())
-        match value:
-            case datetime() | date():
-                output = value
-            case int():
-                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-            case str():
-                string = rsub(r"(_|-)\d(R\d)?$", "", value)
-                try:
-                    output = dateparse(string)
-                except ParserError as e:
-                    logger.exception(f"Problem parsing date: {e}")
-                    try:
-                        output = dateparse(string.replace("-", ""))
-                    except Exception as e2:
-                        raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
-            case _:
-                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
-        output = datetime.combine(output, datetime.max.time())
-        value = output.replace(tzinfo=timezone)
-        self._expiry = value
+        # if isinstance(value, dict):
+        #     value = value.get("value", datetime.now())
+        # match value:
+        #     case datetime() | date():
+        #         output = value
+        #     case int():
+        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+        #     case str():
+        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
+        #         try:
+        #             output = dateparse(string)
+        #         except ParserError as e:
+        #             logger.exception(f"Problem parsing date: {e}")
+        #             try:
+        #                 output = dateparse(string.replace("-", ""))
+        #             except Exception as e2:
+        #                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
+        #     case _:
+        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
+        # output = datetime.combine(output, datetime.max.time())
+        # value = output.replace(tzinfo=timezone)
+        self._expiry = parse_expiry(value)
     
     @hybrid_property
     def reagent(self):
@@ -628,21 +628,21 @@ class ReagentLot(BaseClass):
 
     @active.setter
     def active(self, value):
-        match value:
-            case int():
-                output = value
-            case bool():
-                output = int(value)
-            case str():
-                if value.lower() in ["false", "0", "no", "off"]:
-                    output = 0
-                elif value.lower() in ["true", "1", "yes", "on"]:
-                    output = 1
-                else:
-                    raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
-            case _:
-                raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
-        self._active = output
+        # match value:
+            # case int():
+            #     output = value
+            # case bool():
+            #     output = int(value)
+            # case str():
+            #     if value.lower() in ["false", "0", "no", "off"]:
+            #         output = 0
+            #     elif value.lower() in ["true", "1", "yes", "on"]:
+            #         output = 1
+            #     else:
+            #         raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
+            # case _:
+            #     raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
+        self._active = int(coerce_int_to_bool(value))
     
     @hybrid_property
     def name(self):
@@ -1122,7 +1122,7 @@ class ProcedureReagentLotAssociation(BaseClass):
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
     reagentlot_id = Column(INTEGER, ForeignKey("_reagentlot.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated reagent
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete="CASCADE"), primary_key=True)
-    _comment = Column(String(1024))  #: Comments about reagent
+    _comment = Column(MutableList.as_mutable(JSON))
 
     _procedure = relationship("Procedure",
                              back_populates="procedurereagentlotassociation")  #: associated procedure
@@ -1274,6 +1274,14 @@ class ProcedureReagentLotAssociation(BaseClass):
             self._reagentrole = output
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
+
+    @hybrid_property
+    def comment(self):
+        return self._comment
+    
+    @comment.setter
+    def comment(self, value):
+        self._comment = vet_comment(value, current=self._comment)
 
     @classmethod
     @setup_lookup

@@ -1016,12 +1016,16 @@ def sanitize_object_for_json(input_obj):
             return input_obj
 
 
-def iterable_enforcer(value) -> list:
+def iterable_enforcer(value, pass_dict: bool = True) -> list:
         if value is None:
             return []
         if isinstance(value, Iterable):
-            if not isinstance(value, str):
-                return list(value)    
+            if isinstance(value, dict) and pass_dict:
+                pass
+            elif not isinstance(value, str):
+                return list(value)
+            else:
+                pass
         return [value]
 
 
@@ -1091,6 +1095,9 @@ class IndexDirection(Enum):
     COL = "col"
     ROW = "row"
 
+class TimeFill(Enum):
+    MIN = datetime.min.time
+    MAX = datetime.max.time
 
 def ensure_list(v: Any) -> List:
     if isinstance(v, (Generator, filter, map)):
