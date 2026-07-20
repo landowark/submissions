@@ -1,3 +1,7 @@
+# 202607.11
+
+- Improved dictionary construction for jinja/html.
+
 # 202607.10
 
 - Fix of Diomni csv generation.

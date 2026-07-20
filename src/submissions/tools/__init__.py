@@ -1131,9 +1131,11 @@ class IndexDirection(Enum):
     COL = "col"
     ROW = "row"
 
+
 class TimeFill(Enum):
     MIN = datetime.min.time
     MAX = datetime.max.time
+
 
 def ensure_list(v: Any) -> List:
     if isinstance(v, (Generator, filter, map)):

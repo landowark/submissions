@@ -12,7 +12,7 @@ from typing import List, TYPE_CHECKING, Literal, Annotated
 from pydantic import computed_field, field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField
 from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
-from tools import convert_well_to_row_column, jinja_template_loading, IndexDirection
+from tools import convert_well_to_row_column, jinja_template_loading, IndexDirection, jinja_env
 if TYPE_CHECKING:
     from .concrete import PydSample
 
@@ -212,8 +212,8 @@ class PydProcedureType(PydAbstract):
         vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
-        env = jinja_template_loading()
-        template = env.get_template("support/plate_map.html")
+        
+        template = jinja_env.get_template("support/plate_map.html")
         html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=sample_dicts,
                                vw=vw, creation=creation)
         return html + "<br/>"

@@ -2,16 +2,13 @@
         <div class="plate" id="plate-container" style="grid-template-rows: repeat({{ plate_rows }}, 1fr); 
             aspect-ratio: {{ plate_columns }} / {{ plate_rows }};">
             {% for sample in samples %}
-                <div class="well{% if sample['control_type'] %} {{ sample['control_type'] }}{% endif %}" draggable="true" {% if sample['sample_id'] %}id="{{ sample['sample_id'] }}"{% endif %}>
+                <div class="well{% if sample['control_type'] %} {{ sample['control_type'] }}{% endif %}"{% if creation %} draggable="true"{% endif %} {% if sample['sample_id'] %}id="{{ sample['sample_id'] }}"{% endif %}>
                   {% if creation %}
                     <p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}</p>
                   {% else %}
                     <a style="font-size: 0.7em; text-align: center; word-wrap: break-word;" class="data-link proceduresampleassociation" id="{{ sample['name'] }}">{{ sample['sample_id']}}</a>
-                      <div class="tooltip">
-                        
-                      </div>
-                    <br>
                   {% endif %}
+                  <br>
                 </div>
             {% endfor %}
         </div>

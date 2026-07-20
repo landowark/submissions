@@ -1,6 +1,8 @@
 /* Tooltip container */
 .tooltip {
-  position: relative;
+  /* position: relative; */
+  position: relative; 
+  z-index: 2;
   display: inline-block;
   border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
 }
@@ -20,7 +22,8 @@
   z-index: 1;
   bottom: 100%;
   left: 50%;
-  margin-left: -60px;
+  /* margin-left: -60px; */
+  transform: translateX(-50%);
 }
 /* Show the tooltip text when you mouse over the tooltip container */
 .tooltip:hover .tooltiptext {

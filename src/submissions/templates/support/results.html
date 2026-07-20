@@ -1,7 +1,5 @@
-{% for result in results %}
-    <p>{% for key, value in result['result'].items() %}
-        {% if key not in sample.keys() and key not in sample['excluded'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {{ value | handle_results }}<br>
-        {% endif %}
-    {% endfor %}</p>
-{% endfor %}
+<p>{% for key, value in result['result'].items() %}
+    {% if key not in sample.keys() and key not in sample['excluded'] %}
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {{ value | handle_results }}<br>
+    {% endif %}
+{% endfor %}</p>
