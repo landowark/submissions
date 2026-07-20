@@ -11,7 +11,7 @@
     <h2><u>Submission Details for {{ clientsubmission['name'] }}</u></h2>
     {{ super() }}
     <p>{% for key, value in clientsubmission.items() if key not in clientsubmission['excluded'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Id", "ID") }}:</b> {% if key=='cost' %}{% if clientsubmission['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {% if key=='cost' %}{% if clientsubmission['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br/>
     {% endfor %}
     </p>
     {% if clientsubmission['comment'] %}

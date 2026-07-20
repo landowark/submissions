@@ -14,7 +14,7 @@ from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool, parse_optional_datetime
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, AlertStatus, Report, convert_well_to_row_column, find_first_matching_dict, iterable_enforcer, sort_dict_by_list
+from tools import Alert, AlertStatus, Report, convert_well_to_row_column, find_first_matching_dict, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list
 from ..shared import parse_expiry
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
@@ -64,9 +64,11 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     @property
     def improved_dict(self) -> dict:
         output = super().improved_dict
-        output['result'] = self.result
         if self.sample:
             output['sample_id'] = self.sample.name if isinstance(self.sample, PydSample) else self.sample
+            output['result'] = get_prioritized_dict_prefix(self.result, target_prefixes=self.resultstype.sample_key_order)
+        else:
+            output['result'] = get_prioritized_dict_prefix(self.result, target_prefixes=self.resultstype.info_key_order)
         return output
 
     @property
@@ -1156,8 +1158,9 @@ class PydClientSubmission(PydConcrete):
                 c.writerow([cell.value for cell in r])
 
     def to_html(self, **kwargs):
-        details = self.improved_dict_expand_fields(fields=[{"run":['procedure', 'sample']}, "sample"])
+        details = self.improved_dict_expand_fields(fields=[{"run": "sample"}, "sample"])
         details['sample'] = [sample.sample_id for sample in self.sql_instance.sample]
+        details['run'] = [run.to_pydantic().improved_dict_expand_fields(fields=[{"procedure":["sample"]}, "sample"], include_procedures=True) for run in self.sql_instance.run]
         # Up to this point, the samples are fine.
         output = super().to_html(**details)
         return output

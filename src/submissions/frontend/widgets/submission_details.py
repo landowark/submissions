@@ -15,6 +15,9 @@ from .functions import select_save_file, save_pdf
 from . import CustomWebEnginePage
 from getpass import getuser
 from datetime import datetime
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.validators import pydant
 
 
 class SubmissionDetails(QDialog):
@@ -23,11 +26,11 @@ class SubmissionDetails(QDialog):
     """
 
     def __init__(self, parent, object_: 
-                 models.ClientSubmission | 
-                 models.Run | 
-                 models.Procedure |
-                 models.Sample |
-                 models.Reagent, **kwargs) -> None:
+                 pydant.PydClientSubmission |
+                 pydant.PydRun |
+                 pydant.PydProcedure |
+                 pydant.PydSample,
+                   **kwargs) -> None:
 
         super().__init__(parent, **kwargs)
         

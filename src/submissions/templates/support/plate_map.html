@@ -6,7 +6,11 @@
                   {% if creation %}
                     <p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}</p>
                   {% else %}
-                    <a class="data-link proceduresampleassociation" id="{{ sample['name'] }}">{{ sample['sample_id']}}</a><br>
+                    <a style="font-size: 0.7em; text-align: center; word-wrap: break-word;" class="data-link proceduresampleassociation" id="{{ sample['name'] }}">{{ sample['sample_id']}}</a>
+                      <div class="tooltip">
+                        
+                      </div>
+                    <br>
                   {% endif %}
                 </div>
             {% endfor %}

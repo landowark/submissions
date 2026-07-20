@@ -605,13 +605,13 @@ class ClientSubmission(BaseClass, LogMixin):
         output['abbreviation'] = self.submissiontype.abbreviation or "XX"
         output['sample_count'] = len(self.clientsubmissionsampleassociation)
         output['comment'] = self.comment
-        excl = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
-                               "expanded", 'clientlab',  'id', 'info_placement', 'filepath', "name",
-                               "abbreviation", "endrow", "startrow", "full_batch_size", "comment"]
-        try:
-            output['excluded'] += excl
-        except KeyError:
-            output['excluded'] = excl
+        # excl = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
+        #                        "expanded", 'clientlab',  'id', 'info_placement', 'filepath', "name",
+        #                        "abbreviation", "endrow", "startrow", "full_batch_size", "comment"]
+        # try:
+        #     output['excluded'] += excl
+        # except KeyError:
+        #     output['excluded'] = excl
         return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):

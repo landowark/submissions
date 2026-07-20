@@ -31,9 +31,9 @@
     <button type="button"><h3><u>Procedures:</u></h3></button>
     <div class="nested">
     {% for procedure in run['procedure'] %}
-    {% with procedure=procedure, child=True %}
-        {% include "procedure_details.html" %}
-    {% endwith %}
+        {% with procedure=procedure, child=True %}
+            {% include "procedure_details.html" %}
+        {% endwith %}
     {% endfor %}
     </div>
     {% endif %}

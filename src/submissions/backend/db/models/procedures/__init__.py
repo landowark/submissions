@@ -20,7 +20,7 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
 from datetime import date, datetime, timedelta
-from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list, timezone
+from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list, sort_dict_by_list, timezone
 from typing import Any, Generator, Iterator, List, TYPE_CHECKING
 from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
@@ -1848,41 +1848,6 @@ class Procedure(BaseClass):
         pyd = PydProcedure(**output)
         return pyd
 
-    # @classmethod
-    # def get_default_info(cls, *args) -> dict | list | str:
-    #     """
-    #     Return default field visibility and serialization settings.
-
-    #     :param args: Specific keys to filter in the returned dictionary.
-    #     :type args: tuple
-    #     :return: Default metadata configuration for this class.
-    #     :rtype: dict | list | str
-    #     """
-    #     dicto = super().get_default_info()
-    #     recover = ['filepath', 'sample', 'csv', 'comment', 'equipment']
-    #     dicto.update(dict(
-    #         details_ignore=['excluded', 'reagents', 'sample', 'extraction_info', 'comment', 'barcode',
-    #                         'platemap', 'export_map', 'equipment', 'tips', 'custom', 'reagentlot', 'reagent_lot',
-    #                         "results", "proceduresampleassociation", "sample",
-    #                         "procedurereagentlotassociation",
-    #                         "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
-    #                         "tips", "control"],
-    #         # NOTE: Fields not placed in ui form
-    #         form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
-    #                      'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
-    #                      'control', "origin_plate"] + recover,
-    #         # NOTE: Fields not placed in ui form to be moved to pydantic
-    #         form_recover=recover
-    #     ))
-    #     if args:
-    #         if len(args) > 1:
-    #             output = {k: v for k, v in dicto.items() if k in args}
-    #         else:
-    #             output = dicto[args[0]]
-    #     else:
-    #         output = {k: v for k, v in dicto.items()}
-    #     return output
-
     @property
     def submissiontype(self):
         return self.run.clientsubmission.submissiontype
@@ -2328,6 +2293,8 @@ class ResultsType(BaseClass):
     _results = relationship("Results", back_populates="_resultstype", cascade="all, delete-orphan")
     _proceduretype = relationship(ProcedureType, back_populates="_resultstype", secondary=proceduretype_resulttype)
     _saved_settings = Column(JSON)
+    _info_key_order = Column(JSON, default=[])
+    _sample_key_order = Column(JSON, default=[])
 
     def __init__(self, *args, **kwargs):
         """
@@ -2341,6 +2308,8 @@ class ResultsType(BaseClass):
         info = kwargs.pop("info", {})
         samples = kwargs.pop("samples", {})
         saved_settings = kwargs.pop("saved_settings", [])
+        info_key_order = kwargs.pop("info_key_order", [])
+        sample_key_order = kwargs.pop("sample_key_order", [])
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
@@ -2359,6 +2328,8 @@ class ResultsType(BaseClass):
         self.info = info
         self.samples = samples
         self.saved_settings = saved_settings
+        self._info_key_order = info_key_order
+        self._sample_key_order = sample_key_order
 
     @hybrid_property
     def proceduretype(self):
@@ -2460,6 +2431,28 @@ class ResultsType(BaseClass):
             self._saved_settings = value
         else:
             raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._saved_settings")
+
+    @hybrid_property
+    def info_key_order(self):
+        return self._info_key_order or []
+    
+    @info_key_order.setter
+    def info_key_order(self, value):
+        if isinstance(value, list):
+            self._info_key_order = value
+        else:
+            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._info_key_order")
+        
+    @hybrid_property
+    def sample_key_order(self):
+        return self._sample_key_order or []
+    
+    @sample_key_order.setter
+    def sample_key_order(self, value):
+        if isinstance(value, list):
+            self._sample_key_order = value
+        else:
+            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._sample_key_order")
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         return super().to_pydantic(pyd_model_name, **kwargs)

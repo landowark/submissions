@@ -565,6 +565,41 @@ def convert_strings(data):
     return data
 
 
+def get_prioritized_dict_prefix(data, target_prefixes):
+    # Base case: if it is a list, process any dictionaries inside it
+    if isinstance(data, list):
+        return [get_prioritized_dict_prefix(item, target_prefixes) for item in data]
+    
+    # Base case: if it is not a dictionary, return it as-is
+    if not isinstance(data, dict):
+        return data
+
+    # 1. First, recursively process all nested items
+    processed_data = {}
+    for key, value in data.items():
+        processed_data[key] = get_prioritized_dict_prefix(value, target_prefixes)
+
+    # 2. Rebuild the current level dictionary with prioritized keys at the top
+    new_dict = {}
+    
+    # Track which keys we have already moved to avoid duplicates
+    moved_keys = set()
+
+    # Move matching keys to the top in the order of the target_prefixes list
+    for prefix in target_prefixes:
+        for key in processed_data:
+            if key not in moved_keys and str(key).startswith(prefix):
+                new_dict[key] = processed_data[key]
+                moved_keys.add(key)
+
+    # Append all remaining unmoved keys
+    for key, value in processed_data.items():
+        if key not in moved_keys:
+            new_dict[key] = value
+
+    return new_dict
+
+
 def sort_dict_by_list(dictionary: dict, order_list: list) -> dict:
     output = OrderedDict()
     for item in order_list:
@@ -995,8 +1030,9 @@ def handle_results(input_value:dict|str, html: bool=True, keep_iso: bool = False
                 logger.error(f"Could not convert {input_value} to json for display. Displaying as string instead.")
                 output = str(input_value)
             if html:
-                f"<pre>{html_escape(output)}</pre>"
+                output = f"<pre>{html_escape(output)}</pre>"
     output = rsub(r'[{}]|&quot;|,', '', output)
+    
     return output
 
 
