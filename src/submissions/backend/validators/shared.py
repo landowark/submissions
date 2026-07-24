@@ -33,6 +33,7 @@ def parse_optional_datetime(value, timefill: TimeFill | None = None) -> datetime
         case SourcedField():
             value = value.value
         case None:
+            logger.warning(f"None passed in for datetime using current datetime.")
             value = datetime.now()
         case _:
             pass
@@ -48,15 +49,16 @@ def parse_optional_datetime(value, timefill: TimeFill | None = None) -> datetime
                 except Exception as e2:
                     logger.exception(f"Problem with parse fallback: {e2}")
                     output = datetime.now()   # <- bug: setters ignore return values; this is now baked into all 5 copies
-        case date():
-            output = datetime.combine(value, datetime.now().time())
         case datetime():
             output = value
+        case date():
+            output = datetime.combine(value, datetime.now().time())
         case int():
             output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
         case _:
+            logger.warning(f"Unparsable value {value}, using current datetime.")
             output = datetime.now()
-    if timefill:
+    if timefill is not None:
         output = datetime.combine(output, timefill.value())
     return output.replace(tzinfo=timezone)
     

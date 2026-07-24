@@ -2,13 +2,14 @@
 All abstract pyd models and associations between abstracts.
 """
 from __future__ import annotations
+import json
 from logging import getLogger
 import sys
 logger = getLogger(f"submissions.{__name__}")
 from re import match as rmatch, I
 from numpy import array as nparray, ndenumerate
-from datetime import timedelta
-from typing import List, TYPE_CHECKING, Literal, Annotated
+from datetime import datetime, timedelta
+from typing import Generator, List, TYPE_CHECKING, Literal, Annotated
 from pydantic import computed_field, field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField
 from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
@@ -208,7 +209,8 @@ class PydProcedureType(PydAbstract):
         """
         if self.plate_rows == 0 or self.plate_columns == 0:
             return "<br/>"
-        sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
+        sample_dicts = [item for item in self.pad_sample_dicts(sample_dicts=sample_dicts)]
+        
         vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
@@ -218,7 +220,7 @@ class PydProcedureType(PydAbstract):
                                vw=vw, creation=creation)
         return html + "<br/>"
     
-    def pad_sample_dicts(self, sample_dicts: List[PydSample]) -> List[PydSample]:
+    def pad_sample_dicts(self, sample_dicts: List[PydSample]) -> Generator[PydSample, None, None]:
         """
         Pads out a list of sample dicts to the length of an associated plate.
         
@@ -226,13 +228,13 @@ class PydProcedureType(PydAbstract):
             List[PydSample]: Padded list.
         """
         from backend.validators.pydant import PydSample
-        output = []
         for row, column in self.make_ranked_plate().values():
 
             sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
                           PydSample(sample_id="", row=row, column=column, enabled=False, background_color="white"))
-            output.append(sample)
-        return output
+            yield sample
+        
+        # return output
     
     def make_ranked_plate(self, direction: Literal["row", "col"] = "row") -> dict:
         """

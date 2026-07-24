@@ -645,6 +645,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # by a prior to_sql() call (self.new=False), reuse it instead of
         # re-running query_or_create, which would overwrite sql_instance and
         # break callers that are mid-execution (e.g. circular PRLA -> Procedure refs).
+        from sqlalchemy.ext.hybrid import hybrid_property
+        from sqlalchemy.orm.properties import ColumnProperty
+ 
         if self.new:
             if self.__class__.__name__ == "PydSample":
                 logger.debug("Creating new Sample instance with lookup kwargs: " + pformat(self._sql_lookup_kwargs))
@@ -652,9 +655,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             # logger.debug(f"Got SQL instance {instance} for {self.__class__.__name__} with kwargs {self._sql_lookup_kwargs}")
             self.sql_instance = instance
             self.new = False          # mark as resolved
-        from sqlalchemy.ext.hybrid import hybrid_property
-        from sqlalchemy.orm.properties import ColumnProperty
- 
+            # assert not (k.startswith("_") or "AssociationProxy" in k), f"internal extra leaked: {k}"
+            # self.sql_instance._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
+            self.sql_instance.misc_info = {k:v for k, v in self.model_extra.items()}
+            logger.debug(f"SQL misc info: {self.sql_instance.misc_info}")
         if not update:
             return self.sql_instance
  
@@ -702,10 +706,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 setattr(self.sql_instance, k, v)
             except Exception as e:
                 logger.exception(f"Could not set relationship {k} on {self.sql_instance}: {e}")
-        for k, v in self.model_extra.items():
-            assert not (k.startswith("_") or "AssociationProxy" in k), f"internal extra leaked: {k}"
-            self.sql_instance._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
- 
+        
         return self.sql_instance
  
  

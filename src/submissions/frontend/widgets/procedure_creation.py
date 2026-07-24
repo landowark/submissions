@@ -11,7 +11,7 @@ from PyQt6.QtCore import pyqtSlot, QVariant, Qt
 from typing import TYPE_CHECKING, List
 from backend.validators import SourcedField
 from . import DefaultWebDialog
-from tools import check_if_app, render_details_template, find_first_matching_dict
+from tools import DictMode, check_if_app, render_details_template, find_first_matching_dict
 if TYPE_CHECKING:
     from backend.validators import PydProcedure
 
@@ -25,6 +25,8 @@ class ProcedureCreation(DefaultWebDialog):
         self.run = procedure.run
         assert self.run is not None
         self.procedure = procedure
+        with open(f"{datetime.now().strftime("%M.%S")}-construct.json", "w") as f:
+            jdump(fp=f, obj=self.procedure.improved_dict, default=str)
         self.proceduretype = procedure.proceduretype
         self.preprocessing_functions = {i[0]: {"function": i[1], "resultstype": i[2]} for i in self.proceduretype.preprocessing_methods}
         try:
@@ -53,7 +55,10 @@ class ProcedureCreation(DefaultWebDialog):
                     column = getattr(sample, "column", 0)
                     is_control = getattr(sample, "is_control", 0)
                 case PydProcedureSampleAssociation():
-                    sample_id = sample.sample
+                    if isinstance(sample.sample, PydSample):
+                        sample_id = sample.sample.sample_id
+                    else:
+                        sample_id = sample.sample
                     row = getattr(sample, "row", 0)
                     column = getattr(sample, "column", 0)
                     is_control = getattr(sample, "is_control", 0)
@@ -73,6 +78,7 @@ class ProcedureCreation(DefaultWebDialog):
                     column = 0
                     is_control = 0
             output = dict(sample_id=sample_id, index=iii, row=row, column=column, is_control=is_control)
+            
             yield output
 
     def set_html(self):
@@ -139,8 +145,8 @@ class ProcedureCreation(DefaultWebDialog):
                 new_lot = ReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
                 new_lot.save()
                 pyd.sql_instance = new_lot
-        reagentrole_idx, rr_dummy = find_first_matching_dict(key="name", value_to_match=reagentrole, list_of_dicts=self.proceduretype_dict['reagentrole'], mode="index")
-        reagent_idx, _ = find_first_matching_dict(key="name", value_to_match=reagent, list_of_dicts=rr_dummy['reagent'], mode="index")
+        reagentrole_idx, rr_dummy = find_first_matching_dict(key="name", value_to_match=reagentrole, list_of_dicts=self.proceduretype_dict['reagentrole'], mode=DictMode.INDEX)
+        reagent_idx, _ = find_first_matching_dict(key="name", value_to_match=reagent, list_of_dicts=rr_dummy['reagent'], mode=DictMode.POP)
         self.proceduretype_dict['reagentrole'][reagentrole_idx]['reagent'][reagent_idx]['reagentlot'].insert(0, pyd)
         self.set_html()
 
@@ -158,6 +164,16 @@ class ProcedureCreation(DefaultWebDialog):
         from backend.db.models import ReagentRole
         reagentrole = ReagentRole.query(name=reagentrole_name)
         return [item.name for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
+    
+    @pyqtSlot(str, result=QVariant)
+    def scanned_reagentlot(self, scanned: str) -> QVariant:
+        from backend.db import ReagentLot
+        reagentlot = ReagentLot.query(lims_id=lims_id)
+        if reagentlot:
+            reagentrole = [role.name for role in reagentlot.reagent.reagentrole if self.proceduretype.name in [t.name for t in role.proceduretype]][0]
+            reagentlot = reagentlot.name
+        return dict(reagentrole=reagentrole, reagentlot=reagentlot)
+        
     
     @pyqtSlot(str)
     def run_preprocess_function(self, function_name):

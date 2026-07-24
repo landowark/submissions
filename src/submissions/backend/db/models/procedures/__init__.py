@@ -20,8 +20,8 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
 from datetime import date, datetime, timedelta
-from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list, sort_dict_by_list, timezone
-from typing import Any, Generator, Iterator, List, TYPE_CHECKING
+from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list
+from typing import Any, Generator, Iterator, List, TYPE_CHECKING, Optional
 from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
@@ -895,28 +895,52 @@ class ProcedureType(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-    def construct_dummy_procedure(self, run: Run | None = None) -> PydProcedure:
-        """
-        Build a PydProcedure with empty sample data for this procedure type.
+    def construct_dummy_procedure(self, run: Optional[Run] = None) -> PydProcedure:
+        from backend.validators.pydant import PydProcedure, PydProcedureSampleAssociation
+        from backend.db.models import RunSampleAssociation, Procedure
 
-        :param run: Optional Run to attach to the dummy procedure.
-        :type run: Run | None
-        :return: Constructed PydProcedure instance.
-        :rtype: PydProcedure
-        """
-        from backend.validators.pydant import PydProcedure
-        if run:
-            samples = run.constuct_sample_dicts_for_proceduretype(proceduretype=self)
-            run = run.to_pydantic()
-        else:
-            samples = []
-        output = dict(
-            proceduretype=self,
+        pydrun = run.to_pydantic() if run is not None else None
+        sample_list = []
+
+        if run is not None:
+            for iii, assoc in enumerate(run.runsampleassociation, start=1):
+                assoc: RunSampleAssociation
+                sample = assoc.to_PydProcedureSampleAssociation(procedure=Procedure())  # or a dummy PydProcedure
+                if isinstance(sample, PydProcedureSampleAssociation):
+                    if sample.row < 1 or sample.column < 1:
+                        row, column = self.ranked_plate.get(sample.procedure_rank or iii, iii)
+                        sample.row = row
+                        sample.column = column
+                    sample.procedure_rank = getattr(assoc, "run_rank", iii)
+                    sample.enabled = getattr(assoc, "enabled", True)
+                    sample.control_type = (
+                        "positivecontrol" if sample.is_control == 1
+                        else "negativecontrol" if sample.is_control == -1
+                        else "sample"
+                    )
+                    sample_list.append(sample)
+
+        pyd_proc_type = self.to_pydantic()
+        expanded = pyd_proc_type.improved_dict_expand_fields([
+            {"reagentrole": [{"reagent": ["reagentlot"]}]},
+            {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", "process"]}]}
+        ])
+        pyd_proc_type.model_extra.update(expanded)
+
+        return PydProcedure(
+            proceduretype=pyd_proc_type,
+            run=pydrun,
+            technician="NA",
             repeat=False,
-            run=run,
-            sample=samples
+            repeat_of=None,
+            sample=sample_list,
+            reagentlot=[],
+            equipment=[],
+            results=[],
+            started_date=datetime.now(),
+            completed_date=None,
+            sql_instance=Procedure(),
         )
-        return PydProcedure(**output)
     
     @property
     def ranked_plate(self):
@@ -1592,8 +1616,8 @@ class Procedure(BaseClass):
             start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
             logger.warning(f"End date with no start date, using first procedure date: {start_date}")
         if start_date is not None:
-            start_date = cls.rectify_query_date(start_date)
-            end_date = cls.rectify_query_date(end_date, eod=True)
+            start_date = cls.rectify_query_date(start_date, timefill=TimeFill.MIN)
+            end_date = cls.rectify_query_date(end_date, timefill=TimeFill.MAX)
             query = query.filter(cls.started_date.between(start_date, end_date))
         match id:
             case int():
@@ -1800,17 +1824,18 @@ class Procedure(BaseClass):
 
     def construct_pyd_procedure_for_creation(self) -> "PydProcedure":
         """Return a widget-ready PydProcedure for ProcedureCreation."""
-        from backend.validators.pydant import PydProcedure, PydSample, PydReagentLot, PydProcedureReagentLotAssociation, PydProcedureSampleAssociation
+        from backend.validators.pydant import PydProcedure, PydProcedureSampleAssociation
 
         sample_list = []
         for assoc in self.proceduresampleassociation:
             sample = assoc.to_pydantic() if hasattr(assoc, "to_pydantic") else assoc
-            if isinstance(sample, PydSample):
+            if isinstance(sample, PydProcedureSampleAssociation):
                 sample.row = assoc.row
                 sample.column = assoc.column
                 sample.rank = assoc.procedure_rank
                 sample.enabled = getattr(assoc, "enabled", True)
-                sample.control_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')
+                sample.control_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'sample')
+            assert hasattr(sample, "sample_id")
             sample_list.append(sample)
         # Build a PydProcedureType instance and attach expanded relationship
         # dicts (reagentrole/equipmentrole) to its model_extra. Mark which

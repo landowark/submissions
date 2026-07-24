@@ -13,7 +13,7 @@ from numpy import sum as npsum, busday_count
 from tempfile import TemporaryFile
 from uuid import uuid4
 from inspect import isclass
-from operator import itemgetter
+from operator import itemgetter, attrgetter
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
@@ -26,7 +26,7 @@ from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityErr
 from sqlalchemy.ext.mutable import MutableList
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (
-    check_authorization, convert_row_column_to_well, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
+    TimeFill, check_authorization, convert_row_column_to_well, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
     is_power_user, Report, get_application_from_parent, iterable_enforcer
 )
 from backend.validators.shared import parse_optional_datetime, vet_comment
@@ -427,8 +427,8 @@ class ClientSubmission(BaseClass, LogMixin):
             start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
             logger.warning(f"End date with no start date, using first procedure date: {start_date}")
         if start_date is not None:
-            start_date = cls.rectify_query_date(start_date)
-            end_date = cls.rectify_query_date(end_date, eod=True)
+            start_date = cls.rectify_query_date(start_date, timefill=TimeFill.MIN)
+            end_date = cls.rectify_query_date(end_date, timefill=TimeFill.MAX)
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         # NOTE: by rsl number (returns only a single value)
         match submitter_plate_id:
@@ -1234,8 +1234,8 @@ class Run(BaseClass, LogMixin):
             start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
             logger.warning(f"End date with no start date, using first procedure date: {start_date}")
         if start_date is not None:
-            start_date = cls.rectify_query_date(start_date)
-            end_date = cls.rectify_query_date(end_date, eod=True)
+            start_date = cls.rectify_query_date(start_date, timefill=TimeFill.MIN)
+            end_date = cls.rectify_query_date(end_date, timefill=TimeFill.MAX)
             query = query.join(ClientSubmission).filter(ClientSubmission.submitted_date.between(start_date, end_date))
         # NOTE: by rsl number (returns only a single value)
         match name:
@@ -1297,8 +1297,10 @@ class Run(BaseClass, LogMixin):
         procedure = procedure_type.construct_dummy_procedure(run=self)
         procedure.active_reagentroles = [item.reagentrole.name for item in procedure_type.proceduretypereagentroleassociation if item.always_used]
         procedure.active_equipmentroles = [item.equipmentrole.name for item in procedure_type.proceduretypeequipmentroleassociation if item.always_used]
-        assert all([isinstance(s, PydSample) for s in procedure.sample])
+        procedure.used_tips = {ass.equipmentrole.name: [tipslot.name for tipslot in ass.tipslot] for ass in procedure_type.procedureequipmentassociation} or {}
+        assert len(procedure.sample) > 0
         assert procedure.run is not None
+        # As of here, samples are fine.
         # Passed check
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
@@ -1450,7 +1452,8 @@ class Run(BaseClass, LogMixin):
 
     def get_submission_rank_of_sample(self, sample: Sample | str):
         if isinstance(sample, str):
-            sample = Sample.query(sample_id=sample)
+            # sample = Sample.query(sample_id=sample)
+            sample = next((sample for sample in self.sample if sample.sample_id==sample), None)
         clientsubmissionsampleassoc = next((assoc for assoc in self.clientsubmission.clientsubmissionsampleassociation
                                             if assoc.sample == sample), None)
         if clientsubmissionsampleassoc:
@@ -1458,47 +1461,55 @@ class Run(BaseClass, LogMixin):
         else:
             return 0
 
-    def constuct_sample_dicts_for_proceduretype(self, proceduretype: ProcedureType):
+    def constuct_sample_dicts_for_proceduretype(self, proceduretype: ProcedureType, procedure: Procedure):
+        from backend.validators import PydProcedureSampleAssociation, PydSample
         plate_dict = proceduretype.ranked_plate
         ranked_samples = []
         unranked_samples = []
         with self.__database_session__.no_autoflush:
-            samples = [assoc.sample for assoc in self.runsampleassociation]
+            # samples = [assoc.sample for assoc in self.runsampleassociation]
+            samples = [assoc.to_PydProcedureSampleAssociation(procedure=procedure) for assoc in self.runsampleassociation]
         for sample in samples:
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
             if submission_rank != 0:
                 try:
-                    row, column = plate_dict[submission_rank]
+                    sample.row, sample.column = plate_dict[submission_rank]
                 except KeyError as e:
                     logger.error(pformat(plate_dict))
                     raise e
-                ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
-                                           procedure_rank=submission_rank, is_control=sample.is_control, enabled=True,
-                                           control_type=('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')))
+                # ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
+                #                            procedure_rank=submission_rank, is_control=sample.is_control, enabled=True,
+                #                            control_type=('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'sample')))
+                ranked_samples.append(sample)
             else:
                 unranked_samples.append(sample)
         possible_ranks = (item for item in list(plate_dict.keys()) if
-                          item not in [sample['procedure_rank'] for sample in ranked_samples])
+                          item not in [sample.procedure_rank for sample in ranked_samples])
         for sample in unranked_samples:
             try:
                 submission_rank = next(possible_ranks)
             except StopIteration:
                 continue
-            row, column = plate_dict[submission_rank]
+            sample.row, sample.column = plate_dict[submission_rank]
             ranked_samples.append(
-                dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
-                     procedure_rank=submission_rank,
-                     is_control=sample.is_control, enabled=True,
-                     control_type=('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')))
+                # dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
+                #      procedure_rank=submission_rank,
+                #      is_control=sample.is_control, enabled=True,
+                #      control_type=('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'sample'))
+                sample)
         padded_list = []
         for iii in range(1, proceduretype.total_wells + 1):
             row, column = proceduretype.ranked_plate[iii]
-            sample = next((item for item in ranked_samples if item['procedure_rank'] == iii),
-                     dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, procedure_rank=iii,
-                         is_control=0, enabled=False, control_type='')
+            try:
+                sample = next((item for item in ranked_samples if item.procedure_rank == iii)
+                #      dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, procedure_rank=iii,
+                        #  is_control=0, enabled=False, control_type='')
                      )
+            except StopIteration:
+                sample = PydProcedureSampleAssociation(sample=PydSample(sample_id=""), procedure=procedure, row=row, column=column, procedure_rank=iii)
+
             padded_list.append(sample)
-        return list(sorted(padded_list, key=itemgetter('procedure_rank')))
+        return list(sorted(padded_list, key=attrgetter('procedure_rank')))
 
     @classmethod
     def construct_dummy_run(cls, clientsubmission: ClientSubmission) -> Run:
@@ -1699,31 +1710,43 @@ class Sample(BaseClass, LogMixin):
     def is_control(self):
         return self._is_control
 
+    @staticmethod
+    def translate_control(value, to_str:bool = False):
+        if to_str:
+            if value < 0:
+                return "Negative"
+            elif value > 0:
+                return "Positive"
+            else:
+                return "Sample"
+        else:
+            match value:
+                case int():
+                    output = value
+                case bool():
+                    output = int(value)
+                case float():
+                    output = int(value)
+                case str():
+                    if any([value.lower().__contains__(s) for s in ["negative", "neg"]]):
+                        output = -1
+                    elif any([value.lower().__contains__(s) for s in ["positive", "pos"]]):
+                        output = 1
+                    elif any([value.lower().__contains__(s) for s in ["sample", "sam"]]):
+                        output = 0
+                    else:
+                        raise ValueError(f"Unmatched str value for {value}")
+                case _:
+                    raise TypeError(f"Unsupported type: {type(value)} for {self.sample_id}._is_control")
+            if output > 1:
+                output = 1
+            if output < -1:
+                output = -1
+            return output
+
     @is_control.setter
     def is_control(self, value):
-        match value:
-            case int():
-                output = value
-            case bool():
-                output = int(value)
-            case float():
-                output = int(value)
-            case str():
-                if any([value.__contains__(s) for s in ["negative", "neg"]]):
-                    output = -1
-                elif any([value.__contains__(s) for s in ["positive", "pos"]]):
-                    output = 1
-                elif any([value.__contains__(s) for s in ["regular", "reg"]]):
-                    output = 0
-                else:
-                    raise ValueError(f"Unmatched str value for {value}")
-            case _:
-                raise TypeError(f"Unsupported type: {type(value)} for {self.sample_id}._is_control")
-        if output > 1:
-            output = 1
-        if output < -1:
-            output = -1
-        self._is_control = output
+        self._is_control = self.translate_control(value)
   
     @hybrid_property
     def name(self):
@@ -1938,6 +1961,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
     @sample.setter
     def sample(self, value):
         from backend.validators.pydant import PydSample
+        logger.debug(f"Sample coming in: {value}")
         match value:
             case str():
                 output = Sample.query(name=value, limit=1)
@@ -2325,6 +2349,25 @@ class RunSampleAssociation(BaseClass):
         """
         from backend.validators import PydSample
         return PydSample(**self.details_dict)
+    
+    def to_PydProcedureSampleAssociation(self, procedure):
+        from backend.validators import PydProcedureSampleAssociation
+        from backend.excel import ClientSubmissionSampleParser as Parser
+        sample = self.to_pydantic()
+        output = PydProcedureSampleAssociation(
+                        sample=self.sample.sample_id,
+                        procedure=procedure.name,
+                        procedure_rank = self.run_rank,
+                        row = getattr(sample, "row", 0),
+                        column = getattr(sample, "column", 0),
+                        is_control=getattr(sample, "is_control", Parser.check_sample_id(sample_id=sample.sample_id)),
+                        run=self.run.rsl_plate_number
+                    )
+        try:
+            output.submission_rank = self.misc_info.get('submission_rank', None)
+        except KeyError:
+            logger.error(output)
+        return output
 
     @property
     def hitpicked(self) -> dict | None:
@@ -2744,9 +2787,18 @@ class ProcedureSampleAssociation(BaseClass):
         return convert_row_column_to_well(self.row, self.column)
 
     @classmethod
-    def query(cls, sample: Sample | str | None = None, procedure: Procedure | str | None = None, limit: int = 0,
+    def query(cls, 
+              name: str | None = None,
+              sample: Sample | str | None = None, 
+              procedure: Procedure | str | None = None, 
+              limit: int = 0,
               **kwargs):
         query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+            case _:
+                pass
         match sample:
             case Sample():
                 query = query.filter(cls.sample == sample)
@@ -2798,7 +2850,7 @@ class ProcedureSampleAssociation(BaseClass):
             case -1:
                 output['control_type'] = 'negativecontrol'
             case _:
-                output['control_type'] = 'regular'
+                output['control_type'] = 'sample'
         return output
 
     def to_pydantic(self, **kwargs):
@@ -2815,7 +2867,7 @@ class ProcedureSampleAssociation(BaseClass):
                 output.sample_type = "negativecontrol"
                 output.background_color = "cyan"
             case _:
-                output.sample_type = "regular"
+                output.sample_type = "sample"
                 if output.enabled:
                     output.background_color = "#66ff66"
                 else:

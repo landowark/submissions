@@ -3,13 +3,13 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from sqlalchemy import JSON, Column, String, TIMESTAMP, INTEGER, ForeignKey, Interval, FLOAT, select
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, Query
+from sqlalchemy.orm import Mapped, mapped_column, relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from datetime import datetime, timedelta
-from tools import check_authorization, classproperty, setup_lookup, timezone
+from tools import check_authorization, classproperty, iterable_enforcer, setup_lookup, timezone
 from typing import List
 from backend.validators.shared import parse_expiry, coerce_int_to_bool, vet_comment
 from .. import BaseClass, LogMixin
@@ -476,6 +476,7 @@ class ReagentLot(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     lot = Column(String(64), nullable=False)  #: lot number of reagent
+    _scan_ids: Mapped[List[str]] = mapped_column(JSON, default=[])
     _expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
     _active = Column(INTEGER, default=1)
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id", ondelete='SET NULL',
@@ -502,6 +503,7 @@ class ReagentLot(BaseClass):
         procedure = kwargs.pop('procedure', None)
         expiry = kwargs.pop('expiry', None)
         active = kwargs.pop('active', None)
+        lims_id = kwargs.pop("lims_id", None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve reagent
@@ -529,6 +531,11 @@ class ReagentLot(BaseClass):
                 self.active = active
             except Exception:
                 logger.error(f"Couldn't set active to {active} for {self.__class__.__qualname__} with name {self.name}")
+        if lims_id is not None:
+            try:
+                self.lims_id = lims_id
+            except Exception:
+                logger.error(f"Couldn't set lims_id to {lims_id} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def procedure(self) -> List[Procedure]:
@@ -643,6 +650,16 @@ class ReagentLot(BaseClass):
             # case _:
             #     raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
         self._active = int(coerce_int_to_bool(value))
+
+    @hybrid_property
+    def scan_ids(self):
+        return self._scan_ids or []
+    
+    @scan_ids.setter
+    def scan_ids(self, value):
+        value = iterable_enforcer(value)
+        existing = self._scan_ids or []
+        self._scan_ids = existing + value
     
     @hybrid_property
     def name(self):
@@ -668,6 +685,7 @@ class ReagentLot(BaseClass):
     def query(cls,
               lot: str | None = None,
               name: str | None = None,
+              scan_id: str | None = None,
               reagent: str | Reagent | None = None,
               limit: int = 0,
               **kwargs) -> ReagentLot | List[ReagentLot]:
@@ -678,6 +696,8 @@ class ReagentLot(BaseClass):
         :type lot: str | None
         :param name: Display name of this reagent lot. Defaults to None.
         :type name: str | None
+        :param lims_id: Display name of this reagent lot. Defaults to None.
+        :type lims_id: str | None
         :param reagent: Parent reagent or reagent name. Defaults to None.
         :type reagent: Reagent | str | None
         :param limit: Maximum number of results to return (0 = all). Defaults to 0.
@@ -697,6 +717,12 @@ class ReagentLot(BaseClass):
                 query = query.join(Reagent).filter(Reagent.name==reagent)
             case Reagent():
                 query = query.filter(cls._reagent==reagent)
+            case _:
+                pass
+        match scan_id:
+            case str():
+                query = query.filter(cls.json_contains(scan_id))
+                limit = 1
             case _:
                 pass
         match name:

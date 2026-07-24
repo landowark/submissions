@@ -1116,7 +1116,7 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: DictMode 
         if d_value == value_to_match:
             if mode.value == "pop":
                 # Pop and return the dictionary at the found index
-                return list_of_dicts.pop(index)
+                return index, list_of_dicts.pop(index)
             elif mode.value == "return":
                 return d
             elif mode.value == "index":

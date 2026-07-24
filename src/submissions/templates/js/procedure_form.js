@@ -1,4 +1,5 @@
-var formchecks = document.getElementsByClassName('form_check');
+const formchecks = document.getElementsByClassName('form_check');
+// const scanBtn = document.getElementById('scanBtn');
 
 for(let i = 0; i < formchecks.length; i++) {
   formchecks[i].addEventListener("change", function() {
@@ -6,7 +7,7 @@ for(let i = 0; i < formchecks.length; i++) {
   })
 };
 
-var formtexts = document.getElementsByClassName('form_text');
+const formtexts = document.getElementsByClassName('form_text');
 
 for(let i = 0; i < formtexts.length; i++) {
   formtexts[i].addEventListener("input", function() {
@@ -14,7 +15,7 @@ for(let i = 0; i < formtexts.length; i++) {
   })
 };
 
-var repeat_box = document.getElementById("repeat");
+const repeat_box = document.getElementById("repeat");
 
 repeat_box.addEventListener("input", function() {
     backend.check_toggle("repeat", repeat_box.checked);
@@ -26,7 +27,7 @@ repeat_box.addEventListener("input", function() {
     }
 })
 
-var repeat_of = document.getElementById("repeat_of");
+const repeat_of = document.getElementById("repeat_of");
 
 repeat_of.addEventListener("change", function() {
     backend.text_changed("repeat_of", repeat_of.value);
@@ -65,6 +66,13 @@ for (let i = 0; i < reagentRoles.length; i++) {
         var rr_lot_label = document.createElement("label");
         rr_lot_label.setAttribute("for", "new_" + this.id + "_lot");
         rr_lot_label.innerHTML = "Lot:";
+        // Barcode stuff that crashed into reality.
+        // var rr_lims = document.createElement("input");
+        // rr_lims.setAttribute("type", "text");
+        // rr_lims.setAttribute("id", "new_" + this.id + "_lims");
+        // var rr_lims_label = document.createElement("label");
+        // rr_lims_label.setAttribute("for", "new_" + this.id + "_lims");
+        // rr_lims_label.innerHTML = "Barcode:";
         var rr_expiry = document.createElement("input");
         rr_expiry.setAttribute("type", "date");
         rr_expiry.setAttribute("id", "new_" + this.id + "_expiry");
@@ -81,6 +89,9 @@ for (let i = 0; i < reagentRoles.length; i++) {
         new_form.appendChild(rr_lot_label);
         new_form.appendChild(rr_lot);
         new_form.appendChild(br.cloneNode());
+        new_form.appendChild(rr_lims_label);
+        new_form.appendChild(rr_lims);
+        new_form.appendChild(br.cloneNode());
         new_form.appendChild(rr_expiry_label);
         new_form.appendChild(rr_expiry);
         new_form.appendChild(br.cloneNode());
@@ -89,10 +100,11 @@ for (let i = 0; i < reagentRoles.length; i++) {
         new_form.onsubmit = function(event) {
             event.preventDefault();
             console.log("new_" + selector.id + "_name");
-            name = document.getElementById("new_" + selector.id + "_name").value;
+            rname = document.getElementById("new_" + selector.id + "_name").value;
             lot = document.getElementById("new_" + selector.id + "_lot").value;
+            lims = document.getElementById("new_" + selector.id + "_lims").value;
             expiry = document.getElementById("new_" + selector.id + "_expiry").value;
-            backend.add_new_reagent(selector.id, name, lot, expiry);
+            backend.add_new_reagent(selector.id, rname, lot, expiry);
             new_form.remove();
         }
         new_reg.appendChild(new_form);
@@ -295,3 +307,52 @@ var dateInputs = document.querySelectorAll('input.date_change');
             backend.update_date(id, newValue);
         });
     });
+
+// Barcode scanning stuff that crashed into reality a little too hard.
+
+let isListening = false;
+let inputBuffer = "";
+
+scanBtn.addEventListener('click', () => {
+    isListening = !isListening;
+    
+    if (isListening) {
+        scanBtn.textContent = "Stop Scanning";
+        scanBtn.classList.add('active');
+        inputBuffer = ""; // Reset buffer on start
+        // bufferDisplay.textContent = "Current input: ";
+    } else {
+        scanBtn.textContent = "Scan Barcodes";
+        scanBtn.classList.remove('active');
+    }
+});
+
+window.addEventListener('keydown', (event) => {
+    // Ignore key presses if the toggle is off
+    if (!isListening) return;
+    
+    // Check if the user pressed Enter (Carriage Return)
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        var reagentrole = "";
+        var reagentlot = "";
+        console.log("Submitted text: " + inputBuffer.trim());
+        backend.scanned_reagentlot(inputBuffer.trim(), function(result) {
+            reagentrole = result.reagentrole;
+            reagentlot = result.reagentlot;
+            console.log("Returned role: " + reagentrole);
+            console.log("Returned lot: " + reagentlot);
+        });
+        inputBuffer = ""; // Clear buffer after submission
+        // bufferDisplay.textContent = "Current input: ";
+        
+        // Optional: Turn off listening automatically after Enter
+        // toggleBtn.click(); 
+        return;
+    }
+
+    // Capture only single character alphanumeric/symbol keys (ignores Shift, Ctrl, etc.)
+    if (event.key.length === 1) {
+        inputBuffer += event.key;
+    }
+});

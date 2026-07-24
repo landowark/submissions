@@ -20,7 +20,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError, IntegrityError, OperationalError, StatementError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
-from tools import report_result, Report, Alert, ctx, is_internal_attr_key, trace
+from tools import TimeFill, report_result, Report, Alert, ctx, is_internal_attr_key, trace
 if TYPE_CHECKING:
     from pydantic import BaseModel
     from backend.validators import PydSample
@@ -552,8 +552,9 @@ class BaseClass(Base):
         :return: (instance, is_new)
         """
         valid = cls._mapped_fields()
+        logger.debug(f"Incoming kwargs: {kwargs}")
         fields = {k: v for k, v in kwargs.items() if k in valid}
-
+        logger.debug(f"Incoming fields: {fields}")
         query_kwargs = {k: v for k, v in fields.items() if not isinstance(v, list)}
 
         instance = cls.query(limit=1, **query_kwargs) if query_kwargs else None
@@ -787,13 +788,15 @@ class BaseClass(Base):
         # Ensure values in misc_info are json serializable. Try to coerce
         # values where possible; drop keys that cannot be coerced.
         for key, value in items:
+            # try:
+            #     jdumps(value)
+            # except TypeError:
             try:
-                jdumps(value)
+                self._misc_info[key] = self.sanitize_obj_for_json(value)
             except TypeError:
-                try:
-                    self._misc_info[key] = self.sanitize_obj_for_json(value)
-                except TypeError:
-                    del_keys.append(key)
+                logger.error(f"Unable to serialize: {key}: {value}, will delete.")
+                del_keys.append(key)
+        # Can't remove keys while iterating through dict so:
         for dk in del_keys:
             try:
                 del self._misc_info[dk]
@@ -946,7 +949,7 @@ class BaseClass(Base):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
 
     @staticmethod
-    def rectify_query_date(input_date: datetime, eod: bool = False) -> str:
+    def rectify_query_date(input_date: datetime, timefill: TimeFill | None = None, strip: bool = True) -> str:
         """
         Convert input into a datetime string for querying purposes.
         
@@ -966,19 +969,10 @@ class BaseClass(Base):
         :return: Formatted datetime string in format ``YYYY-MM-DD HH:MM:SS``.
         :rtype: str
         """
-        match input_date:
-            case datetime() | date():
-                output_date = input_date
-            case int():
-                output_date = datetime.fromordinal(
-                    datetime(1900, 1, 1).toordinal() + input_date - 2)
-            case _:
-                output_date = parse(input_date)
-        if eod:
-            addition_time = datetime.max.time()
-        else:
-            addition_time = datetime.min.time()
-        output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
+        from backend.validators.shared import parse_optional_datetime
+        output_date = parse_optional_datetime(value=input_date, timefill=timefill).isoformat(timespec="seconds")
+        if strip:
+            output_date = rsub(r"-\d{2}:\d{2}", "", output_date).replace("T", " ")
         return output_date
 
     @classmethod
@@ -1008,7 +1002,7 @@ class BaseClass(Base):
         
         match obj_:
             case datetime() | date():
-                return cls.rectify_query_date(input_date=obj_).split(" ")[0]
+                return cls.rectify_query_date(input_date=obj_)#.split(" ")[0]
             case timedelta():
                 return obj_.days
             case list() | _AssociationList() | InstrumentedList():

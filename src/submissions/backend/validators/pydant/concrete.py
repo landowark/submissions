@@ -101,6 +101,7 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
 class PydReagentLot(PydConcrete):
 
     lot: str = Field(default="NA", description="Lot number of this reagent.")
+    lims_id: str = Field(default="0000000", description="Lot number contained in a barcode.")
     reagent: Annotated[str | PydReagent | None, RelationshipField(uselist=False)] = Field(default=None, description="Type of reagent this lot is.")
     reagentrole: str | None = Field(default=None, repr=False)
     expiry: datetime = Field(default = None, description="Expiry date of this reagent lot.", validate_default=True)
@@ -190,6 +191,11 @@ class PydDiscount(PydConcrete):
 
 class PydSample(PydConcrete):
 
+    model_config = ConfigDict(
+        json_schema_extra = {"excluded": ['excluded', 'id', 'misc_info', 'rank', 'enabled', 'results', 'comment',
+                                          'sampleclientsubmissionassociation', 'sampleprocedureassociation']},
+    )
+
     sample_id: str
     rank: int | List[int] | None = Field(default=0, validate_default=True)
     enabled: bool = Field(default=True, repr=False)
@@ -276,6 +282,7 @@ class PydSample(PydConcrete):
     def improved_dict(self) -> dict:
         output = super().improved_dict
         output['name'] = self.name
+        output['is_control'] = self.translate_control(self.is_control)
         return output
 
     def to_sql(self, update: bool=True):
@@ -304,7 +311,7 @@ class PydSample(PydConcrete):
                 existing = None
             if existing:
                 try:
-                    existing.is_control = int(self.is_control)
+                    existing.is_control = self.is_control
                 except Exception:
                     logger.exception(f"Failed to set is_control={self.is_control} on existing {existing}")
                 return existing, None
@@ -312,7 +319,7 @@ class PydSample(PydConcrete):
             try:
                 # set control flag on the transient sql_instance so callers that
                 # immediately attach it will see the correct value
-                self.sql_instance.is_control = int(self.is_control)
+                self.sql_instance.is_control = self.is_control
             except Exception:
                 logger.exception(f"Failed to set is_control={self.is_control} on transient {self.sql_instance}")
             return self.sql_instance, None
@@ -325,7 +332,7 @@ class PydSample(PydConcrete):
         # `is_control` as a hybrid_property backed by `_is_control`; the
         # base-class to_sql skips hybrid properties, so set it explicitly.
         try:
-            self.sql_instance.is_control = int(self.is_control)
+            self.sql_instance.is_control = self.is_control
         except Exception:
             # Be defensive: if assignment fails, log and continue without
             # crashing the import flow.
@@ -348,9 +355,13 @@ class PydSample(PydConcrete):
                 return False
         if sample_id.strip().lower().startswith("blank"):
             return False
-        if sample_id.strip().lower() in ["", "na", "none"]:
+        if sample_id.strip().lower() in ["", "na", "none", "void"]:
             return False
         return True
+
+    @classmethod
+    def translate_control(cls, value: int, to_str:bool = False) -> str:
+        return cls._sql_class.translate_control(value, to_str=to_str)
 
 
 class PydEquipment(PydConcrete):
@@ -552,13 +563,17 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         elif isinstance(run_id, SourcedField):
             run_id = run_id.get("value", "Unassigned Run")
         # Update the instance directly
-        started_date = getattr(self, "started_date", None)
-        if started_date is not None:
-            suffix = f" - {started_date.isoformat(timespec='minutes')}"
-        else:
-            suffix = ""
+        # started_date = getattr(self, "started_date", None)
+        # if started_date is not None:
+        #     suffix = f" - {started_date.isoformat(timespec='minutes')}"
+        # else:
+        #     suffix = ""
         # return {"value": f"{run_id} - {pt_name}{suffix}", "missing": True}
-        name = f'{run_id} - {pt_name}{suffix}'
+        try:
+            started_date = self.started_date.replace(tzinfo=None).isoformat(timespec="minutes")
+        except AttributeError:
+            started_date = "NA"
+        name = f'{run_id} - {pt_name} - {started_date}'
         return SourcedField(value=name, missing=True)
         
     @field_validator("started_date", mode="before")
@@ -625,52 +640,67 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             except TypeError:
                 return len(self.sample)
 
-    def update_samples(self, sample_list: List[dict]):
+    def pick_sample_association(self, sample_id: str):
+        for assoc in self.sample:
+            match assoc.sample:
+                case PydSample():
+                    if assoc.sample.sample_id == sample_id:
+                        return assoc
+                    else:
+                        continue
+                case str():
+                    if assoc.sample == sample_id:
+                        return assoc
+                    else:
+                        continue
+                case _:
+                    continue
+        raise StopIteration(f"Could not find {sample_id} in {self.name} samples")
+
+
+    def update_samples(self, sample_list: List[PydProcedureSampleAssociation]):
         from backend.db.models import Sample
         # Coming into this method, samples are dicts and 'is_control' is intact.
         # Build a new ordered list of samples matching the sample_list order.
         ranked_plate = self.proceduretype.make_ranked_plate()
-        new_samples: List[PydSample] = []
+        new_samples: List[PydProcedureSampleAssociation] = []
+        
         for iii, sample_dict in enumerate(sample_list, start=1):
-            sample_id = sample_dict.get('sample_id', '')
+            sample_id = getattr(sample_dict, 'sample_id', '')
             # normalize blank markers
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
                 sample_id = ""
+            # try:
+            #     row, column = ranked_plate.get(sample_dict['index'], (0, 0))
+            # except KeyError:
+            #     row = 0
+            #     column = 0
+            row = getattr(sample_dict, "row", 0)
+            column = getattr(sample_dict, "column", 0)
             try:
-                row, column = ranked_plate.get(sample_dict['index'], (0, 0))
-            except KeyError:
-                row = 0
-                column = 0
-            try:
-                row = sample_dict.get("row", row)
-            except AttributeError:
-                row = 0
-            try:
-                column = sample_dict.get("column", column)
-            except AttributeError:
-                column = 0    
-            try:
-                sample = find_first_matching_dict(self.sample, "sample_id", sample_dict['sample_id'])
+                sample = self.pick_sample_association(sample_id=sample_id)
             except StopIteration:
-                sample = PydSample(sample_id=sample_id)
+                sample = PydProcedureSampleAssociation(sample=PydSample(sample_id=sample_id), procedure=self)
             # Do NOT change the sample_id (we want to preserve the existing sample's identity).
             # Update position/rank/control/classification metadata.
             sample.row = row
             sample.column = column
-            sample.rank = int(sample_dict.get('index', iii))
-            well_class = next((item for item in sample_dict.get('class', '').replace("well ", "").split(" ") if item in ['negativecontrol', 'positivecontrol']), "")
-            match well_class:
-                case "negativecontrol":
-                    sample.is_control = -1
-                case "positivecontrol":
-                    sample.is_control = 1
-                case _:
-                    sample.is_control = sample_dict.get('is_control', 0)
+            sample.rank = int(getattr(sample_dict, "procedure_rank", iii))
+            # well_class = next((item for item in sample_dict.get('class', '').replace("well ", "").split(" ") if item in ['negativecontrol', 'positivecontrol']), "")
+            # match well_class:
+            #     case "negativecontrol":
+            #         sample.is_control = -1
+            #     case "positivecontrol":
+            #         sample.is_control = 1
+            #     case _:
+            #         sample.is_control = sample_dict.get('is_control', 0)
             new_samples.append(sample)
         # Replace the sample list with the reordered list. Preserve any samples not present in
         # sample_list by appending them after the ordered ones (so they are not lost).
         remaining = []#[s for s in self.sample if s not in new_samples]
         self.sample = sorted(new_samples + remaining, key=lambda x: (x.column, x.row))
+        # As of here, samples are fine.
+        # logger.debug(pformat(self.sample))
     
     def get_last_used(self, reagentrole: str):
         from backend.db.models import ProcedureTypeReagentRoleAssociation
@@ -876,16 +906,36 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         ]
         proceduretype_dict['platemap'] = self.improved_dict['platemap']
         self.proceduretype = self._strip_procedure_refs(proceduretype_dict)
-        logger.debug(pformat(proceduretype_dict['reagentrole']))
         return proceduretype_dict
     
     def make_procedure_platemap(self):
-        try:
-            assert all([isinstance(s, PydSample) for s in self.sample])
-            sample_dicts = self.sample
-        except AssertionError:
-            sample_dicts = [s.to_pydantic() for s in self.sql_instance.proceduresampleassociation]
-        
+        from backend.excel.parsers import ClientSubmissionSampleParser as Parser
+        sample_dicts = []
+        for iii, sample in enumerate(self.sample):
+            match sample:
+                case PydProcedureSampleAssociation():
+                    sample_dicts.append(sample)
+                case PydSample():
+                    output = PydProcedureSampleAssociation(
+                        sample=sample,
+                        procedure=self,
+                        procedure_rank = iii,
+                        row = getattr(sample, "row", 0),
+                        column = getattr(sample, "column", 0),
+                        is_control=getattr(sample, "is_control", Parser.check_sample_id(sample_id=sample.sample_id))
+                    )
+                    sample_dicts.append(output)
+                case _:
+                    logger.error(f"Unparsable sample: {sample}")
+                    continue
+        # try:
+        assert all([isinstance(s, PydProcedureSampleAssociation) for s in sample_dicts])
+        #     sample_dicts = self.sample
+        # except AssertionError:
+        #     logger.error(f"Not all samples in were PydProcedureSampleAssociations, falling back\n{pformat(self.sample)}")
+        #     # if this is a new procedure, there will be no sample associations.
+        #     sample_dicts = [s.to_pydantic() for s in self.sql_instance.proceduresampleassociation]
+        # As of here, sample dicts is empty list.
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
 
@@ -1447,6 +1497,11 @@ class PydProcedureSampleAssociation(PydConcrete):
             value = 0
         return value
 
+    @field_validator("is_control", mode="before")
+    @classmethod
+    def enforce_control(cls, value):
+        return cls.translate_control(value)
+
     def to_sql(self, update: bool = True):
         from backend.db.models import ProcedureSampleAssociation
         self.sql_instance: ProcedureSampleAssociation = super().to_sql(update=update)
@@ -1462,9 +1517,15 @@ class PydProcedureSampleAssociation(PydConcrete):
         output = super().improved_dict
         output['sample_id'] = self.sample.sample_id if isinstance(self.sample, PydSample) else self.sample
         output['procedure'] = self.procedure.name if isinstance(self.procedure, PydProcedure) else self.procedure
+        output['is_control'] = self.translate_control(output['is_control'], to_str=True)
         return output
     
-    
+    @staticmethod
+    def translate_control(value: int, to_str:bool = False) -> str:
+        from backend.db import Sample
+        return Sample.translate_control(value, to_str=to_str)
+
+
 class PydProcedureEquipmentAssociation(PydConcrete):
 
     start_time: datetime = Field(default_factory=datetime.now, description="Start time of equipment use", validate_default=True)
@@ -1605,6 +1666,10 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
         }
     )
 
+    @staticmethod
+    def translate_control(value: int, to_str:bool = True) -> str:
+        from backend.db import Sample
+        return Sample.translate_control(value, to_str=to_str)
 
 __all__ = ["PydResults", "PydReagentLot", "PydDiscount", "PydSample", "PydEquipment", "PydContact", "PydClientLab", 
            "PydProcessVersion", "PydProcedure", "PydClientSubmission", "PydRun", "PydTipsLot", "PydProcedureSampleAssociation",

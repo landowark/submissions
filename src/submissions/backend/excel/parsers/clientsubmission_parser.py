@@ -74,19 +74,20 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):
         for ii, sample in enumerate(output, start=1):
             try:
                 if isinstance(sample["row"], str) and sample["row"].lower() in ascii_lowercase[0:8]:
-                    sample["row"] = convert_well_to_row_column(sample["row"])
+                    sample["row"], _ = convert_well_to_row_column(sample["row"])
             except KeyError:
                 pass
             sample['rank'] = ii
             sample['sample_id'], sample['is_control'] = self.determine_control(sample.get("sample_id", None))
             yield sample
 
-    def determine_control(self, sample_id: str | None) -> Tuple[str, int]:
+    @staticmethod
+    def check_sample_id(sample_id: str | None, submitter_id:str = "") -> Tuple[str, int]:
         if sample_id is None:
             return sample_id, 0
         if not isinstance(sample_id, str):
             sample_id = str(sample_id)
-        if sample_id.lower() in ["", "blank", "na", "n/a", "n\\a"]:
+        if sample_id.lower() in ["", "blank", "na", "n/a", "n\\a", "void"]:
             return "BLANK", 0
         if sample_id.lower().startswith(("atcc", "mcs", "pos", "positivecontrol", "poscontrol", "pc")):
             return sample_id, 1
@@ -94,11 +95,15 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):
             return sample_id, -1
         if "pbs" in sample_id.lower():
             if sample_id.lower() == "pbs-":
-                output = f"PBS-{self.submitter_id}"
+                output = f"PBS-{submitter_id}"
             else:
                 output = sample_id
-            return output, -1
+            return output, -1 
         return sample_id, 0
+
+    def determine_control(self, sample_id: str | None) -> Tuple[str, int]:
+        return self.check_sample_id(sample_id=sample_id, submitter_id=self.submitter_id)
+        
         
     def to_pydantic(self):
         return [self._pyd_object(**sample) for sample in self.parsed_info if sample.get('sample_id', None)]

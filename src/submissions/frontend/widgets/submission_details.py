@@ -127,6 +127,7 @@ class SubmissionDetails(QDialog):
         if clss:
             if isinstance(clss, list):
                 clss = clss[0]
+            logger.debug(f"Querying {clss.__qualname__} with name {sub_name}")
             obj = clss.query(name=sub_name, limit=1)
             if obj:
                 if isinstance(obj, list):
