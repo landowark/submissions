@@ -927,7 +927,7 @@ class ProcedureType(BaseClass):
         ])
         pyd_proc_type.model_extra.update(expanded)
 
-        return PydProcedure(
+        pyd = PydProcedure(
             proceduretype=pyd_proc_type,
             run=pydrun,
             technician="NA",
@@ -941,6 +941,10 @@ class ProcedureType(BaseClass):
             completed_date=None,
             sql_instance=Procedure(),
         )
+        pyd.active_reagentroles = [item.reagentrole.name for item in self.proceduretypereagentroleassociation if item.always_used]
+        pyd.active_equipmentroles = [item.equipmentrole.name for item in self.proceduretypeequipmentroleassociation if item.always_used]
+        pyd.used_tips = {}
+        return pyd
     
     @property
     def ranked_plate(self):
@@ -1702,10 +1706,7 @@ class Procedure(BaseClass):
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.info("Edit!")
         procedure = self.construct_pyd_procedure_for_creation()
-        procedure.new = False
-        procedure.active_reagentroles = [assoc.reagentrole.name for assoc in self.procedurereagentlotassociation]
-        procedure.active_equipmentroles = [assoc.equipmentrole.name for assoc in self.procedureequipmentassociation]
-        procedure.used_tips = {ass.equipmentrole.name: [tipslot.name for tipslot in ass.tipslot] for ass in self.procedureequipmentassociation} or {}
+        
         dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
         if dlg.exec():
             # Preserve existing procedure results while editing; the edit dialog
@@ -1871,6 +1872,10 @@ class Procedure(BaseClass):
             sql_instance=self,
         )
         pyd = PydProcedure(**output)
+        pyd.new = False
+        pyd.active_reagentroles = [assoc.reagentrole.name for assoc in self.procedurereagentlotassociation]
+        pyd.active_equipmentroles = [assoc.equipmentrole.name for assoc in self.procedureequipmentassociation]
+        pyd.used_tips = {ass.equipmentrole.name: [tipslot.name for tipslot in ass.tipslot] for ass in self.procedureequipmentassociation} or {}
         return pyd
 
     @property

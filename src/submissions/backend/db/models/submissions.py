@@ -1295,9 +1295,6 @@ class Run(BaseClass, LogMixin):
         from backend.validators.pydant import PydSample
         procedure_type: ProcedureType = next((proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
-        procedure.active_reagentroles = [item.reagentrole.name for item in procedure_type.proceduretypereagentroleassociation if item.always_used]
-        procedure.active_equipmentroles = [item.equipmentrole.name for item in procedure_type.proceduretypeequipmentroleassociation if item.always_used]
-        procedure.used_tips = {ass.equipmentrole.name: [tipslot.name for tipslot in ass.tipslot] for ass in procedure_type.procedureequipmentassociation} or {}
         assert len(procedure.sample) > 0
         assert procedure.run is not None
         # As of here, samples are fine.
@@ -2363,6 +2360,7 @@ class RunSampleAssociation(BaseClass):
                         is_control=getattr(sample, "is_control", Parser.check_sample_id(sample_id=sample.sample_id)),
                         run=self.run.rsl_plate_number
                     )
+        output.sample_id = self.sample.sample_id 
         try:
             output.submission_rank = self.misc_info.get('submission_rank', None)
         except KeyError:

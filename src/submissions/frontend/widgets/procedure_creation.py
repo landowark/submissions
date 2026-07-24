@@ -25,8 +25,6 @@ class ProcedureCreation(DefaultWebDialog):
         self.run = procedure.run
         assert self.run is not None
         self.procedure = procedure
-        with open(f"{datetime.now().strftime("%M.%S")}-construct.json", "w") as f:
-            jdump(fp=f, obj=self.procedure.improved_dict, default=str)
         self.proceduretype = procedure.proceduretype
         self.preprocessing_functions = {i[0]: {"function": i[1], "resultstype": i[2]} for i in self.proceduretype.preprocessing_methods}
         try:
