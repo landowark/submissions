@@ -111,9 +111,7 @@ class PosNegPane(InfoPane):
         self.pos_neg.addItem("Positive")
         self.pos_neg.addItem("Negative")
         self.pos_neg.addItem("Samples", start_checked=False)
-        # 2. Connect the change signal safely after object exists
-        
-        # 3. Explicitly trigger initial load once fully constructed
+        # 2. Explicitly trigger initial load once fully constructed
         self.layout.addWidget(QLabel("Filter by Control Type"), 2, 0, 1, 1)
         self.layout.addWidget(self.pos_neg, 2, 1, 1, 1)
         self._initialized = True
@@ -130,7 +128,6 @@ class PosNegPane(InfoPane):
             return super().update_data(*args, **kwargs)
         # 5. Call parent to build start_date, end_date, and submission_types safely
         super().update_data(*args, **kwargs)
-        
         # 6. Guard clause to handle early initialization safely if signals bypass blockers
         if not hasattr(self, "pos_neg"):
             return 

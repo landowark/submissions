@@ -5,8 +5,7 @@ from __future__ import annotations
 from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
 logger = getLogger(f"submissions.{__name__}")
 from html import escape as html_escape
-from string import ascii_uppercase
-from itertools import product as iterproduct, chain
+from itertools import product as chain
 from pandas import DataFrame, isnull as pdisnull
 from numpy import nan as npnan, isnat as npisnat, isnan as npisnan
 from getpass import getuser
@@ -14,7 +13,7 @@ from platform import system
 from stat import S_IWGRP
 from os import stat as osstat, chmod, umask
 from yaml import dump as ydump
-from re import sub as rsub, match as rmatch, I
+from re import sub as rsub, match as rmatch, IGNORECASE
 from time import perf_counter
 from importlib import import_module
 from collections import OrderedDict
@@ -59,17 +58,6 @@ main_aux_dir = Path.home().joinpath(f"{os_config_dir}/procedure")
 CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
-# 1. Generate single letters: ['A', 'B', ..., 'Z']
-# single = list(ascii_uppercase)
-
-# # 2. Generate double letters: ['AA', 'AB', ..., 'ZZ']
-# double = [''.join(p) for p in iterproduct(ascii_uppercase, repeat=2)]
-
-# 3. Combine and enumerate starting from index 1
-# row_map = dict(enumerate(single + double, start=1))
-# # 4. Reverse lookup. 
-# row_keys = {v: k for k, v in row_map.items()}
-
 # NOTE: Sets background for uneditable comboboxes and date edits.
 main_form_style = '''
                         QComboBox:!editable, QDateEdit {
@@ -78,8 +66,6 @@ main_form_style = '''
                 '''
 
 page_size = 250
-
-
 
 F = TypeVar("F", bound=Callable[..., Any])
 _MAX = 300  # per-value repr cap
@@ -430,33 +416,20 @@ def convert_well_to_row_column(input_str: str) -> Tuple[int | None, int | None]:
     Returns:
         Tuple[int | None, int | None]: (row, column) integers.
     """
-    # row_keys = {v: k for k, v in row_map.items()}
-    # try:
-    #     row = int(row_keys[input_str[0].upper()])
-    #     column = int(input_str[1:])
-    # except IndexError:
-    #     return None, None
-    # return row, column
-    # Match an arbitrary number of letters followed by an arbitrary number of digits
     clean_str = input_str.strip()
     if not clean_str:
         return None, None
-
     # Match starting letters and optional trailing digits
-    match = rmatch(r"^([A-Za-z]+)([0-9]*)$", clean_str)
+    match = rmatch(r"^([A-Za-z]+)([0-9]*)$", clean_str, flags=IGNORECASE)
     if not match:
         return None, None
-        
     row_str, col_str = match.groups()
-    
     # Convert arbitrary row letters to a 1-based index (A=1, B=2, AA=27)
     row = 0
     for char in row_str.upper():
         row = row * 26 + (ord(char) - ord('A') + 1)
-        
     # Safely convert column if digits exist
     column = int(col_str) if col_str else None
-    
     return row, column
 
 
@@ -484,7 +457,6 @@ def convert_row_column_to_well(row: int, column: int|None=None) -> str | None:
     while row > 0:
         row, remainder = divmod(row - 1, 26)
         row_str = chr(65 + remainder) + row_str
-        
     return f"{row_str}{column}"
 
 
@@ -530,13 +502,10 @@ def find_paths_to_value(target_key, data: dict) -> Generator[Tuple[dict, list], 
                     # If target is found, yield the current parent dictionary
                     if k == target_key:
                         yield current_data, current_path
-                    
                     next_path = current_path + [k]
                     yield from _search(v, next_path)
-
         # Initialize the generator for the current top-level branch
         branch_generator = _search(top_value, [top_key])
-        
         try:
             # Check if the branch contains at least one match
             first_match = next(branch_generator)
@@ -569,34 +538,27 @@ def get_prioritized_dict_prefix(data, target_prefixes):
     # Base case: if it is a list, process any dictionaries inside it
     if isinstance(data, list):
         return [get_prioritized_dict_prefix(item, target_prefixes) for item in data]
-    
     # Base case: if it is not a dictionary, return it as-is
     if not isinstance(data, dict):
         return data
-
     # 1. First, recursively process all nested items
     processed_data = {}
     for key, value in data.items():
         processed_data[key] = get_prioritized_dict_prefix(value, target_prefixes)
-
     # 2. Rebuild the current level dictionary with prioritized keys at the top
     new_dict = {}
-    
     # Track which keys we have already moved to avoid duplicates
     moved_keys = set()
-
     # Move matching keys to the top in the order of the target_prefixes list
     for prefix in target_prefixes:
         for key in processed_data:
             if key not in moved_keys and str(key).startswith(prefix):
                 new_dict[key] = processed_data[key]
                 moved_keys.add(key)
-
     # Append all remaining unmoved keys
     for key, value in processed_data.items():
         if key not in moved_keys:
             new_dict[key] = value
-
     return new_dict
 
 
@@ -1065,7 +1027,7 @@ def iterable_enforcer(value, pass_dict: bool = True) -> list:
         return [value]
 
 
-_MISC_INFO_INTERNAL_MARKERS = ("AssociationProxy", "sa_instance_state", "_sa_")
+# _MISC_INFO_INTERNAL_MARKERS = ("AssociationProxy", "sa_instance_state", "_sa_")
 
 
 def is_internal_attr_key(key) -> bool:
@@ -1075,7 +1037,7 @@ def is_internal_attr_key(key) -> bool:
     "_AssociationProxy_<target>_<id>". SQLAlchemy setattr()'s these directly;
     they must never be captured into _misc_info.
     """
-    return isinstance(key, str) and key.startswith("_") and any(m in key for m in _MISC_INFO_INTERNAL_MARKERS)
+    return isinstance(key, str) and key.startswith("_") and any(m in key for m in ("AssociationProxy", "sa_instance_state", "_sa_"))
 
 
 class DictMode(Enum):
@@ -1169,11 +1131,9 @@ class DotDict(dict):
             return DotDict(value) if isinstance(value, dict) else value
         except KeyError:
             raise AttributeError(f"No attribute named '{name}'")
-
     def __setattr__(self, name: str, value: Any) -> None:
         # Allows setting values via dot notation: d.key = value
         self[name] = value
-
     def __delattr__(self, name: str) -> None:
         # Allows deleting values via dot notation: del d.key
         try:
@@ -1209,7 +1169,6 @@ class Settings(BaseSettings, extra="allow"):
             value = extra[name]
             # Wrap dictionaries so something like user_data.email works
             return DotDict(value) if isinstance(value, dict) else value
-        
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     @classproperty
@@ -1229,11 +1188,9 @@ class Settings(BaseSettings, extra="allow"):
         return cls.main_aux_dir.joinpath("logs")
 
     def __new__(cls, *args, **kwargs):
-        
         settings_path = kwargs.get("settings_path", None)
         if isinstance(settings_path, str):
                 settings_path = Path(settings_path)
-
         if settings_path is None:
             # NOTE: Check user .config/procedure directory
             if cls.configdir.joinpath("config.yml").exists():
@@ -1321,7 +1278,6 @@ class Settings(BaseSettings, extra="allow"):
         database.engine = engine
         database.session = scoped_session(sessionmaker(bind=engine))
         return database
-        
     
     @field_validator('package', mode="before")
     @classmethod
@@ -1477,7 +1433,7 @@ class Settings(BaseSettings, extra="allow"):
             self.close_database()
             
     @classmethod
-    def get_alembic_db_path(cls, alembic_path, mode:AlembicModes = AlembicModes.PATH) -> Path | str:
+    def get_alembic_db_path(cls, alembic_path, mode:AlembicModes = AlembicModes.PATH) -> Path | str | None:
         """
         Retrieves database variables from alembic.ini file.
         Currently uused, but will keep it around.
@@ -1541,7 +1497,6 @@ class Settings(BaseSettings, extra="allow"):
                 dicto[k] = v
             with open(self.configdir.joinpath("config.yml"), 'w') as f:
                 ydump(dicto, f)
-
 
 ctx = Settings()
 jinja_env = jinja_template_loading()

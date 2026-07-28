@@ -13,7 +13,7 @@ from numpy import sum as npsum, busday_count
 from tempfile import TemporaryFile
 from uuid import uuid4
 from inspect import isclass
-from operator import itemgetter, attrgetter
+from operator import attrgetter
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
@@ -314,29 +314,6 @@ class ClientSubmission(BaseClass, LogMixin):
 
     @submitted_date.setter
     def submitted_date(self, value):
-        # if isinstance(value, dict):
-        #     value = value.get("value", datetime.now())
-        # match value:
-        #     case datetime():
-        #         output = value
-        #     case date():
-        #         output = datetime.combine(value, datetime.min.time())
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value['value']} for datetime")
-        # value = output.replace(tzinfo=timezone)
         self._submitted_date = parse_optional_datetime(value)
 
     @hybrid_property
@@ -359,18 +336,6 @@ class ClientSubmission(BaseClass, LogMixin):
     
     @comment.setter
     def comment(self, value):
-        # if not isinstance(value, list):
-        #     value = [value]
-        # current = self._comment or []
-        # for comment in value:
-        #     if not isinstance(comment, dict):
-        #         logger.error(f"Invalid comment value {comment} for {self.__class__.__qualname__}, must be a dictionary.")
-        #         return
-        #     if comment['text'] in ["", None]:
-        #         return
-            
-            
-        #     current.append(comment)
         self._comment = vet_comment(value, current=self._comment)
 
     @property
@@ -416,7 +381,6 @@ class ClientSubmission(BaseClass, LogMixin):
         Returns:
             models.Run | List[models.Run]: Submission(s) of interest
         """
-        # from ... import RunReagentAssociation
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
         query: Query = cls.__database_session__.query(cls)
         if start_date is not None and end_date is None:
@@ -534,7 +498,6 @@ class ClientSubmission(BaseClass, LogMixin):
     def add_run(self, obj):
         from frontend.widgets.sample_checker import SampleChecker
         samples = [assoc.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
-        logger.debug(f"Initial samples: {pformat(samples)}")
         run = Run.construct_dummy_run(clientsubmission=self)
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, run=run)
         if checker.exec():
@@ -548,17 +511,11 @@ class ClientSubmission(BaseClass, LogMixin):
                         continue
                     else:
                         sample = self.rank_sample(sample, iii)
-                        logger.debug(f"Sample coming out of rank: {sample}")
                         selected_samples.append(sample)
-                
                 run.sample = [s for s in selected_samples]
-                logger.debug(pformat(list(run.sample)))
-
-                run = run.to_sql()
-                
+                run = run.to_sql()             
                 if isinstance(run, tuple):
                     run = run[0]
-                logger.debug(list(run.sample))
                 run.save()
             finally:
                 QApplication.restoreOverrideCursor()
@@ -601,17 +558,9 @@ class ClientSubmission(BaseClass, LogMixin):
             output['contact_email'] = output['contact']['email']
         output['sample'] = [sample for sample in output['clientsubmissionsampleassociation']]
         output['name'] = self.name
-        # output['submission_type'] = output.get('submissiontype')
         output['abbreviation'] = self.submissiontype.abbreviation or "XX"
         output['sample_count'] = len(self.clientsubmissionsampleassociation)
         output['comment'] = self.comment
-        # excl = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
-        #                        "expanded", 'clientlab',  'id', 'info_placement', 'filepath', "name",
-        #                        "abbreviation", "endrow", "startrow", "full_batch_size", "comment"]
-        # try:
-        #     output['excluded'] += excl
-        # except KeyError:
-        #     output['excluded'] = excl
         return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
@@ -784,13 +733,15 @@ class Run(BaseClass, LogMixin):
     
     @rsl_plate_number.setter
     def rsl_plate_number(self, value):
-        from backend.validators import RSLNamer
+        
         if isinstance(value, dict):
             value = value.get("value", "NA")
         if isinstance(value, str):
             self._rsl_plate_number = value
         else:
+            from backend.validators import RSLNamer
             namer = RSLNamer(submission_type=self.clientsubmission.submissiontype)
+            self._rsl_plate_number = namer.construct_new_plate_name(data=self.__dict__)
 
     @hybrid_property
     def procedure(self):
@@ -859,10 +810,8 @@ class Run(BaseClass, LogMixin):
     def sample(self, value):
         from backend.validators.pydant import PydSample, PydClientSubmissionSampleAssociation
         value = iterable_enforcer(value)
-        logger.debug(f"Value coming in to sample: {value}")
         list_ = []
         for iii, item in enumerate(value):
-            logger.debug(f"Checking item: {item}")
             match item:
                 case str():
                     try:
@@ -876,7 +825,6 @@ class Run(BaseClass, LogMixin):
                 case PydSample():
                     output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii), **{k: v for k, v in item.__dict__.items() if k not in ['sample_id', 'rank']})
                 case PydClientSubmissionSampleAssociation():
-                    logger.debug(f"Received PydClientSubmissionSampleAssociation: {item}")
                     output = RunSampleAssociation(run=self, rank = getattr(item, "rank", iii), **{k: v for k, v in item.__dict__.items() if k not in ['sample_id', 'rank']})
                 case Sample():
                     output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii))#, **{k: v for k, v in item.__dict__.items() if k not in ['name', 'rank']})
@@ -920,27 +868,6 @@ class Run(BaseClass, LogMixin):
             value = value.get("value", self.clientsubmission.submitted_date)
         elif isinstance(value, SourcedField):
             value = value.value
-        # match value:
-        #     case datetime():
-        #         output = value
-        #     case date():
-        #         output = datetime.combine(value, datetime.min.time())
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value} for datetime")
-        # value = output.replace(tzinfo=timezone)
         self._started_date = parse_optional_datetime(value)
 
     @hybrid_property
@@ -955,30 +882,6 @@ class Run(BaseClass, LogMixin):
 
     @completed_date.setter
     def completed_date(self, value):
-        # if isinstance(value, dict):
-        #     value = value.get("value", datetime.now())
-        # match value:
-        #     case datetime():
-        #         output = value
-        #     case date():
-        #         output = datetime.combine(value, datetime.min.time())
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         logger.error(f"Unmatched value {value} for Run.completed date")
-        #         return None
-        # value = output.replace(tzinfo=timezone)
         self._completed_date = parse_optional_datetime(value)
 
     @hybrid_property
@@ -989,14 +892,6 @@ class Run(BaseClass, LogMixin):
     
     @comment.setter
     def comment(self, value):
-        # if not isinstance(value, dict):
-        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-        #     return
-        # if value['text'] in [""]:
-        #     return
-        # value = vet_comment(value)
-        # current = self._comment or []
-        # current.append(value)
         self._comment = vet_comment(value, current=self._comment)
 
     @hybrid_property
@@ -1265,7 +1160,7 @@ class Run(BaseClass, LogMixin):
         # Do not apply .limit()/.offset() directly on the Query here because
         # execute_query will add filters afterwards. Applying limit/offset
         # before filters causes SQLAlchemy to raise when filters are added.
-        if page_size > 0:
+        if page_size and page_size > 0:
             offset = (page - 1) * page_size if page is not None else None
             # If no explicit limit was set, limit the results to the page size
             if limit == 0:
@@ -1302,8 +1197,13 @@ class Run(BaseClass, LogMixin):
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
-            sql.update_last_useds()
-            sql.save()
+            try:
+                assert len(sql.sample) > 0
+                sql.update_last_useds()
+                sql.save()
+            except AssertionError as e:
+                logger.error(sql.sample)
+                return
         # Refresh only the parent submission's row instead of the entire tree.
         # Here self is the Run, so the changed submission is self.clientsubmission.
         if hasattr(obj, "upsert_submission"):
@@ -1474,9 +1374,6 @@ class Run(BaseClass, LogMixin):
                 except KeyError as e:
                     logger.error(pformat(plate_dict))
                     raise e
-                # ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
-                #                            procedure_rank=submission_rank, is_control=sample.is_control, enabled=True,
-                #                            control_type=('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'sample')))
                 ranked_samples.append(sample)
             else:
                 unranked_samples.append(sample)
@@ -1488,20 +1385,12 @@ class Run(BaseClass, LogMixin):
             except StopIteration:
                 continue
             sample.row, sample.column = plate_dict[submission_rank]
-            ranked_samples.append(
-                # dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
-                #      procedure_rank=submission_rank,
-                #      is_control=sample.is_control, enabled=True,
-                #      control_type=('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'sample'))
-                sample)
+            ranked_samples.append(sample)
         padded_list = []
         for iii in range(1, proceduretype.total_wells + 1):
             row, column = proceduretype.ranked_plate[iii]
             try:
-                sample = next((item for item in ranked_samples if item.procedure_rank == iii)
-                #      dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, procedure_rank=iii,
-                        #  is_control=0, enabled=False, control_type='')
-                     )
+                sample = next((item for item in ranked_samples if item.procedure_rank == iii))
             except StopIteration:
                 sample = PydProcedureSampleAssociation(sample=PydSample(sample_id=""), procedure=procedure, row=row, column=column, procedure_rank=iii)
 
@@ -1604,8 +1493,6 @@ class Sample(BaseClass, LogMixin):
     
     @clientsubmission.setter
     def clientsubmission(self, value):
-        # if not isinstance(value, list):
-        #     value = [value]
         value = iterable_enforcer(value)
         list_ = []
         for item in value:
@@ -1640,8 +1527,6 @@ class Sample(BaseClass, LogMixin):
     @run.setter
     def run(self, value):
         from backend.db.models import Run
-        # if not isinstance(value, list):
-        #     value = [value]
         value = iterable_enforcer(value)
         list_ = []
         for item in value:
@@ -1675,8 +1560,6 @@ class Sample(BaseClass, LogMixin):
     
     @procedure.setter
     def procedure(self, value):
-        # if not isinstance(value, list):
-        #     value = [value]
         value = iterable_enforcer(value)
         list_ = []
         for item in value:
@@ -1757,14 +1640,6 @@ class Sample(BaseClass, LogMixin):
     
     @comment.setter
     def comment(self, value):
-        # if not isinstance(value, dict):
-        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-        #     return
-        # if value['text'] in [""]:
-        #     return
-        # value = vet_comment(value)
-        # current = self._comment or []
-        # current.append(value)
         self._comment = vet_comment(value, current=self._comment)
 
     @classmethod
@@ -1958,7 +1833,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
     @sample.setter
     def sample(self, value):
         from backend.validators.pydant import PydSample
-        logger.debug(f"Sample coming in: {value}")
         match value:
             case str():
                 output = Sample.query(name=value, limit=1)
@@ -2014,9 +1888,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
     
     @comment.setter
     def comment(self, value):
-        # value = vet_comment(value)
-        # current = self._comment or []
-        # current.append(value)
         self._comment = vet_comment(value, current=self._comment)
 
     @property
@@ -2104,51 +1975,11 @@ class ClientSubmissionSampleAssociation(BaseClass):
                         sample: Sample | str | None = None,
                         id: int | None = None,
                         **kwargs) -> ClientSubmissionSampleAssociation:
-    #     """
-    #     Queries for an association, if none exists creates a new one.
-
-    #     Args:
-    #         association_type (str, optional): Subclass name. Defaults to "Basic Association".
-    #         clientsubmission (Run | str | None, optional): associated procedure. Defaults to None.
-    #         sample (Sample | str | None, optional): associated sample. Defaults to None.
-    #         id (int | None, optional): association id. Defaults to None.
-
-    #    Returns:
-    #         ClientSubmissionSampleAssociation: Queried or new association.
-    #     """
-    #     match clientsubmission:
-    #         case ClientSubmission():
-    #             pass
-    #         case str():
-    #             clientsubmission = ClientSubmission.query(rsl_plate_number=clientsubmission)
-    #         case _:
-    #             raise ValueError()
-    #     match sample:
-    #         case Sample():
-    #             pass
-    #         case str():
-    #             sample = Sample.query(sample_id=sample)
-    #         case _:
-    #             raise ValueError()
-    #     try:
-    #         row = kwargs['row']
-    #     except KeyError:
-    #         row = None
-    #     try:
-    #         column = kwargs['column']
-    #     except KeyError:
-    #         column = None
-    #     try:
-    #         instance = cls.query(clientsubmission=clientsubmission, sample=sample, row=row, column=column, limit=1)
-    #     except StatementError:
-    #         instance = None
-    #     if instance is None:
-    #         instance = cls(submission=clientsubmission, sample=sample, id=id, **kwargs)
-    #     return instance
+    
         return cls._query_or_create_sample_link(
-                parent=clientsubmission, parent_model=ClientSubmission, parent_lookup="rsl_plate_number",
-                query_kwarg="clientsubmission", ctor_kwarg="submission", sample=sample, id=id, **kwargs
-            )
+                    parent=clientsubmission, parent_model=ClientSubmission, parent_lookup="rsl_plate_number",
+                    query_kwarg="clientsubmission", ctor_kwarg="submission", sample=sample, id=id, **kwargs
+                )
 
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
@@ -2328,13 +2159,6 @@ class RunSampleAssociation(BaseClass):
     
     @comment.setter
     def comment(self, value):
-        # if not isinstance(value, dict):
-        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-        #     return
-        # if value['text'] in [""]:
-        #     return
-        # current = self._comment or []
-        # current.append(value)
         self._comment = vet_comment(value, current=self._comment)
 
     def to_pydantic(self) -> PydSample:
@@ -2477,35 +2301,6 @@ class RunSampleAssociation(BaseClass):
        Returns:
             ClientSubmissionSampleAssociation: Queried or new association.
         """
-        # match run:
-        #     case Run():
-        #         pass
-        #     case str():
-        #         run = Run.query(name=run)
-        #     case _:
-        #         raise ValueError()
-        # match sample:
-        #     case Sample():
-        #         pass
-        #     case str():
-        #         sample = Sample.query(sample_id=sample)
-        #     case _:
-        #         raise ValueError()
-        # try:
-        #     row = kwargs['row']
-        # except KeyError:
-        #     row = None
-        # try:
-        #     column = kwargs['column']
-        # except KeyError:
-        #     column = None
-        # try:
-        #     instance = cls.query(run=run, sample=sample, row=row, column=column, limit=1)
-        # except StatementError:
-        #     instance = None
-        # if instance is None:
-        #     instance = cls(run=run, sample=sample, id=id, **kwargs)
-        # return instance
         return cls._query_or_create_sample_link(
             parent=run, parent_model=Run, parent_lookup="name",
             query_kwarg="run", ctor_kwarg="run", sample=sample, id=id, **kwargs
@@ -2642,13 +2437,6 @@ class ProcedureSampleAssociation(BaseClass):
     
     @comment.setter
     def comment(self, value):
-        # if not isinstance(value, dict):
-        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-        #     return
-        # if value['text'] in [""]:
-        #     return
-        # current = self._comment or []
-        # current.append(value)
         self._comment = vet_comment(value, current=self._comment)
 
     def add_comment(self, obj):
@@ -2744,10 +2532,6 @@ class ProcedureSampleAssociation(BaseClass):
     def results(self, value):
         from backend.validators.pydant import PydResults
         from backend.db.models import Results
-        # if value is None:
-        #     value = []
-        # if not isinstance(value, list):
-        #     value = [value]
         value = iterable_enforcer(value)
         list_ = []
         for item in value:
@@ -2775,13 +2559,6 @@ class ProcedureSampleAssociation(BaseClass):
   
     @property
     def well(self):
-        # if self.row > 0:
-        #     if self.column > 0:
-        #         return f"{row_map[self.row]}{self.column}"
-        #     else:
-        #         return self.row
-        # else:
-        #     return None
         return convert_row_column_to_well(self.row, self.column)
 
     @classmethod

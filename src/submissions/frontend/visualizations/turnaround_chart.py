@@ -14,12 +14,10 @@ class TurnaroundChart(CustomFigure):
     def __init__(self, df: DataFrame, modes: list, settings: dict, threshold: float | None = None, **kwargs):
         df['dt_internal'] = None
         super().__init__(df=df, modes=modes, settings=settings, **kwargs)
-        
         self.construct_chart()
         if threshold:
             self.add_hline(y=threshold)
         self.update_layout(showlegend=False)
-
     
     def construct_chart(self, df: DataFrame | None = None):
         if df:

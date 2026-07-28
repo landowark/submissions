@@ -14,10 +14,7 @@ from . import DefaultResultsInfoWriter, DefaultResultsSampleWriter
 
 class DiomniPCRInfoWriter(DefaultResultsInfoWriter):
 
-    
-
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None, start_row: int = 1, *args, **kwargs) -> Workbook:
-        logger.debug(f"Writing results info to workbook.")
         return super().write_to_workbook(workbook, sheet, start_row, *args, **kwargs)
     
 
@@ -77,7 +74,6 @@ class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
             if df.empty:
                 continue
             df.caption = sheet
-            logger.debug(df)
             yield df
 
 

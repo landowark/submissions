@@ -84,7 +84,7 @@ class MyQDoubleSpinBox(QDoubleSpinBox):
         else:
             return self.scrollWidget.wheelEvent(*args, **kwargs)
         
-
+714
 class SubmissionFormContainer(QWidget):
     # NOTE: A signal carrying a path
     import_drag = pyqtSignal(Path)
@@ -210,7 +210,6 @@ class SubmissionFormWidget(QWidget):
         self.recover = self.pyd.class_config.recover
         for k in list(self.pyd.__class__.model_fields.keys()):
             if k in self.excluded:
-                # logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue
             try:
                 check = k in disable
@@ -573,12 +572,10 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         try:
             pyd = self.to_pydantic()
             # As of here, pyd.sample is as it is supposed to be
-            logger.debug(f"Pyd.sample: {pformat(pyd.sample)}")
             sql: ClientSubmission = pyd.to_sql()
             if isinstance(sql, tuple):
                 sql = sql[0]
             # As of here, sql.sample is empty
-            logger.debug(f"SQL.sample: {pformat(sql.sample)}")
             # Remove any sample info accidentally left in misc_info by pyd.to_sql
             try:
                 del sql._misc_info['sample']
@@ -589,7 +586,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
             # re-create clean associations from the saved Sample SQL objects. This avoids
             # carrying over non-serializable _misc_info from pyd objects into the DB.
             sql.save()
-            # self.app.table_widget.sub_wid.set_data()
             self.app.table_widget.sub_wid.upsert_submission(sql)
         finally:
             QApplication.restoreOverrideCursor()

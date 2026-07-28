@@ -196,7 +196,6 @@ def _coerce_int_field(raw: Any) -> SourcedField[int]:
     else:
         inner = raw
         missing = False
- 
     if not inner:
         inner = 0
     try:
@@ -330,7 +329,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     def _sql_class(cls) -> models.BaseClass:
         # Lazy import here to reduce the chance of circular-import issues
         # (models may import pydant elsewhere during package import).
-        
         try:
             return getattr(models, cls._sql_name)
         except AttributeError as e:
@@ -493,7 +491,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             dict: Expanded dictionary.
         """
         # Allow callers to pass a single dict or string instead of a list
-        # condense = kwargs.get("condense", False)
         if isinstance(fields, dict):
             fields = [fields]
         elif isinstance(fields, str):
@@ -501,12 +498,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         if len(fields) == 0:
             fields = self.improved_dict.keys()
         dict_ = self.improved_dict
-                
         for field in fields:
             match field:
                 case str():
                     key = field
-                    
                     try:
                         value = getattr(self.sql_instance, key)
                     except AttributeError as e:
@@ -647,18 +642,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # break callers that are mid-execution (e.g. circular PRLA -> Procedure refs).
         from sqlalchemy.ext.hybrid import hybrid_property
         from sqlalchemy.orm.properties import ColumnProperty
- 
         if self.new:
-            if self.__class__.__name__ == "PydSample":
-                logger.debug("Creating new Sample instance with lookup kwargs: " + pformat(self._sql_lookup_kwargs))
             instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs)
-            # logger.debug(f"Got SQL instance {instance} for {self.__class__.__name__} with kwargs {self._sql_lookup_kwargs}")
             self.sql_instance = instance
             self.new = False          # mark as resolved
-            # assert not (k.startswith("_") or "AssociationProxy" in k), f"internal extra leaked: {k}"
-            # self.sql_instance._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
             self.sql_instance.misc_info = {k:v for k, v in self.model_extra.items()}
-            logger.debug(f"SQL misc info: {self.sql_instance.misc_info}")
         if not update:
             return self.sql_instance
  
@@ -1262,4 +1250,4 @@ __all__ = ["SourcedField", "PydReagent", "PydTips", "PydReagentRole", "PydEquipm
            "PydEquipmentRoleEquipmentAssociation", "PydReagentRoleReagentAssociation",
            "PydResults", "PydReagentLot", "PydDiscount", "PydSample", "PydEquipment", "PydContact", "PydClientLab", 
            "PydProcessVersion", "PydProcedure", "PydClientSubmission", "PydRun", "PydTipsLot", "PydProcedureSampleAssociation",
-            "PydProcedureEquipmentAssociation", "PydProcedureReagentLotAssociation", "PydClientSubmissionSampleAssociation"]
+           "PydProcedureEquipmentAssociation", "PydProcedureReagentLotAssociation", "PydClientSubmissionSampleAssociation"]

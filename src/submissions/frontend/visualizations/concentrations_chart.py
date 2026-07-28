@@ -40,11 +40,9 @@ class ConcentrationsChart(ResultsFigure):
         traces = sorted(scatter.data, key=itemgetter("name"))
         for trace in traces:
             self.add_trace(trace)
-
         if hover_template is not None:
             self.update_traces(hovertemplate=hover_template)
             self.update_layout(hovermode='closest')
-
         self.update_yaxes(title_text="Original Sample Concentration (ng/uL)")
         # Map the numeric ticks back to readable dates
         unique_days = self.df[['x_pos', 'procedure']].drop_duplicates()

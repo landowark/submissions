@@ -580,27 +580,6 @@ class ReagentLot(BaseClass):
 
     @expiry.setter
     def expiry(self, value):
-        # if isinstance(value, dict):
-        #     value = value.get("value", datetime.now())
-        # match value:
-        #     case datetime() | date():
-        #         output = value
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
-        # output = datetime.combine(output, datetime.max.time())
-        # value = output.replace(tzinfo=timezone)
         self._expiry = parse_expiry(value)
     
     @hybrid_property
@@ -635,20 +614,6 @@ class ReagentLot(BaseClass):
 
     @active.setter
     def active(self, value):
-        # match value:
-            # case int():
-            #     output = value
-            # case bool():
-            #     output = int(value)
-            # case str():
-            #     if value.lower() in ["false", "0", "no", "off"]:
-            #         output = 0
-            #     elif value.lower() in ["true", "1", "yes", "on"]:
-            #         output = 1
-            #     else:
-            #         raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
-            # case _:
-            #     raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
         self._active = int(coerce_int_to_bool(value))
 
     @hybrid_property
@@ -1374,7 +1339,6 @@ class ProcedureReagentLotAssociation(BaseClass):
         output = self.reagentlot.details_dict
         misc = output.get('misc_info', {})
         output.update(relevant)
-        # output['reagentrole'] = self.reagentrole.name
         output['misc_info'] = misc
         return output
 

@@ -3,8 +3,6 @@ Module for clientsubmission parsing
 """
 from __future__ import annotations
 from logging import getLogger
-
-from tools import convert_well_to_row_column
 logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime
 from string import ascii_lowercase
@@ -12,6 +10,7 @@ from typing import Generator, TYPE_CHECKING, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
 from backend.validators import ClientSubmissionNamer
+from tools import convert_well_to_row_column
 if TYPE_CHECKING:
     from backend.db.models import SubmissionType
 

@@ -40,7 +40,6 @@ class DefaultResultsSampleWriter(DefaultTABLEWriter):
     # NOTE: Required to pass self.sheet to function.
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
-        logger.debug(f"Pyd_obj: {pformat(self.pydant_obj)}")
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.write_sheet, start_row=start_row)
         return workbook
 

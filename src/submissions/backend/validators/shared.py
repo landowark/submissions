@@ -1,11 +1,11 @@
 from __future__ import annotations
 from logging import getLogger
-from typing import List
 logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse as dateparse, ParserError
 from re import sub as rsub
 from tools import iterable_enforcer, timezone, TimeFill
+from typing import List
 
 
 def coerce_none_to_na(value: str | None) -> str:
@@ -71,7 +71,6 @@ def parse_expiry(value, days: int = 365) -> datetime | None:
 
 def vet_comment(value: dict | List[dict], current: List[dict] = []) -> List[dict]:
     value = iterable_enforcer(value)
-    logger.debug(f"Vetting comment: {value}")
     if not isinstance(current, list):
         current = []
     for comment in value:
@@ -84,5 +83,3 @@ def vet_comment(value: dict | List[dict], current: List[dict] = []) -> List[dict
             continue
         current.append(comment)
     return current
-    
-    

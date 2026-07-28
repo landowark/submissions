@@ -46,12 +46,6 @@ class DefaultManager(object):
         self.parent = parent
         self.input_object = input_object
         self.sheets = self.set_sheets()
-        # self.sheets = kwargs.get("sheets", None)
-        # if self.sheets is None:
-        #     try:
-        #         self.sheets = self.__class__.sheets
-        #     except AttributeError:
-        #         self.sheets = {}
         self.set_pyd()
 
     def set_sheets(self) -> dict:

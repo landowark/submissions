@@ -2,18 +2,15 @@
 All abstract pyd models and associations between abstracts.
 """
 from __future__ import annotations
-import json
 from logging import getLogger
-import sys
 logger = getLogger(f"submissions.{__name__}")
-from re import match as rmatch, I
 from numpy import array as nparray, ndenumerate
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Generator, List, TYPE_CHECKING, Literal, Annotated
 from pydantic import computed_field, field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField
 from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
-from tools import convert_well_to_row_column, jinja_template_loading, IndexDirection, jinja_env
+from tools import convert_well_to_row_column, IndexDirection, jinja_env
 if TYPE_CHECKING:
     from .concrete import PydSample
 
@@ -214,7 +211,6 @@ class PydProcedureType(PydAbstract):
         vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
-        
         template = jinja_env.get_template("support/plate_map.html")
         html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=sample_dicts,
                                vw=vw, creation=creation)
@@ -268,21 +264,6 @@ class PydProcedureType(PydAbstract):
                 raise ValueError("Either cell_id or both row_idx and col_idx must be provided.")
             
             row, column = convert_well_to_row_column(cell_id)
-            # match = rmatch(r"([A-Z]+)([0-9]+)", cell_id, I)
-            # if not match:
-            #     raise ValueError("Invalid cell ID format.")
-            
-            # row_str, col_str = match.groups()
-            
-            # # Convert Row Letter to 0-based index
-            # row_idx = 0
-            # for char in row_str.upper():
-            #     row_idx = row_idx * 26 + (ord(char) - ord('A') + 1)
-            # row_idx -= 1 
-            
-            # # Convert Column to 0-based index
-            # col_idx = int(col_str) - 1
-
         else:
             row -= 1
             column -= 1

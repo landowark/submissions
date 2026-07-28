@@ -20,7 +20,7 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
 from datetime import date, datetime, timedelta
-from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list
+from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list, timezone
 from typing import Any, Generator, Iterator, List, TYPE_CHECKING, Optional
 from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
@@ -151,7 +151,6 @@ class Discount(BaseClass):
                 output = value
             case _:
                 logger.error(f"Unmatched value {value} for .clientlab")
-                # continue
                 return
         if isinstance(output, tuple):
             output = output[0]
@@ -214,7 +213,6 @@ class Discount(BaseClass):
                 query = query.filter(cls.clientlab.id==clientlab)
             case _:
                 pass
-        # query = cls._filter_relationship(query, column=cls._clientlab, value=clientlab, model=ClientLab)
         match proceduretype:
             case ProcedureType():
                 query = query.filter(cls.proceduretype==proceduretype)
@@ -224,7 +222,6 @@ class Discount(BaseClass):
                 query = query.filter(cls.proceduretype.id==proceduretype)
             case _:
                 pass
-        # query = cls._filter_relationship(query, column=cls._proceduretype, value=proceduretype, model=ProcedureType)
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @check_authorization
@@ -604,7 +601,7 @@ class ProcedureType(BaseClass):
         "ProcedureTypeReagentRoleAssociation",
         back_populates="_proceduretype",
         cascade="all, delete-orphan"
-    )  #: triple association of KitTypes, ReagentTypes, SubmissionTypes
+    )
 
     _reagentrole = association_proxy("proceduretypereagentroleassociation", "_reagentrole",
                                      creator=lambda reagentrole: ProcedureTypeReagentRoleAssociation(reagentrole=reagentrole))  #: Proxy of reagentrole associations
@@ -1331,39 +1328,10 @@ class Procedure(BaseClass):
         
     @hybrid_property
     def started_date(self):
-        return self._started_date if self._started_date else None
+        return self._started_date if self._started_date else datetime.now(tz=timezone)
 
     @started_date.setter
     def started_date(self, value):
-        # from backend.validators.pydant import SourcedField
-        # match value:
-        #     case dict():
-        #         value = value.get("value", datetime.now())
-        #     case SourcedField():
-        #         value = value.value
-        #     case _:
-        #         value = datetime.now()
-        # match value:
-        #     case datetime():
-        #         output = value
-        #     case date():
-        #         output = datetime.combine(value, datetime.min.time())
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._started_date")
-        # value = output.replace(tzinfo=timezone)
         self._started_date = parse_optional_datetime(value)
 
     @hybrid_property
@@ -1372,29 +1340,6 @@ class Procedure(BaseClass):
 
     @completed_date.setter
     def completed_date(self, value):
-        # if isinstance(value, dict):
-        #     value = value.get("value", datetime.now())
-        # match value:
-        #     case datetime():
-        #         output = value
-        #     case date():
-        #         output = datetime.combine(value, datetime.min.time())
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._completed_date")
-        # value = output.replace(tzinfo=timezone)
         self._completed_date = parse_optional_datetime(value)
 
     @hybrid_property
@@ -1576,14 +1521,6 @@ class Procedure(BaseClass):
     
     @comment.setter
     def comment(self, value):
-        # if not isinstance(value, dict):
-        #     logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
-        #     return
-        # if value['text'] in [""]:
-        #     return
-        # current = self._comment or []
-        # current.append(value)
-        
         self._comment = vet_comment(value, current=self._comment)
 
     @classmethod
@@ -1597,7 +1534,6 @@ class Procedure(BaseClass):
               **kwargs) -> Procedure | List[Procedure]:
         """
     #     Lookup procedures by id, name, or date range.
-
     #     :param id: Procedure id. Defaults to None.
     #     :type id: int | None
     #     :param name: Procedure name or prefix. Defaults to None.
@@ -1705,15 +1641,13 @@ class Procedure(BaseClass):
         """
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.info("Edit!")
-        procedure = self.construct_pyd_procedure_for_creation()
-        
+        procedure = self.construct_pyd_procedure_for_creation()   
         dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
         if dlg.exec():
             # Preserve existing procedure results while editing; the edit dialog
             # does not update results, so avoid re-binding the old list back onto
             # the SQL instance.
             sql: Procedure = dlg.return_sql()
-            logger.debug(pformat(sql.proceduresampleassociation))
             sql.update_last_useds()
             # Use the edited PydProcedure from the dialog to populate SQL relationships
             sql.save()
@@ -1734,12 +1668,10 @@ class Procedure(BaseClass):
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             self.comment = dlg.parse_form()
-            
             self.save()
 
     @check_authorization
     def delete(self, obj):
-        
         from frontend.widgets.pop_ups import QuestionAsker
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
         if msg.exec():
@@ -1794,7 +1726,6 @@ class Procedure(BaseClass):
         output['equipment'] = [equipment.details_dict for equipment in self.procedureequipmentassociation]
         output['repeat'] = self.repeat
         output['run'] = self.run.name
-        # output['excluded'] += self.get_default_info("details_ignore")
         output['sample_count'] = len(active_samples)
         output['comment'] = self.comment
         try:
@@ -1826,7 +1757,6 @@ class Procedure(BaseClass):
     def construct_pyd_procedure_for_creation(self) -> "PydProcedure":
         """Return a widget-ready PydProcedure for ProcedureCreation."""
         from backend.validators.pydant import PydProcedure, PydProcedureSampleAssociation
-
         sample_list = []
         for assoc in self.proceduresampleassociation:
             sample = assoc.to_pydantic() if hasattr(assoc, "to_pydantic") else assoc
@@ -1841,8 +1771,7 @@ class Procedure(BaseClass):
         # Build a PydProcedureType instance and attach expanded relationship
         # dicts (reagentrole/equipmentrole) to its model_extra. Mark which
         # roles are already present on this Procedure with a 'filled' flag.
-        # As of right here, sample list is correct
-        
+        # As of right here, sample list is correct       
         try:
             pyd_proc_type = self.proceduretype.to_pydantic()
             expanded = pyd_proc_type.improved_dict_expand_fields([
@@ -1856,7 +1785,6 @@ class Procedure(BaseClass):
             logger.error(f"Couldn't build expanded proceduretype for {self.__class__.__qualname__} with name {self.name}")
             logger.exception(f"Error: {e}")
             pyd_proc_type = self.proceduretype.to_pydantic() if hasattr(self.proceduretype, 'to_pydantic') else self.proceduretype
-        print(f"\n\n{self.started_date}\n\n")
         output = dict(
             proceduretype=pyd_proc_type,
             run=self.run.to_pydantic(),
@@ -1919,14 +1847,12 @@ class Procedure(BaseClass):
         from backend.db.models import RunSampleAssociation
         self.set_cost()
         assert self.run is not None
-        logger.debug(f"Saving with comment: {self.comment}")
         if hasattr(self, '_misc_info') and isinstance(self._misc_info, dict) and 'sample' in self._misc_info:
             try:
                 self._misc_info['sample'] = self.sanitize_obj_for_json(self._misc_info['sample'])
             except TypeError:
                 del self._misc_info['sample']
         super().save()
-        logger.debug(f"Saved with comment: {self.comment}")
         with self.run.__database_session__.no_autoflush:
             run_samples = [assoc.sample for assoc in self.run.runsampleassociation]
         try:
@@ -2135,30 +2061,7 @@ class Results(BaseClass):
     
     @date_analyzed.setter
     def date_analyzed(self, value):
-        # if isinstance(value, dict):
-        #     value = value.get("value", datetime.now())
-        # match value:
-        #     case datetime():
-        #         output = value
-        #     case date():
-        #         output = datetime.combine(value, datetime.now().time())
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value} for {self.__class__.__qualname__}.date_analyzed")
-        # value = output.replace(tzinfo=timezone)
-        self._date_analyzed = parse_optional_datetime(value, timefill=TimeFill.MIN)
+        self._date_analyzed = parse_optional_datetime(value)
 
     @hybrid_property
     def resultstype(self):

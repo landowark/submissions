@@ -47,8 +47,6 @@ class ResultsSampleMatcher(QDialog):
         if ":" in sample:
             sample_id = sample.split(":")[0]
             well = sample.split(":")[1]
-            # row = row_keys[well[0]]
-            # column = int(well[1:])
             row, column = convert_well_to_row_column(well)
         else:
             row = None
@@ -80,8 +78,6 @@ class ResultsSampleMatcher(QDialog):
         if ":" in sample:
             sample_id = sample.split(":")[0]
             well = sample.split(":")[1]
-            # row = row_keys[well[0]]
-            # column = int(well[1:])
             row, column = convert_well_to_row_column(well)
         else:
             row = None

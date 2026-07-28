@@ -116,7 +116,6 @@ class DefaultClientSubmissionManager(DefaultManager):
         except AttributeError:
             info_parser = clientsubmission_parser.ClientSubmissionInfoParser
         info = {}
-        logger.debug([item for item in self.sheets['info']])
         for sheet in self.sheets['info']:
             ws = self.get_worksheet(sheet.get("sheet", 1))
             start_row = sheet.get("start_row", 1)
@@ -133,7 +132,6 @@ class DefaultClientSubmissionManager(DefaultManager):
             sample_parser = clientsubmission_parser.ClientSubmissionSampleParser
         samples = []
         for sheet in self.sheets['sample']:
-            logger.debug(f"Parsing: {sheet}")
             ws = self.get_worksheet(sheet.get("sheet", 1))
             start_row = sheet.get("start_row", 1)
             self.sample_parser = sample_parser(worksheet=ws, start_row=start_row, submitter_id=self.clientsubmission.submitter_plate_id.value)

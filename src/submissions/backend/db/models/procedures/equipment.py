@@ -78,7 +78,7 @@ class EquipmentRole(BaseClass):
         "ProcedureTypeEquipmentRoleAssociation",
         back_populates="_equipmentrole",
         cascade="all, delete-orphan",
-    )  #: relation to SubmissionTypes
+    )
 
     _proceduretype = association_proxy("equipmentroleproceduretypeassociation", "_proceduretype",
                                        creator=lambda proceduretype: ProcedureTypeEquipmentRoleAssociation(proceduretype=proceduretype))
@@ -399,26 +399,6 @@ class Equipment(BaseClass, LogMixin):
     
     @calibration_date.setter
     def calibration_date(self, value):
-        # match value:
-        #     case datetime() | date():
-        #         output = value
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
-        # output = datetime.combine(output, datetime.min.time())
-        # value = output.replace(tzinfo=timezone)
         self._calibration_date = parse_optional_datetime(value, timefill=TimeFill.MIN)
 
     @classmethod
@@ -1067,29 +1047,6 @@ class ProcessVersion(BaseClass):
     
     @date_verified.setter
     def date_verified(self, value):
-        # if isinstance(value, dict):
-        #     value = value.get("value", datetime.now())
-        # match value:
-        #     case datetime():
-        #         output = value
-        #     case date():
-        #         output = datetime.combine(value, datetime.min.time())
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._date_verified")
-        # value = output.replace(tzinfo=timezone)
         self._date_verified = parse_optional_datetime(value, timefill=TimeFill.MIN)
 
     @hybrid_property
@@ -1162,20 +1119,6 @@ class ProcessVersion(BaseClass):
 
     @active.setter
     def active(self, value):
-        # match value:
-        #     case int():
-        #         output = value
-        #     case bool():
-        #         output = int(value)
-        #     case str():
-        #         if value.lower() in ["false", "0", "no", "off"]:
-        #             output = 0
-        #         elif value.lower() in ["true", "1", "yes", "on"]:
-        #             output = 1
-        #         else:
-        #             raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
-        #     case _:
-        #         logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.active")
         self._active = int(coerce_int_to_bool(value))
 
     @property
@@ -1570,27 +1513,6 @@ class TipsLot(BaseClass, LogMixin):
         :type value: datetime | date | int | str
         :return: None
         """
-        # match value:
-        #     case datetime():
-        #         output = value
-        #     case date():
-        #         output = datetime.combine(value, datetime.max.time())
-        #     case int():
-        #         output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-        #     case str():
-        #         string = rsub(r"(_|-)\d(R\d)?$", "", value)
-        #         try:
-        #             output = dateparse(string)
-        #         except ParserError as e:
-        #             logger.exception(f"Problem parsing date: {e}")
-        #             try:
-        #                 output = dateparse(string.replace("-", ""))
-        #             except Exception as e2:
-        #                 logger.exception(f"Problem with parse fallback: {e2}")
-        #                 return value
-        #     case _:
-        #         raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
-        # value = output.replace(tzinfo=timezone)
         self._expiry = parse_expiry(value, days=3650)
     
     @hybrid_property
@@ -1738,20 +1660,6 @@ class TipsLot(BaseClass, LogMixin):
         :raises ValueError: If string value cannot be converted to boolean.
         :raises TypeError: If type is not supported.
         """
-        # match value:
-            # case int():
-            #     output = value
-            # case bool():
-            #     output = int(value)
-            # case str():
-            #     if value.lower() in ["false", "0", "no", "off"]:
-            #         output = 0
-            #     elif value.lower() in ["true", "1", "yes", "on"]:
-            #         output = 1
-            #     else:
-            #         raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._active")
-            # case _:
-            #     raise TypeError(f"Unsupported type: {type(value)} for {self.__class__.__qualname__}._active")
         self._active = int(coerce_int_to_bool(value))
 
     
@@ -1815,13 +1723,7 @@ class TipsLot(BaseClass, LogMixin):
         """
         super().save()
 
-    # @property
-    # def details_dict(self) -> dict:
-    #     output = super().details_dict
-    #     output['name'] = self.name
-    #     return output
-
-
+    
 class ProcedureEquipmentTipslotAssociation(BaseClass):
     """
     Junction model linking a procedure-equipment association to a specific tipslot.

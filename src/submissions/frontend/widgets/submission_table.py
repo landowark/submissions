@@ -131,7 +131,6 @@ class SubmissionsTree(QTreeView):
                 self.model.beginInsertRows(index, 0, len(procedures_data) - 1)
                 for proc in procedures_data:
                     proc_name = proc['name'] if isinstance(proc, dict) else proc
-                    logger.debug(f" Type: {type(proc_name)}, Value: {proc_name}")
                     proc_node = TreeItem(dict(
                         name=proc_name,
                         query_str=proc_name,

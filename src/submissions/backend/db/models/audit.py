@@ -90,7 +90,6 @@ class AuditLog(Base):
            If both dates are None, returns all audit log entries.
         """
         session = BaseClass.__database_session__
-        # session = ctx.database.session()
         query: Query = session.query(cls)
         if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")

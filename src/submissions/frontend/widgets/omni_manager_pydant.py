@@ -18,8 +18,6 @@ class OmniManager(QDialog):
     def __init__(self, parent: QWidget, object_type: type):
         super().__init__(parent)
         self.object_type = object_type
-        logger.debug(f"Objecttype: {self.object_type}")
-        
         self.pydant = None
         self.webview = QWebEngineView()
         custom_page = CustomWebEnginePage(self.webview)
@@ -49,8 +47,8 @@ class OmniManager(QDialog):
         else:
             objects = []
         object_list = [
-            dict(name="", active=True), 
-            dict(name="--New--", active=True)
+                dict(name="", active=True), 
+                dict(name="--New--", active=True)
             ] + objects
         object_name = self.sql_type.__name__
         html = render_details_template("managers/default_manager", js_in=['manager'], object_name=object_name, object_list=object_list)
@@ -92,9 +90,7 @@ class OmniManager(QDialog):
             field (str): The field name to update.
             value (str): The new value for the field.
         """
-        logger.debug(f"Updating {field} to {value}")
         self.pydant.update_instrumentedattribute(field, value)
-        logger.debug(f"New value for {field}: {getattr(self.pydant, field)}")
         
     @pyqtSlot(str, str, result=str)
     def get_association_form(self, field: str, value: str) -> str:
@@ -138,11 +134,9 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        logger.debug(f"Pydant object coming in: {pformat(self.pydant.improved_dict)}")
         sql_instance = self.pydant.to_sql()
         if isinstance(sql_instance, tuple):
             sql_instance = sql_instance[0]
-        logger.debug(pformat({k:v for k, v in sql_instance.__dict__.items() if not isinstance(v, list) and not isinstance(v, dict)}))
         sql_instance.save()
         self.reset_form()
 

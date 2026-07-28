@@ -85,8 +85,6 @@ class CustomFigure(Figure):
         if months > date.today().month:
             buttons += [dict(count=1, label="YTD", step="year", stepmode="todate")]
         buttons += [dict(step="all")]
-        # for button in buttons:
-        #     yield button
         yield from buttons
 
     def make_pyqt_buttons(self, modes: list=[]) -> Generator[dict, None, None]:
@@ -146,10 +144,8 @@ class ResultsFigure(CustomFigure):
         object.__setattr__(self, 'end', pd_to_datetime(settings['end_date']).normalize())
         self.df['day_num'] = (self.df['dt_internal'] - self.start).dt.days
         sample_ranks = df.groupby('dt_internal')['procedure'].transform(lambda x: x.astype('category').cat.codes)
-        
         # Multiply by a fixed spacing factor (4.5 as per your previous logic)
         self.df['jitter'] = sample_ranks * 4.5
-
         # This is our new numeric X-axis
         self.df['x_pos'] = self.df['day_num'] + self.df['jitter']
         self.construct_chart(df=self.df, **kwargs)

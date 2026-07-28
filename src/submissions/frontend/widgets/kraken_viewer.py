@@ -6,6 +6,7 @@ Handles display of control charts
 """
 from __future__ import annotations
 from logging import getLogger
+from typing import Generator
 logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime
 from PyQt6.QtWidgets import (
@@ -81,7 +82,6 @@ class KrakenViewer(InfoPane):
         try:
             response = requests_get(url)
             response.raise_for_status()  # Check for HTTP errors
-            
             # Use StringIO to treat the string as a file-like object for the csv library
             f = StringIO(response.text)
             reader = CSVDictReader(f)
@@ -91,17 +91,14 @@ class KrakenViewer(InfoPane):
             return None
 
     @classmethod
-    def read_metadata(cls, input_dict):
-        output = []
+    def read_metadata(cls, input_dict) -> Generator[dict, None, None]:
         
         # Extract the base meta.id from the filename 
         # (Extracts 'MCS-Mar2026P6-20260331' from the string)
         filename = input_dict.get('reads.1', '')
         meta_id = filename.split('_S')[0] if '_S' in filename else ""
-        
         # Get the taxonomy level
         tax_lvl = input_dict.get('taxonomy_level', '')
-
         # We need to find how many abundance entries exist (1, 2, 3...)
         # We'll also include 'unclassified' as it follows a similar pattern
         targets = []
@@ -113,15 +110,12 @@ class KrakenViewer(InfoPane):
         
         # Add unclassified to the processing list if it exists
         keys_to_process = targets + (['unclassified'] if 'unclassified_name' in input_dict else [])
-
         for i in keys_to_process:
             prefix = f"abundance_{i}" if i != 'unclassified' else 'unclassified'
-            
             name = input_dict.get(f"{prefix}_name")
             if not name:
                 continue
-
-            output.append({
+            yield {
                 'name': name,
                 'added_reads': 0, # Not present in source, defaulting to 0
                 'fraction_total_reads': float(input_dict.get(f"{prefix}_fraction_total_reads", 0)),
@@ -130,9 +124,8 @@ class KrakenViewer(InfoPane):
                 'new_est_reads': int(input_dict.get(f"{prefix}_num_assigned_reads", 0)),
                 'taxonomy_id': input_dict.get(f"{prefix}_ncbi_taxonomy_id", ""),
                 'taxonomy_lvl': tax_lvl
-            })
-
-        return output
+            }
+        
 
     async def write_metadata(self, sample_dict, sql_sample):
         id = sample_dict['id']
@@ -288,7 +281,7 @@ class KrakenViewer(InfoPane):
             if date_obj < self.start_date and date_obj > self.end_date:
                 continue
             if metadata_only:
-                sample['data'] = self.read_metadata(sample['metadata'])
+                sample['data'] = list(self.read_metadata(sample['metadata']))
                 sample['filename'] = "metadata"
             else:    
                 details = client.execute(sample_details_query, variable_values={"sampleId": sample["id"]})

@@ -79,7 +79,6 @@ class DefaultProcedureManager(DefaultManager):
         class_name = f"{self.proceduretype.name.replace(' ', '')}{role.title()}{operation.title()}r"
         cls = getattr(procedure_parsers, class_name, None)
         if cls is None:
-            logger.debug(f"No custom parser '{class_name}', using default.")
             match operation:
                 case "parse":
                     cls = self._DEFAULT_PARSERS[role]
@@ -94,7 +93,6 @@ class DefaultProcedureManager(DefaultManager):
         self.reagent_parser   = self._resolve_operator("parse", "reagent")(worksheet=self.input_object, start_row=self.info_parser.end_row)
         self.equipment_parser = self._resolve_operator("parse","equipment")(worksheet=self.input_object, start_row=self.reagent_parser.end_row)
         self.sample_parser    = self._resolve_operator("parse","sample")(worksheet=self.input_object, start_row=self.equipment_parser.end_row)
-        from backend.validators.pydant import PydProcedure, PydProcedureReagentLotAssociation, PydSample, PydProcedureEquipmentAssociation
         self.procedure = self.info_parser.to_pydantic()
         self.procedure.reagentlot = self.reagent_parser.to_pydantic()
         self.procedure.sample = self.sample_parser.to_pydantic()

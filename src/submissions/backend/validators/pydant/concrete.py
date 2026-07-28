@@ -14,7 +14,7 @@ from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool, parse_optional_datetime
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, AlertStatus, Report, convert_well_to_row_column, find_first_matching_dict, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list
+from tools import Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list
 from ..shared import parse_expiry
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
@@ -34,18 +34,6 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     @field_validator("date_analyzed", mode="before")
     @classmethod
     def parse_analyzed(cls, value):
-        # match value:
-        #     case str():
-        #         try:
-        #             value = parse(value)
-        #         except ParserError:
-        #             value = None
-        #     case datetime():
-        #         pass
-        #     case date():
-        #          value = datetime.combine(value, datetime.min.time())
-        #     case _:
-        #         value = None
         return parse_optional_datetime(value)
     
     @computed_field
@@ -140,18 +128,6 @@ class PydReagentLot(PydConcrete):
     @field_validator("expiry", mode="before")
     @classmethod
     def enforce_expiry(cls, value):
-        # if not value:
-        #     value = date.today() + timedelta(days=365)
-        # match value:
-        #     case str():
-        #         try:
-        #             value = dateparse(value)
-        #         except ParserError:
-        #             value = None
-        #     case date() | datetime():
-        #         value = datetime.combine(value, datetime.max.time())
-        #     case _:
-        #         raise ValueError(f"Could not parse expiry date: {value}")
         return parse_expiry(value)
 
     @computed_field
@@ -167,12 +143,6 @@ class PydReagentLot(PydConcrete):
         except AttributeError:
             return f"{reagent} - Unknown Lot"
 
-    # @property
-    # def improved_dict(self) -> dict:
-    #     output = super().improved_dict
-    #     output['name'] = self.name
-    #     return output
-    
     def to_sql(self, update: bool = True):
         output = super().to_sql(update)
         if update:
@@ -292,7 +262,6 @@ class PydSample(PydConcrete):
         # sample_id set). Try to resolve an existing Sample by sample_id
         # first. If none exists, populate the sql_instance.sample_id so
         # that downstream association objects don't try to insert NULL.
-        # logger.debug(f"Initial sql_instance: {self.sql_instance}")
         if not self.is_sample_id_valid(self.sample_id):
             # Only set the SQL sample_id when the pydantic sample_id is valid.
             # Blank/NA/placeholder IDs (e.g. "", "NA", "None") are not valid
@@ -301,7 +270,6 @@ class PydSample(PydConcrete):
             logger.warning(f"Sample id {self.sample_id} is not valid. Skipping")
             return None, None
         self.sql_instance = super().to_sql(update=update)
-        logger.debug(f"self.sql_instance after super set: {self.sql_instance}")
         if not update:
             # Try to use an existing SQL Sample if present in DB
             try:
@@ -341,21 +309,24 @@ class PydSample(PydConcrete):
 
     @staticmethod
     def is_sample_id_valid(sample) -> bool:
+    
         match sample:
             case PydSample():
-                sample_id = sample.sample_id
+                sample = sample.sample_id
             case dict():
-                sample_id = sample.get('sample_id', '')
+                sample = sample.get('sample_id', '')
             case str():
-                sample_id = sample
+                sample = sample
             case PydProcedureSampleAssociation() | PydClientSubmissionSampleAssociation():
-                sample_id = sample.sample
+                sample = sample.sample_id
             case _:
                 logger.warning(f"{type(sample)} is not a valid type")
                 return False
-        if sample_id.strip().lower().startswith("blank"):
+        if isinstance(sample, PydSample):
+            sample = sample.sample_id
+        if sample.strip().lower().startswith("blank"):
             return False
-        if sample_id.strip().lower() in ["", "na", "none", "void"]:
+        if sample.strip().lower() in ["", "na", "none", "void"]:
             return False
         return True
 
@@ -386,11 +357,7 @@ class PydEquipment(PydConcrete):
             value = values.data['name']
         return value
 
-    # @property
-    # def improved_dict(self) -> dict:
-    #     return {k:v for k, v in super().improved_dict.items() if k not in ['procedure', "equipmentprocedureassociation"]}
-
-
+    
 class PydContact(PydConcrete):
 
     name: str = Field(default="NA", description="Name of this contact.")
@@ -426,18 +393,6 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
     @field_validator("date_verified", mode="before")
     @classmethod
     def parse_date_verified(cls, value):
-        # if not value:
-        #     value = date.today()
-        # match value:
-        #     case str():
-        #         try:
-        #             value = parse(value)
-        #         except ParserError:
-        #             value = None
-        #     case date() | datetime():
-        #         value = datetime.combine(value, datetime.min.time())    
-        #     case _:
-        #         value = None
         return parse_optional_datetime(value)
     
     _validate_na = field_validator("active", mode="before")(coerce_int_to_bool)
@@ -563,12 +518,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         elif isinstance(run_id, SourcedField):
             run_id = run_id.get("value", "Unassigned Run")
         # Update the instance directly
-        # started_date = getattr(self, "started_date", None)
-        # if started_date is not None:
-        #     suffix = f" - {started_date.isoformat(timespec='minutes')}"
-        # else:
-        #     suffix = ""
-        # return {"value": f"{run_id} - {pt_name}{suffix}", "missing": True}
         try:
             started_date = self.started_date.replace(tzinfo=None).isoformat(timespec="minutes")
         except AttributeError:
@@ -579,26 +528,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @field_validator("started_date", mode="before")
     @classmethod
     def create_started_date(cls, value):
-        # if not value:
-        #     value = datetime.now()
-        # if isinstance(value, dict):
-        #     value = value.get("value", datetime.now())
-        # if isinstance(value, str):
-        #     value = dateparse(value)
         return parse_optional_datetime(value)
     
     @field_validator("completed_date", mode="before")
     @classmethod
     def create_completed_date(cls, value):
-        # if isinstance(value, dict):
-        #     value = value.get("value", None)
-        # if isinstance(value, str):
-        #     if value.lower() == "None":
-        #         return None
-        #     try:
-        #         value = dateparse(value)
-        #     except ValueError:
-        #         return None
         return parse_optional_datetime(value)
 
     @field_validator("sample", mode="before")
@@ -658,25 +592,18 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         raise StopIteration(f"Could not find {sample_id} in {self.name} samples")
 
 
-    def update_samples(self, sample_list: List[PydProcedureSampleAssociation]):
-        from backend.db.models import Sample
+    def update_samples(self, sample_list: List[dict]):
         # Coming into this method, samples are dicts and 'is_control' is intact.
         # Build a new ordered list of samples matching the sample_list order.
         ranked_plate = self.proceduretype.make_ranked_plate()
         new_samples: List[PydProcedureSampleAssociation] = []
         
         for iii, sample_dict in enumerate(sample_list, start=1):
-            sample_id = getattr(sample_dict, 'sample_id', '')
-            # normalize blank markers
+            sample_id = sample_dict.get('sample_id', '')
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
                 sample_id = ""
-            # try:
-            #     row, column = ranked_plate.get(sample_dict['index'], (0, 0))
-            # except KeyError:
-            #     row = 0
-            #     column = 0
-            row = getattr(sample_dict, "row", 0)
-            column = getattr(sample_dict, "column", 0)
+            row = sample_dict.get("row", 0)
+            column = sample_dict.get("column", 0)
             try:
                 sample = self.pick_sample_association(sample_id=sample_id)
             except StopIteration:
@@ -685,23 +612,14 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             # Update position/rank/control/classification metadata.
             sample.row = row
             sample.column = column
-            sample.rank = int(getattr(sample_dict, "procedure_rank", iii))
-            # well_class = next((item for item in sample_dict.get('class', '').replace("well ", "").split(" ") if item in ['negativecontrol', 'positivecontrol']), "")
-            # match well_class:
-            #     case "negativecontrol":
-            #         sample.is_control = -1
-            #     case "positivecontrol":
-            #         sample.is_control = 1
-            #     case _:
-            #         sample.is_control = sample_dict.get('is_control', 0)
+            sample.rank = int(getattr(sample_dict, "index", iii))
             new_samples.append(sample)
         # Replace the sample list with the reordered list. Preserve any samples not present in
         # sample_list by appending them after the ordered ones (so they are not lost).
         remaining = []#[s for s in self.sample if s not in new_samples]
         self.sample = sorted(new_samples + remaining, key=lambda x: (x.column, x.row))
         # As of here, samples are fine.
-        # logger.debug(pformat(self.sample))
-    
+        
     def get_last_used(self, reagentrole: str):
         from backend.db.models import ProcedureTypeReagentRoleAssociation
         q = ProcedureTypeReagentRoleAssociation.query(proceduretype=self.proceduretype, reagentrole=reagentrole, limit=1)
@@ -709,7 +627,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 
     def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str | None = None, checked:bool=True):
         from backend.db.models import ReagentLot
-        logger.debug(f"Updating reagents with role {reagentrole}, name {name}, lot {lot}, expiry {expiry}, checked {checked}")
         try:
             # Find the existing reagentlot association with this role, if it exists.
             removable = next((item for item in self.reagentlot if reagentrole == item.reagentrole), None)
@@ -719,7 +636,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         if removable:
             idx = self.reagentlot.index(removable)
             self.reagentlot.pop(idx)
-            logger.debug(f"Removed reagentlot at index {idx}: {removable}")
         else:
             idx = 0
         reagentlot = ReagentLot.query(reagent=name, lot=lot, limit=1)
@@ -764,7 +680,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 
     def to_sql(self, update: bool = True):
         def normalize_dict_field(field_name, value):
-            logger.debug(f"Normalizing: {field_name}: {value}")
             if isinstance(value, SourcedField):
                 return value.value
             if not isinstance(value, dict):
@@ -780,12 +695,10 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         from backend.db.models import Procedure
         # Filter invalid samples up front so the base relationship handler wires only valid ones.
         self.sample = [s for s in self.sample if PydSample.is_sample_id_valid(s)]
-
         self.sql_instance: Procedure = super().to_sql(update=update)  # sets sample/reagentlot/equipment once
         assert self.run is not None
         if not update:
             return self.sql_instance, None
-
         # keep your bespoke column normalizations (technician, dates, proceduretype, run, repeat_of)
         self.sql_instance.technician      = normalize_dict_field("technician", self.technician)
         self.sql_instance.started_date    = normalize_dict_field("started_date", self.started_date)
@@ -793,7 +706,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         self.sql_instance.proceduretype   = normalize_dict_field("proceduretype", self.proceduretype)
         self.sql_instance.run             = normalize_dict_field("run", self.run)
         self.sql_instance.repeat_of       = normalize_dict_field("repeat_of", self.repeat_of)
-
         if self.sql_instance.id is None:
             self.sql_instance.results = self.results
         return self.sql_instance, None
@@ -886,7 +798,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 continue
             proceduretype_equipmentrole['equipmentroleequipmentassociation'].insert(0, proceduretype_equipmentrole['equipmentroleequipmentassociation'].pop(ass_index))
             process = next((item for item in proceduretype_equipmentrole['equipmentroleequipmentassociation'][0]['process'] if equipment.processversion in [pv['name'] for pv in item['processversion']]), None)
-            # process = proceduretype_equipmentrole['equipmentroleequipmentassociation'][0]['process']
             processversion_index = next((iii for iii, item in enumerate(process['processversion']) if item['name'] == equipment.processversion), None)
             if not processversion_index:
                 continue
@@ -928,14 +839,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 case _:
                     logger.error(f"Unparsable sample: {sample}")
                     continue
-        # try:
         assert all([isinstance(s, PydProcedureSampleAssociation) for s in sample_dicts])
-        #     sample_dicts = self.sample
-        # except AssertionError:
-        #     logger.error(f"Not all samples in were PydProcedureSampleAssociations, falling back\n{pformat(self.sample)}")
-        #     # if this is a new procedure, there will be no sample associations.
-        #     sample_dicts = [s.to_pydantic() for s in self.sql_instance.proceduresampleassociation]
-        # As of here, sample dicts is empty list.
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
 
@@ -944,7 +848,6 @@ class PydClientSubmission(PydConcrete):
 
     filepath: Path | None = Field(default=None)
     submissiontype: Annotated[SourcedField[str], RelationshipField(uselist=False)] = Field(default_factory=lambda: SourcedField(value=None, missing=True))
-    # submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     submitted_date:    SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=datetime.now(), missing=True))
     clientlab: Annotated[SourcedField[str], RelationshipField(uselist=False)]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     sample_count: SourcedField[int] = Field(default_factory=lambda: SourcedField(value=0, missing=True))
@@ -1061,25 +964,21 @@ class PydClientSubmission(PydConcrete):
         """
         if not isinstance(data, dict):
             return data
- 
-        # Plain string fields — submissiontype, clientlab, contact, cost_centre,
+         # Plain string fields — submissiontype, clientlab, contact, cost_centre,
         # submission_category, submitter_plate_id
         for field in ("submissiontype", "clientlab", "contact",
                       "cost_centre", "submission_category", "submitter_plate_id"):
             if field in data:
                 data[field] = _coerce_str_field(data[field])
- 
         # Datetime field — submitted_date
         if "submitted_date" in data:
             data["submitted_date"] = _coerce_datetime_field(
                 data["submitted_date"],
                 fallback=datetime.now()
             )
- 
         # Integer field — sample_count
         if "sample_count" in data:
             data["sample_count"] = _coerce_int_field(data["sample_count"])
- 
         return data
  
     # ── Step 2: business-logic validators that depend on other fields
@@ -1108,14 +1007,12 @@ class PydClientSubmission(PydConcrete):
                 SourcedField(value=self.submitter_plate_id.value.strip(), missing=False)
             )
             return self
-
         from backend.db.models import ClientSubmission
         submitted = self.submitted_date.value
         submitted_str = submitted.strftime("%Y-%m-%d") if submitted else datetime.now().strftime("%Y-%m-%d")
         cli_lab  = self.clientlab.value or ""
         category = self.submission_category.value or "NA"
         number   = ClientSubmission.get_lab_submissions_by_day(clientlab=cli_lab) + 1
-
         object.__setattr__(
             self, "submitter_plate_id",
             SourcedField(
@@ -1158,12 +1055,10 @@ class PydClientSubmission(PydConcrete):
             sf: SourcedField = getattr(self, field_name)
             if sf.value is not None:
                 setattr(self.sql_instance, field_name, {"name": sf.value})
- 
         # Scalar fields that map directly to a column
         for field_name in ("submission_category", "cost_centre", "submitted_date"):
             sf: SourcedField = getattr(self, field_name)
             setattr(self.sql_instance, field_name, sf.value)
- 
         # submitter_plate_id is stored as a plain string on the SQL model
         self.sql_instance.submitter_plate_id = self.submitter_plate_id.value
         self.sql_instance.run    = self.run
@@ -1259,15 +1154,12 @@ class PydRun(PydConcrete):
         """
         if not isinstance(data, dict):
             return data
- 
         for field in ("started_date", "completed_date"):
             if field in data:
                 data[field] = _coerce_datetime_field(data[field])
- 
         for field in ("rsl_plate_number", "signed_by"):
             if field in data:
                 data[field] = _coerce_str_field(data[field])
- 
         if "run_cost" in data:
             raw = data["run_cost"]
             # run_cost is SourcedField[float], not int — handle separately
@@ -1280,7 +1172,6 @@ class PydRun(PydConcrete):
                 data["run_cost"] = SourcedField(value=float(raw or 0.0), missing=raw is None)
         if "comment" in data:
             raw = data['comment']
-
         return data
 
     @field_validator("rsl_plate_number", mode="after")
@@ -1297,7 +1188,6 @@ class PydRun(PydConcrete):
         sub_type = values.data.get("clientsubmission", None)
         if sub_type is None:
             raise KeyError(f"'clientsubmission' missing from data")
- 
         if check_not_nan(value.value):
             # Value was present — just normalise whitespace
             return SourcedField(value=value.value.strip(), missing=False)
@@ -1347,7 +1237,6 @@ class PydRun(PydConcrete):
 
     def to_sql(self, update: bool = True):
         from backend.db.models import Run
-        logger.debug(list(self.sample))
         self.sql_instance: Run = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
@@ -1360,7 +1249,6 @@ class PydRun(PydConcrete):
         self.sql_instance.run_cost       = self.run_cost.value
         samples = [s for s in self.sample if PydSample.is_sample_id_valid(s)]
         # As of here, there, samples == []
-        logger.debug(f"Samples before setting: {pformat(samples)}")
         self.sql_instance.sample = samples
         return self.sql_instance, None
 
@@ -1388,7 +1276,6 @@ class PydRun(PydConcrete):
         return output
 
     def to_html(self, **kwargs):
-        logger.debug(f"Generating HTML for run {self.rsl_plate_number}")
         details = self.improved_dict_expand_fields(fields=['procedure', 'sample'])
         output = super().to_html(**details)
         return output
@@ -1419,18 +1306,6 @@ class PydTipsLot(PydConcrete):
     @field_validator("expiry", mode="before")
     @classmethod
     def tipslot_enforce_expiry(cls, value):
-        # if not value:
-        #     value = date.today() + timedelta(days=3650)
-        # match value:
-        #     case str():
-        #         try:
-        #             value = parse(value)
-        #         except ParserError:
-        #             value = None
-        #     case date() | datetime():
-        #         value = datetime.combine(value, datetime.max.time())
-        #     case _:
-        #         value = None
         return parse_expiry(value, days=3650)
     
     _validate_bool = field_validator("active", mode="before")(coerce_int_to_bool)

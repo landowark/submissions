@@ -11,7 +11,7 @@ from PyQt6.QtCore import pyqtSlot, QVariant, Qt
 from typing import TYPE_CHECKING, List
 from backend.validators import SourcedField
 from . import DefaultWebDialog
-from tools import DictMode, check_if_app, render_details_template, find_first_matching_dict
+from tools import DictMode, render_details_template, find_first_matching_dict
 if TYPE_CHECKING:
     from backend.validators import PydProcedure
 
@@ -39,7 +39,12 @@ class ProcedureCreation(DefaultWebDialog):
             title = self.run.rsl_plate_number
         self.setWindowTitle(f"New {self.proceduretype.name} for {title}")
         self.platemap = self.proceduretype_dict['platemap']
+        
         self.procedure.update_samples(sample_list=[sample for sample in self.constructed_sample_list])
+        try:
+            assert all([item.procedure_rank > 0 for item in self.procedure.sample])
+        except AssertionError:
+            logger.error(f"Got some messed up samples here.")
         self.set_html()
 
     @property
@@ -75,9 +80,7 @@ class ProcedureCreation(DefaultWebDialog):
                     row = 0
                     column = 0
                     is_control = 0
-            output = dict(sample_id=sample_id, index=iii, row=row, column=column, is_control=is_control)
-            
-            yield output
+            yield dict(sample_id=sample_id, index=iii, row=row, column=column, is_control=is_control)            
 
     def set_html(self):
         html = render_details_template(
@@ -186,6 +189,7 @@ class ProcedureCreation(DefaultWebDialog):
     def return_sql(self, new: bool = False):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
+            assert len(self.procedure.sample) > 0
             assert self.procedure.run is not None
             output = self.procedure.to_sql()
             if isinstance(output, tuple):
@@ -198,6 +202,9 @@ class ProcedureCreation(DefaultWebDialog):
             assert output.run.rsl_plate_number == expected_plate, (
                 f"Run mismatch: got {output.run.rsl_plate_number!r}, expected {expected_plate!r}"
             )
+        except AssertionError as e:
+            logger.exception(e)
+            return
         finally:
             QApplication.restoreOverrideCursor()
         return output

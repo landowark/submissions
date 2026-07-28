@@ -8,7 +8,6 @@ from inspect import getmembers, getattr_static, isroutine
 from json import dumps as jdumps
 from re import sub as rsub
 from datetime import datetime, date, timedelta
-from dateutil.parser import parse
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect, event
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
@@ -61,10 +60,7 @@ class SafeMiscInfo(MutableDict, dict):
 
     def _is_internal_key(self, key) -> bool:
         return is_internal_attr_key(key)
-        # if not isinstance(key, str):
-        #     return False
-        # return key.startswith("_") or any(m in key for m in self._INTERNAL_MARKERS)
-
+        
     def _set_safe_item(self, key: str, value):
         """
         Set a key-value pair with sanitization and conflict checking.
@@ -552,9 +548,7 @@ class BaseClass(Base):
         :return: (instance, is_new)
         """
         valid = cls._mapped_fields()
-        logger.debug(f"Incoming kwargs: {kwargs}")
         fields = {k: v for k, v in kwargs.items() if k in valid}
-        logger.debug(f"Incoming fields: {fields}")
         query_kwargs = {k: v for k, v in fields.items() if not isinstance(v, list)}
 
         instance = cls.query(limit=1, **query_kwargs) if query_kwargs else None
@@ -623,7 +617,7 @@ class BaseClass(Base):
         return cls.execute_query(**kwargs)
 
     @classmethod
-    # @trace
+    @trace
     def execute_query(cls, query: Query = None, limit: int = 0, offset: int | None = None,
                       **kwargs) -> Any | List[Any]:
         """
@@ -788,9 +782,6 @@ class BaseClass(Base):
         # Ensure values in misc_info are json serializable. Try to coerce
         # values where possible; drop keys that cannot be coerced.
         for key, value in items:
-            # try:
-            #     jdumps(value)
-            # except TypeError:
             try:
                 self._misc_info[key] = self.sanitize_obj_for_json(value)
             except TypeError:
@@ -1002,7 +993,7 @@ class BaseClass(Base):
         
         match obj_:
             case datetime() | date():
-                return cls.rectify_query_date(input_date=obj_)#.split(" ")[0]
+                return cls.rectify_query_date(input_date=obj_)
             case timedelta():
                 return obj_.days
             case list() | _AssociationList() | InstrumentedList():
@@ -1073,7 +1064,6 @@ class BaseClass(Base):
                     # NOTE: this handles recursions if fields is a dict.
                     new_fields = list(field.values())[0]
                     field = list(field.keys())[0]
-                    
                     try:
                         value = getattr(self, field)
                     except AttributeError as e:
@@ -1259,13 +1249,11 @@ class BaseClass(Base):
                             and getattr(existing, "procedure_rank", None) == obj_rank):
                         return True
             return False
-        
         for existing in collection:
             if existing is obj:
                 return True
             if all(getattr(existing, k, None) == v for k, v in pk_vals.items()):
                 return True
-
         return False
 
     @classproperty
@@ -1291,7 +1279,6 @@ class BaseClass(Base):
         the keys callers pass to ``query()`` (``clientlab``, not ``_clientlab``).
         """
         from sqlalchemy import UniqueConstraint
-
         mapper = getattr(cls, "__mapper__", None)
         table = getattr(cls, "__table__", None)
         if mapper is None or table is None:
@@ -1389,7 +1376,6 @@ class LogMixin(Base):
     """
     tracking_exclusion: ClassVar = ['clientsubmissionsampleassociation',
                                     'contact_id', 'clientlab_id', 'misc_info', '_misc_info']
-
     __abstract__ = True
 
     @property

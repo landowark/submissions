@@ -1,6 +1,14 @@
-directory_path: null
-database_path: null
-database_schema: null
-database_user: null
-database_password: null
-database_name: null
+logging_enabled: false
+directories:
+  main: null
+  backup: null
+database:
+  name: null
+  path: null
+  schema: null
+  user: null
+  password: null
+irida_next:
+  email: null
+  token: null
+  endpoint: null

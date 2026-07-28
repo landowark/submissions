@@ -40,7 +40,6 @@ class SubmissionDetails(QDialog):
         custom_page = CustomWebEnginePage(self.webview)
         self.webview.setPage(custom_page)
         self.webview.setMinimumSize(900, 500)
-        # self.webview.setMaximumWidth(900)
         # NOTE: Decide if exporting should be allowed.
         self.webview.loadFinished.connect(self.activate_export)
         self.layout = QGridLayout()
@@ -60,11 +59,9 @@ class SubmissionDetails(QDialog):
         self.channel.registerObject('backend', self)
         self.webview.page().setWebChannel(self.channel)
         # NOTE: Used to maintain javascript functions.
-        
         self.object_details(object_=self.object_)
 
     def object_details(self, object_):
-        logger.debug(f"Object type: {object_.__class__.__name__}")
         html = object_.to_html()
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object_.__class__.__name__} Details - {object_.name}")
@@ -127,7 +124,6 @@ class SubmissionDetails(QDialog):
         if clss:
             if isinstance(clss, list):
                 clss = clss[0]
-            logger.debug(f"Querying {clss.__qualname__} with name {sub_name}")
             obj = clss.query(name=sub_name, limit=1)
             if obj:
                 if isinstance(obj, list):

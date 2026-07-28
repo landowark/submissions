@@ -68,14 +68,12 @@ class App(QMainWindow):
         self.statusBar().showMessage('Ready', 5000)
         # 1. Define the timeout in milliseconds (e.g., 5 minutes)
         self.timeout_limit = 15 * 60 * 1000 
-        
         # 2. Setup the idle timer
         self.idle_timer = QTimer(self)
         self.idle_timer.setInterval(self.timeout_limit)
         self.idle_timer.setSingleShot(True)  # Only fire once per cycle
         self.idle_timer.timeout.connect(self.handle_timeout)
         self.idle_timer.start()
-
         # 3. Monitor global events by installing a filter on the app instance
         QApplication.instance().installEventFilter(self)
 
@@ -93,7 +91,6 @@ class App(QMainWindow):
 
     def handle_timeout(self):
         exit(ctx.run_teardown()) # Standard way to exit a PyQt6 application
-
 
     def _createMenuBar(self):
         """
@@ -125,14 +122,12 @@ class App(QMainWindow):
         """
         toolbar = QToolBar("My main toolbar")
         self.addToolBar(toolbar)
-        # toolbar.addAction(self.addReagentAction)
 
     def _createActions(self):
         """
         creates actions
         """
         self.importAction = QAction("&Import Submission", self)
-        # self.addReagentAction = QAction("Add Reagent", self)
         self.joinExtractionAction = QAction("Link Extraction Logs")
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)
@@ -167,7 +162,6 @@ class App(QMainWindow):
         """
         Show the 'about' message
         """
-        # j_env = jinja_template_loading()
         template = jinja_env.get_template("project.html")
         html = template.render(info=self.ctx.package.__dict__)
         about = HTMLPop(html=html, title="About")

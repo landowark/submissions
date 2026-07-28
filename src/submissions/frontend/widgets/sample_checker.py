@@ -4,7 +4,7 @@
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
-from typing import List, TYPE_CHECKING
+from typing import Generator, List, TYPE_CHECKING
 from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -64,16 +64,16 @@ class SampleChecker(QDialog):
     def set_rsl_plate_number(self, rsl_plate_number: str):
         self.rsl_plate_number = rsl_plate_number
     
-    def format_sample_list(self) -> List[dict]:
-        output = []
+    def format_sample_list(self) -> Generator[dict, None, None]:
+        seen = set()
         for sample in self.samples:
             s = sample.improved_dict
-            if s['sample_id'] in [item['sample_id'] for item in output]:
+            if s['sample_id'] in seen:
                 s['color'] = "red"
             else:
                 s['color'] = "black"
-            output.append(s)
-        return output
+                seen.add(s['sample_id'])
+            yield s
 
 
 __all__ = ["SampleChecker"]
