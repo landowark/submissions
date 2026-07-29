@@ -2648,6 +2648,7 @@ class ProcedureSampleAssociation(BaseClass):
                 else:
                     output.background_color = "white"
         output.rank = self.procedure_rank
+        assert output.name == self.name
         return output
 
     def save(self):

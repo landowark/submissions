@@ -2394,6 +2394,7 @@ class ResultsType(BaseClass):
 from .equipment import *
 from .reagents import *
 
+
 __all__ = ["Discount", "SubmissionType", "ProcedureType", "Procedure", "Results", "ResultsType",
            "EquipmentRole", "Equipment", "EquipmentRoleEquipmentAssociation", "Process", "ProcessVersion", 
            "Tips", "TipsLot", "ProcedureEquipmentTipslotAssociation", "ProcedureEquipmentAssociation", "ProcedureTypeEquipmentRoleAssociation",

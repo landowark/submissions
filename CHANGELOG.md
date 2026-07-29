@@ -1,3 +1,7 @@
+# 202607.14
+
+- BaseClass.details_dict now handles hybrid_properties.
+
 # 202607.11
 
 - Improved dictionary construction for jinja/html.

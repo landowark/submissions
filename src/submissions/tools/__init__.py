@@ -5,7 +5,7 @@ from __future__ import annotations
 from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
 logger = getLogger(f"submissions.{__name__}")
 from html import escape as html_escape
-from itertools import product as chain
+from itertools import chain
 from pandas import DataFrame, isnull as pdisnull
 from numpy import nan as npnan, isnat as npisnat, isnan as npisnan
 from getpass import getuser

@@ -1198,8 +1198,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     @classmethod
     def has_field(cls, fieldname):
         return fieldname in cls.model_fields
-    
-    
+      
 
 class PydAbstract(PydBaseClass):
 

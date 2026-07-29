@@ -1104,7 +1104,8 @@ class BaseClass(Base):
         :rtype: dict
         """
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
-                    isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
+                    isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)
+                    or isinstance(v, hybrid_property)}
         output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
         for k, v in relevant.items():
             if k in output['excluded']:
