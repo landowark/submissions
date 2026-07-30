@@ -1150,6 +1150,29 @@ class Procedure(BaseClass):
         self._comment = [] if self._comment is None else self._comment
 
     @hybrid_property
+    def clientlab(self):
+        return self.run.clientsubmission.clientlab.name
+
+    @clientlab.expression
+    def clientlab(cls):
+        # 1. Import necessary components from SQLAlchemy
+        from sqlalchemy import select
+        
+        # 2. Extract internal target tables from the relationships to build the joins safely
+        RunTable = cls._run.property.mapper.class_
+        ClientSubmissionTable = RunTable._clientsubmission.property.mapper.class_
+        ClientLabTable = ClientSubmissionTable._clientlab.property.mapper.class_
+
+        # 3. Construct a scalar subquery joining the paths back to the parent class ID
+        return (
+            select(ClientLabTable.name)
+            .join(ClientSubmissionTable, ClientLabTable.id == ClientSubmissionTable.clientlab_id)
+            .join(RunTable, ClientSubmissionTable.id == RunTable.clientsubmission_id)
+            .where(RunTable.id == cls.run_id)
+            .scalar_subquery()
+        )
+
+    @hybrid_property
     def name(self) -> str:
         try:
             run = self.run.name
@@ -1586,6 +1609,34 @@ class Procedure(BaseClass):
         names = ["Add Results", "Edit", "Add Comment", "Show Details", "Delete"]
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
+    @property
+    def run_samples(self):
+        with self.run.__database_session__.no_autoflush:
+            yield from [assoc.sample for assoc in self.run.runsampleassociation]
+
+    @property
+    def active_samples(self) -> Generator[dict, None, None]:
+        for sample in self.proceduresampleassociation:
+            if sample.sample.sample_id in [s.sample_id for s in self.run_samples]:
+                # Create a shallow copy to safely modify the dictionary before yielding
+                details = sample.details_dict.copy()
+                details["active"] = True
+                yield details
+
+    @property
+    def inactive_samples(self) -> Generator[dict, None, None]:
+        a_s_names =  [s.get('sample', "") for s in self.active_samples]
+        for sample in self.run_samples:
+            if sample.sample_id in a_s_names:
+                continue
+            details = sample.details_dict.copy()
+            details['active'] = False
+            yield details
+
+    @property
+    def sample_count(self) -> int:
+        return len(list(self.active_samples))
+
     def add_results(self, obj, resultstype_name: str):
         """
         Add results for this procedure using a manager determined by resultstype_name.
@@ -1706,34 +1757,27 @@ class Procedure(BaseClass):
         :rtype: dict
         """
         output = super().details_dict
-        try:
-            output['proceduretype'] = output['proceduretype'].details_dict['name']
-        except AttributeError:
-            pass
         output['results'] = [result.details_dict for result in self.results]
-        with self.run.__database_session__.no_autoflush:
-            run_samples = [assoc.sample for assoc in self.run.runsampleassociation]
-        active_samples = [sample.details_dict for sample in self.proceduresampleassociation
-                          if sample.sample.sample_id in [s.sample_id for s in run_samples]]
-        for sample in active_samples:
-            sample['active'] = True
-        inactive_samples = [sample.details_dict for sample in run_samples if
-                            sample.name not in [s['sample_id'] for s in active_samples]]
-        for sample in inactive_samples:
-            sample['active'] = False
-        output['sample'] = active_samples + inactive_samples
+        # with self.run.__database_session__.no_autoflush:
+        #     run_samples = [assoc.sample for assoc in self.run.runsampleassociation]
+        # active_samples = [sample.details_dict for sample in self.proceduresampleassociation
+        #                   if sample.sample.sample_id in [s.sample_id for s in run_samples]]
+        # for sample in active_samples:
+        #     sample['active'] = True
+        # a_s_names =  [s.get('sample', "") for s in self.active_samples]
+        # inactive_samples = [sample.details_dict for sample in run_samples if sample.sample_id not in a_s_names]
+        # for sample in inactive_samples:
+        #     sample['active'] = False
+        output['sample'] = list(self.active_samples) + list(self.inactive_samples)
         output['reagent'] = [reagent.details_dict for reagent in self.procedurereagentlotassociation]
         output['equipment'] = [equipment.details_dict for equipment in self.procedureequipmentassociation]
-        output['repeat'] = self.repeat
-        output['run'] = self.run.name
-        output['sample_count'] = len(active_samples)
-        output['comment'] = self.comment
-        try:
-            output['clientlab'] = self.run.clientsubmission.clientlab.name
-        except AttributeError:
-            logger.error(f"Run: {self.run}, ClientSubmission: {self.run.clientsubmission}")
-            output['clientlab'] = "Unknown"
-        output['cost'] = 0.00
+        
+        # try:
+        #     output['clientlab'] = self.run.clientsubmission.clientlab.name
+        # except AttributeError:
+        #     logger.error(f"Run: {self.run}, ClientSubmission: {self.run.clientsubmission}")
+        #     output['clientlab'] = "Unknown"
+        # output['cost'] = 0.00
         return output
 
     def to_pydantic(self, **kwargs):

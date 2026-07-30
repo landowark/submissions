@@ -434,7 +434,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         json_schema_extra = {"excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits', 'comment',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
                'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results", "info_results",
-               "active_reagentroles", "active_equipmentroles", "used_tips"]},
+               "active_reagentroles", "active_equipmentroles", "used_tips", "column_count", "row_count"]},
     )
 
     @field_validator("technician", mode="before")
@@ -590,7 +590,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 case _:
                     continue
         raise StopIteration(f"Could not find {sample_id} in {self.name} samples")
-
 
     def update_samples(self, sample_list: List[dict]):
         # Coming into this method, samples are dicts and 'is_control' is intact.
@@ -868,7 +867,7 @@ class PydClientSubmission(PydConcrete):
                          'clientsubmissionsampleassociation',
                          'endrow', 
                          "abbreviation",
-                         "full_batch_size", "name", "sql_instance", "new"
+                         "full_batch_size", "name", "sql_instance", "new", "max_sample_rank"
                          ],
             "recover": ['filepath', 'sample', 'csv', 'comment', 'equipment', 'run'],
             "key_value_order": ["submitter_plate_id",

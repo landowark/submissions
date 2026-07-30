@@ -3,6 +3,7 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from logging import getLogger
+import sys
 logger = getLogger(f"submissions.{__name__}")
 from pydantic import BaseModel
 from getpass import getuser
@@ -1647,6 +1648,12 @@ class Sample(BaseClass, LogMixin):
     def searchables(cls):
         return [dict(label="Submitter ID", field="sample_id")]
 
+    @property
+    def details_dict(self) -> dict:
+        output = super().details_dict
+        output['sample_id'] = self.sample_id
+        return output
+
     def to_pydantic(self):
         if hasattr(self, '_misc_info') and isinstance(self._misc_info, dict) and 'sample' in self._misc_info:
             try:
@@ -2556,7 +2563,7 @@ class ProcedureSampleAssociation(BaseClass):
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")
         self._results = list_
-  
+
     @property
     def well(self):
         return convert_row_column_to_well(self.row, self.column)
@@ -2613,8 +2620,10 @@ class ProcedureSampleAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in []}
         output = self.sample.details_dict
+        assert "sample_id" in output.keys()
         misc = output.get('misc_info', {})
         output.update(relevant)
+        
         output['misc_info'] = misc
         output['row'] = self.row
         output['column'] = self.column
@@ -2649,6 +2658,7 @@ class ProcedureSampleAssociation(BaseClass):
                     output.background_color = "white"
         output.rank = self.procedure_rank
         assert output.name == self.name
+        
         return output
 
     def save(self):

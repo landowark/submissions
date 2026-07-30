@@ -12,7 +12,7 @@ from backend.validators.pydant import PydAbstract, RelationshipField
 from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
 from tools import convert_well_to_row_column, IndexDirection, jinja_env
 if TYPE_CHECKING:
-    from .concrete import PydSample
+    from .concrete import PydSample, PydProcedureSampleAssociation
 
 
 class PydReagent(PydAbstract):
@@ -192,7 +192,7 @@ class PydProcedureType(PydAbstract):
             return
         super().remove_relationship(field=field, value=value)
 
-    def construct_plate_map(self, sample_dicts: List[PydSample], creation:bool=True, vw_modifier:float=1.0) -> str:
+    def construct_plate_map(self, sample_dicts: List[PydProcedureSampleAssociation], creation:bool=True, vw_modifier:float=1.0) -> str:
         """
         Constructs an html based plate map for procedure details.
 

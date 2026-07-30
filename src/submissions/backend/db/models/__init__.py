@@ -17,7 +17,7 @@ from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError, IntegrityError, OperationalError, StatementError
-from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
+from typing import Any, Generator, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
 from tools import TimeFill, report_result, Report, Alert, ctx, is_internal_attr_key, trace
 if TYPE_CHECKING:
@@ -1090,6 +1090,30 @@ class BaseClass(Base):
             dict_[field] = output
         return dict_
 
+    @classmethod
+    def construct_relevant_fields(cls) -> Generator[Tuple[str, Any], None, None]:
+        # dict_ = cls.__dict__
+        dict_ = {k: v for k, v in cls.__dict__.items() if not k.startswith("_")}
+        seen = set()
+        for k, v in dict_.items():
+            if k in seen:
+                continue
+            seen.add(k)
+            match v:
+                case InstrumentedAttribute() | AssociationProxy() | hybrid_property():
+                    pass
+                case property():
+                    if v.fget is None:
+                        continue
+                    match v.fget.__annotations__.get("return"):
+                        case "int":
+                            pass
+                        case _:
+                            continue
+                case _:
+                    continue
+            yield k, v
+
     @property
     def details_dict(self) -> dict:
         """
@@ -1103,11 +1127,9 @@ class BaseClass(Base):
                  model data sanitized for JSON storage.
         :rtype: dict
         """
-        relevant = {k: v for k, v in self.__class__.__dict__.items() if
-                    isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)
-                    or isinstance(v, hybrid_property)}
+        relevant = list(self.construct_relevant_fields())
         output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
-        for k, v in relevant.items():
+        for k, v in relevant:
             if k in output['excluded']:
                 continue
             # NOTE: foreign keys handled in child overrides.
@@ -1123,8 +1145,7 @@ class BaseClass(Base):
             except AttributeError:
                 continue
             corrected_value = self.sanitize_obj_for_json(value)
-            output[k.strip("_")] = corrected_value
-            
+            output[k] = corrected_value
         if self._misc_info:
             for key, value in self._misc_info.items():
                 # NOTE don't update from misc_info
