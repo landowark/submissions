@@ -469,5 +469,9 @@ class Contact(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
+    @property
+    def details_dict(self) -> dict:
+        return {k:v for k, v in super().details_dict.items() if k not in ['clientsubmission']}
+
 
 __all__ = ["ClientLab", "Contact", "clientlab_contact"]

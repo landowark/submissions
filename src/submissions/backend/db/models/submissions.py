@@ -320,7 +320,10 @@ class ClientSubmission(BaseClass, LogMixin):
     @hybrid_property
     def completed_date(self):
         if self.run:
-            return max((run.completed_date for run in self.run if run.completed_date), default=None)
+            dates = [run.completed_date for run in self.run if run.completed_date]
+            if not dates:
+                return None
+            return max(dates, default=None)
         return None
 
     @hybrid_property
@@ -349,6 +352,10 @@ class ClientSubmission(BaseClass, LogMixin):
             return max([item.submission_rank for item in self.clientsubmissionsampleassociation])
         except ValueError:
             return 0
+
+    @property
+    def abbreviation(self) -> str:
+        return self.submissiontype.abbreviation or "XX"
 
     # TODO: get chronologic working
     @classmethod
@@ -551,18 +558,18 @@ class ClientSubmission(BaseClass, LogMixin):
             self.comment = comment
             self.save()
 
-    @property
-    def details_dict(self) -> dict:
-        output = super().details_dict
-        if "contact" in output and issubclass(output['contact'].__class__, BaseClass):
-            output['contact'] = output['contact'].details_dict
-            output['contact_email'] = output['contact']['email']
-        output['sample'] = [sample for sample in output['clientsubmissionsampleassociation']]
-        output['name'] = self.name
-        output['abbreviation'] = self.submissiontype.abbreviation or "XX"
-        output['sample_count'] = len(self.clientsubmissionsampleassociation)
-        output['comment'] = self.comment
-        return output
+    # @property
+    # def details_dict(self) -> dict:
+    #     output = super().details_dict
+    #     if "contact" in output and issubclass(output['contact'].__class__, BaseClass):
+    #         output['contact'] = output['contact'].details_dict
+    #         output['contact_email'] = output['contact']['email']
+    #     output['sample'] = [sample for sample in output['clientsubmissionsampleassociation']]
+    #     output['name'] = self.name
+    #     output['abbreviation'] = self.submissiontype.abbreviation or "XX"
+    #     output['sample_count'] = len(self.clientsubmissionsampleassociation)
+    #     output['comment'] = self.comment
+    #     return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
         output = super().to_pydantic(filepath=filepath, **kwargs)
@@ -585,7 +592,7 @@ class ClientSubmission(BaseClass, LogMixin):
             return None
     
     @property
-    def met_turnaround_time(self):
+    def met_turnaround_time(self) -> bool:
         return self.turnaround_time < self.submissiontype.turnaround_time.days if self.turnaround_time is not None and self.submissiontype.turnaround_time is not None else False
 
     @classmethod
@@ -660,7 +667,7 @@ class Run(BaseClass, LogMixin):
     _clientsubmission = relationship("ClientSubmission", back_populates="_run")  #: parent clientsubmission
     _started_date = Column(TIMESTAMP)  #: Date this procedure was started.
     _run_cost = Column(FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
-    signed_by = Column(String(32))  #: user name of person who submitted the procedure to the database.
+    _signed_by = Column(String(32))  #: user name of person who submitted the procedure to the database.
     _comment = Column(MutableList.as_mutable(JSON))  #: user notes
     _completed_date = Column(TIMESTAMP)  #: Date this procedure was finished.
     _procedure = relationship("Procedure", back_populates="_run", uselist=True)  #: children procedures
@@ -878,7 +885,10 @@ class Run(BaseClass, LogMixin):
         if self._completed_date:
             return self._completed_date
         else:
-            value = max([proc.completed_date for proc in self.procedure])
+            dates = [proc.completed_date for proc in self.procedure]
+            if not dates:
+                return None
+            value = max(dates, default=None)
             return value
 
     @completed_date.setter
@@ -898,6 +908,14 @@ class Run(BaseClass, LogMixin):
     @hybrid_property
     def run_cost(self):
         return self._run_cost
+
+    @hybrid_property
+    def signed_by(self):
+        return self._signed_by or "NA"
+
+    @signed_by.setter
+    def signed_by(self, value):
+        self._signed_by = value
 
     @classmethod
     def get_submission_type(cls, submissiontype: str | SubmissionType | None = None) -> SubmissionType:
@@ -925,28 +943,52 @@ class Run(BaseClass, LogMixin):
                 return None
 
     @property
-    def sample_count(self):
-        return len(self.sample)
+    def sample_count(self) -> int:
+        return len(list(self.active_samples))
+
+    @property
+    def submission_samples(self):
+        yield from self.clientsubmission.sample
+
+    @property
+    def active_samples(self) -> Generator[dict, None, None]:
+        for sample in self.submission_samples:
+            if sample.sample_id in [s.sample.sample_id for s in self.runsampleassociation]:
+                # Create a shallow copy to safely modify the dictionary before yielding
+                # yield dict(sample_id=sample.sample_id, active=True)
+                details = sample.details_dict.copy()
+                details['active'] = True
+                yield details
+
+    @property
+    def inactive_samples(self) -> Generator[dict, None, None]:
+        a_s_names =  [s.get('sample_id', "") for s in self.active_samples]
+        for sample in self.submission_samples:
+            if sample.sample_id in a_s_names:
+                continue
+            details = sample.details_dict.copy()
+            details['active'] = False
+            yield details
 
     @property
     def details_dict(self) -> dict:
         output = super().details_dict
-        output['plate_number'] = self.plate_number
-        submission_samples = [sample for sample in self.clientsubmission.sample]
-        active_samples = [dict(sample_id=assoc.sample.sample_id, active=True) for assoc in self.runsampleassociation
-                          if assoc.sample and assoc.sample.sample_id in [s.sample_id for s in submission_samples if s]]
-        inactive_samples = [dict(sample_id=sample.sample_id, active=False) for sample in submission_samples if sample and
-                            sample.sample_id not in [s['sample_id'] for s in active_samples]]
-        output['sample'] = active_samples + inactive_samples
+        # output['plate_number'] = self.plate_number
+        # submission_samples = [sample for sample in self.clientsubmission.sample]
+        # active_samples = [dict(sample_id=assoc.sample.sample_id, active=True) for assoc in self.runsampleassociation
+        #                   if assoc.sample and assoc.sample.sample_id in [s.sample_id for s in submission_samples if s]]
+        # inactive_samples = [dict(sample_id=sample.sample_id, active=False) for sample in submission_samples if sample and
+        #                     sample.sample_id not in [s['sample_id'] for s in active_samples]]
+        output['sample'] = list(self.active_samples) + list(self.inactive_samples)
         output['permission'] = is_power_user()
-        output['excluded'] += ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
-                               'permission', "clientsubmission"]
-        output['sample_count'] = self.sample_count
-        output['clientsubmission'] = self.clientsubmission.name
-        if isinstance(output['clientsubmission'], dict):
-            output['clientsubmission'] = output['clientsubmission'].get("value", "NA")
-        output['started_date'] = self.started_date
-        output['completed_date'] = self.completed_date
+        # output['excluded'] += ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
+        #                        'permission', "clientsubmission"]
+        # output['sample_count'] = self.sample_count
+        # output['clientsubmission'] = self.clientsubmission.name
+        # if isinstance(output['clientsubmission'], dict):
+        #     output['clientsubmission'] = output['clientsubmission'].get("value", "NA")
+        # output['started_date'] = self.started_date
+        # output['completed_date'] = self.completed_date
         return output
     
     def details_dict_expand_fields(self, fields: List[str] | List[dict]):
@@ -1332,17 +1374,17 @@ class Run(BaseClass, LogMixin):
             delta = busday_count(start_date, end_date, holidays=create_holidays_for_year(start_date.year)) + 1
         except ValueError:
             return None
-        return delta
+        return int(delta)
 
-    def met_turnaround(self):
-        try:
-            tat = self.clientsubmission.submissiontype.turnaround_time.days
-        except AttributeError:
-            tat = 3
-        if self.turnaround_time:
-            return self.turnaround_time < tat
-        else:
-            return False
+    # def met_turnaround(self):
+    #     try:
+    #         tat = self.clientsubmission.submissiontype.turnaround_time.days
+    #     except AttributeError:
+    #         tat = 3
+    #     if self.turnaround_time:
+    #         return self.turnaround_time < tat
+    #     else:
+    #         return False
 
     @property
     def allowed_procedures(self):

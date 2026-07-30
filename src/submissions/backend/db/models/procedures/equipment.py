@@ -4,6 +4,7 @@ SQLAlchemy models for equipment and equipment roles, including associations with
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
+from tools import Report
 from re import Pattern, compile as rcompile, VERBOSE
 from sqlalchemy import JSON, Column, ForeignKeyConstraint, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, and_, cast, func, select, Table
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -968,13 +969,13 @@ class Process(BaseClass):
         """
         super().save()
 
-    @property
-    def details_dict(self) -> dict:
-        output = super().details_dict
-        output['processversion'] = [item.details_dict for item in self.processversion]
-        tips = flatten_list([tipslot for tipslot in [tips.tipslot for tips in self.tips]])
-        output['tips'] = [tipslot.details_dict for tipslot in tips]
-        return output
+    # @property
+    # def details_dict(self) -> dict:
+    #     output = super().details_dict
+    #     # output['processversion'] = [item.details_dict for item in self.processversion]
+    #     tips = flatten_list([tipslot for tipslot in [tips.tipslot for tips in self.tips]])
+    #     output['tips'] = [tipslot.details_dict for tipslot in tips]
+    #     return output
 
 
 class ProcessVersion(BaseClass):
@@ -1123,13 +1124,15 @@ class ProcessVersion(BaseClass):
 
     @property
     def details_dict(self) -> dict:
-        output = super().details_dict
-        output['name'] = self.name
-        if not output['project']:
-            output['project'] = ""
-        output['tips'] = flatten_list(
-            [[lot.details_dict for lot in tips.tipslot if bool(lot.active)] for tips in self.process.tips])
-        return output
+        return {k: v for k, v in super().details_dict.items() if k not in ['procedureequipmentassociation']}
+    #     output = super().details_dict
+    #     output['name'] = self.name
+    #     if not output['project']:
+    #         output['project'] = ""
+    #     output['tips'] = flatten_list(
+    #         [[lot.details_dict for lot in tips.tipslot if bool(lot.active)] for tips in self.process.tips])
+    #     output.__delitem__('procedureequipmentassociation')
+    #     return output
 
     @classmethod
     def query(cls,
@@ -1166,6 +1169,12 @@ class ProcessVersion(BaseClass):
         if active is not None:
             query = query.filter(cls._active == int(active))
         return cls.execute_query(query=query, limit=limit)
+
+    def save(self) -> Report | None:
+        if not self.process:
+            raise ValueError(f"This version has no parent process. Cannot save.")
+            return
+        super().save()
 
     
 class Tips(BaseClass):
@@ -1713,6 +1722,10 @@ class TipsLot(BaseClass, LogMixin):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
+
+    @property
+    def details_dict(self) -> dict:
+        return {k: v for k, v in super().details_dict.items() if k not in ['procedureequipmenttipslotassociation']}
     
     @check_authorization
     def save(self):
@@ -1721,6 +1734,9 @@ class TipsLot(BaseClass, LogMixin):
 
         Calls the base class save implementation after authorization succeeds.
         """
+        if not self.tips:
+            raise ValueError(f"This TipsLot has no parent tips instance. Cannot save.")
+            return
         super().save()
 
     
@@ -2356,25 +2372,26 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     @property
     def details_dict(self) -> dict:
-        """
-        Produce a detailed dictionary representation of this procedure equipment association.
+        return {k: v for k, v in super().details_dict.items() if k not in ['equipmentprocedureassociation']}
+    #     """
+    #     Produce a detailed dictionary representation of this procedure equipment association.
 
-        :return: Details dictionary containing equipment, role, process version and tipslot metadata.
-        :rtype: dict
-        """
-        output = super().details_dict
-        # NOTE: Figure out how to merge the misc_info if doing .update instead.
-        relevant = {k: v for k, v in output.items() if k not in ['equipment']}
-        output = self.equipment.details_dict
-        misc = output.get('misc_info', {})
-        output.update(relevant)
-        output['misc_info'] = misc
-        output['equipment'] = self.equipment.name
-        # equipmentrole is optional and may be None (see bug report)
-        output['equipmentrole'] = self.equipmentrole.name if self.equipmentrole else ""
-        output['processversion'] = self.processversion.name if self.processversion else ""
-        output['tipslot'] = [tipslot.name for tipslot in self.tipslot]
-        return output
+    #     :return: Details dictionary containing equipment, role, process version and tipslot metadata.
+    #     :rtype: dict
+    #     """
+    #     output = super().details_dict
+    #     # NOTE: Figure out how to merge the misc_info if doing .update instead.
+    #     relevant = {k: v for k, v in output.items() if k not in ['equipment']}
+    #     output = self.equipment.details_dict
+    #     misc = output.get('misc_info', {})
+    #     output.update(relevant)
+    #     output['misc_info'] = misc
+    #     output['equipment'] = self.equipment.name
+    #     # equipmentrole is optional and may be None (see bug report)
+    #     output['equipmentrole'] = self.equipmentrole.name if self.equipmentrole else ""
+    #     output['processversion'] = self.processversion.name if self.processversion else ""
+    #     output['tipslot'] = [tipslot.name for tipslot in self.tipslot]
+    #     return output
 
 
 class ProcedureTypeEquipmentRoleAssociation(BaseClass):

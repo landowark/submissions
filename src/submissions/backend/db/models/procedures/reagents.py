@@ -1,6 +1,7 @@
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
+from tools import Report
 from sqlalchemy import JSON, Column, String, TIMESTAMP, INTEGER, ForeignKey, Interval, FLOAT, select
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Query
@@ -700,7 +701,13 @@ class ReagentLot(BaseClass):
 
     @property
     def details_dict(self) -> dict:
-        return {k: v for k,v in super().details_dict.items() if k not in ("reagentlotprocedureassociation", "procedure", "procedures")}
+        return {k: v for k,v in super().details_dict.items() if k not in ("reagentlotprocedureassociation", "procedure")}
+
+    def save(self) -> Report | None:
+        if not self._reagent:
+            raise ValueError(f"This ReagentLot has no parent reagent. Cannot save.")
+            return
+        super().save()
 
 
 class ReagentRoleReagentAssociation(BaseClass):

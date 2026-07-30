@@ -984,6 +984,7 @@ def handle_results(input_value:dict|str, html: bool=True, keep_iso: bool = False
         case None:
             output = html_escape("NA")
         case _:
+            print(f"\n\nGot unusual input_value: {input_value} of type {type(input_value)}\n\n")
             if not input_value:
                 return None
             try:

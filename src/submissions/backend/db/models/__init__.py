@@ -1106,7 +1106,7 @@ class BaseClass(Base):
                     if v.fget is None:
                         continue
                     match v.fget.__annotations__.get("return"):
-                        case "int":
+                        case "int" | "str" | "bool":
                             pass
                         case _:
                             continue

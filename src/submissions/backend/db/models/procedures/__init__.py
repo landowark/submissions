@@ -1758,26 +1758,9 @@ class Procedure(BaseClass):
         """
         output = super().details_dict
         output['results'] = [result.details_dict for result in self.results]
-        # with self.run.__database_session__.no_autoflush:
-        #     run_samples = [assoc.sample for assoc in self.run.runsampleassociation]
-        # active_samples = [sample.details_dict for sample in self.proceduresampleassociation
-        #                   if sample.sample.sample_id in [s.sample_id for s in run_samples]]
-        # for sample in active_samples:
-        #     sample['active'] = True
-        # a_s_names =  [s.get('sample', "") for s in self.active_samples]
-        # inactive_samples = [sample.details_dict for sample in run_samples if sample.sample_id not in a_s_names]
-        # for sample in inactive_samples:
-        #     sample['active'] = False
         output['sample'] = list(self.active_samples) + list(self.inactive_samples)
         output['reagent'] = [reagent.details_dict for reagent in self.procedurereagentlotassociation]
         output['equipment'] = [equipment.details_dict for equipment in self.procedureequipmentassociation]
-        
-        # try:
-        #     output['clientlab'] = self.run.clientsubmission.clientlab.name
-        # except AttributeError:
-        #     logger.error(f"Run: {self.run}, ClientSubmission: {self.run.clientsubmission}")
-        #     output['clientlab'] = "Unknown"
-        # output['cost'] = 0.00
         return output
 
     def to_pydantic(self, **kwargs):

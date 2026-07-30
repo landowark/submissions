@@ -883,6 +883,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         for field in self.described_fields:
             is_new = getattr(self, "new", False)
             type_name = self.determine_field_type(field, is_new=is_new)
+            if not isinstance(type_name, str):
+                continue
             if field.lower().strip("_") in self.sql_classes:
                 excluded = self._compute_excluded_items(field=field)
             else:
@@ -891,7 +893,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             value = data.get(field, None)
             if isinstance(value, list):
                 value = [value['name'] if isinstance(value, dict) and 'name' in value.keys() else value for value in value]
-            yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded, object_type=self._sql_name.lower())
+            if type_name is not None:
+                yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded, object_type=self._sql_name.lower())
+            else:
+                continue
+
 
     @classmethod
     def get_association_class(cls, field: str) -> PydBaseClass | None:
@@ -923,7 +929,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             association = True
         else:
             association = False
-        # env = jinja_template_loading()
         template = jinja_env.get_template("managers/manager_form.html")
         html = template.render(object=self.form_dictionary, association=association, class_name=self.__class__.__name__)
         return html
