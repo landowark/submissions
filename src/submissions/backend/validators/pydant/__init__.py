@@ -898,11 +898,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             else:
                 continue
 
-
     @classmethod
     def get_association_class(cls, field: str) -> PydBaseClass | None:
         """
-        Gets Pydantic model class associated with a field..
+        Gets Pydantic model class associated with a field.
 
         Args:
             field (str): Name of field to be considered.

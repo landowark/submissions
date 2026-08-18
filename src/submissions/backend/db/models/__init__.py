@@ -617,7 +617,7 @@ class BaseClass(Base):
         return cls.execute_query(**kwargs)
 
     @classmethod
-    @trace
+    # @trace
     def execute_query(cls, query: Query = None, limit: int = 0, offset: int | None = None,
                       **kwargs) -> Any | List[Any]:
         """

@@ -93,7 +93,7 @@ class OmniManager(QDialog):
         self.pydant.update_instrumentedattribute(field, value)
         
     @pyqtSlot(str, str, result=str)
-    def get_association_form(self, field: str, value: str) -> str:
+    def get_association_form(self, field: str) -> str:
         """
         Generates an HTML form for association attributes.
 
@@ -101,6 +101,8 @@ class OmniManager(QDialog):
             field (str): The relationship field name.
             value (str): The selected value for the relationship.
         """
+        if self.pydant is None:
+            raise AttributeError(f"{self.__class__.__qualname__}.pydant is None. Unable to get Association Form")
         blank_class = self.pydant.get_association_class(field)
         return blank_class().html_form
 

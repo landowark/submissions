@@ -7,8 +7,8 @@ from re import compile as rcompile
 from csv import writer as csvwriter
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Generator, List, Tuple, TYPE_CHECKING
-from pydantic import AfterValidator, ConfigDict, Field, field_validator, computed_field, model_validator
+from typing import Annotated, Any, Dict, Generator, List, Tuple, TYPE_CHECKING, Union
+from pydantic import AfterValidator, ConfigDict, Field, ValidationInfo, field_validator, computed_field, model_validator
 from PyQt6.QtWidgets import QWidget
 from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool, parse_optional_datetime
@@ -174,35 +174,72 @@ class PydSample(PydConcrete):
     results: List[PydResults] | PydResults = Field(default_factory=list, repr=False)
     is_control: int = Field(default=0)
 
-    @field_validator('is_control', mode='before')
-    @classmethod
-    def enforce_value_range(cls, value):
-        # Coerce a variety of incoming shapes (int, str, dict, SourcedField-like)
-        # into a safe integer in the range [-1, 0, 1]. Avoid TypeErrors from
-        # comparing incompatible types (e.g. str with int).
-        try:
-            # unwrap dict-like inputs that use {'value': ...}
-            if isinstance(value, dict) and 'value' in value:
-                raw = value.get('value')
-            elif isinstance(value, SourcedField):
-                raw = value.value
-            else:
-                raw = value
-            if raw is None:
-                return 0
-            iv = int(raw)
-        except (TypeError, ValueError):
-            return 0
-        if iv >= 1:
-            return 1
-        if iv <= -1:
-            return -1
-        return 0
-
     @field_validator("sample_id", mode="before")
     @classmethod
     def int_to_str(cls, value):
         return str(value)
+
+    @model_validator(mode="before")
+    @classmethod
+    def pre_populate_control_status(cls, data: Any) -> Any:
+        # If input data isn't a dictionary (e.g. object instantiation edge cases), pass through
+        if not isinstance(data, dict):
+            return data
+
+        # Extract and convert sample_id to string early, mirroring 'int_to_str' behavior
+        raw_sample_id = data.get("sample_id", "")
+        sample_id_str = str(raw_sample_id) if raw_sample_id is not None else ""
+
+        # Compute the intended status based on the sample_id template
+        inferred_status = cls.get_self_control_status(sample_id_str, to_str=False)
+
+        # Safely unwrap current explicit 'is_control' value if provided
+        value = data.get("is_control", 0)
+        if hasattr(value, 'value'): 
+            value = value.value
+        elif isinstance(value, dict):
+            value = value.get('value', 0)
+
+        # Apply fallback interpolation logic directly to the raw payload
+        match value:
+            case int():
+                if value == 0 and inferred_status != 0:
+                    validated_int = inferred_status
+                else:
+                    validated_int = value
+            case str():
+                try:
+                    validated_int = int(value)
+                    if validated_int == 0 and inferred_status != 0:
+                        validated_int = inferred_status
+                except ValueError:
+                    validated_int = inferred_status
+            case _:
+                validated_int = inferred_status
+
+        # Enforce range limits [-1, 0, 1]
+        if validated_int >= 1:
+            data["is_control"] = 1
+        elif validated_int <= -1:
+            data["is_control"] = -1
+        else:
+            data["is_control"] = 0
+
+        return data
+
+    @classmethod
+    def get_self_control_status(cls, sample_id: str, to_str: bool = False) -> Union[int, str]:
+        if not sample_id or not isinstance(sample_id, str):
+            return "0" if to_str else 0
+            
+        clean_id = sample_id.strip().lower()
+        if clean_id.startswith(("en", "neg", "negative", "nc")):
+            return "-1" if to_str else -1
+        if clean_id.startswith(("pos", "positive", "pc")):
+            return "1" if to_str else 1
+        return "0" if to_str else 0
+
+    
 
     @field_validator("sample_id")
     @classmethod
@@ -318,7 +355,13 @@ class PydSample(PydConcrete):
             case str():
                 sample = sample
             case PydProcedureSampleAssociation() | PydClientSubmissionSampleAssociation():
-                sample = sample.sample_id
+                if hasattr(sample, "sample_id"):
+                    sample = sample.sample_id
+                else:
+                    if isinstance(sample.sample, str):
+                        sample = sample.sample
+                    else:
+                        sample = sample.sample.sample_id
             case _:
                 logger.warning(f"{type(sample)} is not a valid type")
                 return False
@@ -591,18 +634,23 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                     continue
         raise StopIteration(f"Could not find {sample_id} in {self.name} samples")
 
+    @property
+    def ranked_plate(self) -> Dict[int, Tuple[int, int]]:
+        return self.proceduretype.make_ranked_plate()
+
+    def get_rank(self, index: int) -> Tuple[int, int]:
+        return self.ranked_plate.get(index, (0, 0))
+
     def update_samples(self, sample_list: List[dict]):
         # Coming into this method, samples are dicts and 'is_control' is intact.
         # Build a new ordered list of samples matching the sample_list order.
-        ranked_plate = self.proceduretype.make_ranked_plate()
         new_samples: List[PydProcedureSampleAssociation] = []
-        
         for iii, sample_dict in enumerate(sample_list, start=1):
             sample_id = sample_dict.get('sample_id', '')
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
                 sample_id = ""
-            row = sample_dict.get("row", 0)
-            column = sample_dict.get("column", 0)
+            row = sample_dict.get("row", self.get_rank(sample_dict["index"])[0])
+            column = sample_dict.get("column", self.get_rank(sample_dict["index"])[1])
             try:
                 sample = self.pick_sample_association(sample_id=sample_id)
             except StopIteration:
@@ -611,7 +659,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             # Update position/rank/control/classification metadata.
             sample.row = row
             sample.column = column
-            sample.rank = int(getattr(sample_dict, "index", iii))
+            sample.procedure_rank = int(getattr(sample_dict, "index", iii))
             new_samples.append(sample)
         # Replace the sample list with the reordered list. Preserve any samples not present in
         # sample_list by appending them after the ordered ones (so they are not lost).
@@ -656,7 +704,9 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             eoi.equipment = equipment.to_pydantic()
         else:
             eoi = PydProcedureEquipmentAssociation(equipment=equipment.to_pydantic(), equipmentrole=equipmentrole, procedure=self)
+        logger.debug(f"Querying processversion: {processversion}")
         processversion = ProcessVersion.query(name=processversion, limit=1)
+        logger.debug(f"Found processversionL {processversion}")
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
         # NOTE Correct pydprocessverion
@@ -766,10 +816,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             }, 
             {
                 "equipmentrole": [
-                        {"equipmentroleequipmentassociation":["equipment", "process"]}
+                        {"equipmentroleequipmentassociation":["equipment", {"process":["processversion", "tips"]}]}
                         ]
             }
             ])
+        
         for reagentlot in self.reagentlot:
             proceduretype_reagentrole: dict = next((item for item in proceduretype_dict['reagentrole'] if item['name'] == reagentlot.reagentrole), None)
             if not proceduretype_reagentrole:
@@ -839,7 +890,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                     logger.error(f"Unparsable sample: {sample}")
                     continue
         assert all([isinstance(s, PydProcedureSampleAssociation) for s in sample_dicts])
-        html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
+        html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=True, vw_modifier=1.15)
         return html
 
     

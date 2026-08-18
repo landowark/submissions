@@ -209,6 +209,7 @@ function updateEquipmentChoices(equipmentrole) {
 
 function updateProcessChoices(equipmentrole) {
     console.log("Updating process choices.");
+    console.log("Looking for element with name: " + equipmentrole.name + "_process");
     var dropdown_oi = document.getElementById(equipmentrole.name + "_process");
     while (dropdown_oi.options.length > 0) {
         dropdown_oi.remove(0);
@@ -216,12 +217,16 @@ function updateProcessChoices(equipmentrole) {
     dropdown_oi.json = equipmentrole;
     var equipment_name = document.getElementById(equipmentrole.name).value;
     var assoc_name = equipmentrole.name + "->" + equipment_name;
+    console.log("Looking for association named: " + assoc_name)
     var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+    console.log("Found association: " + assoc.name)
     if (!assoc) { return }
     var processes = assoc.process;
     for (let iii = 0; iii < processes.length; iii++) {
+        console.log("Adding in process: " + processes[iii])
         for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
             var output = processes[iii].processversion[jjj];
+            console.log("Setting output to: " + processes[iii].processversion[jjj])
             if (Boolean(output.active)) {
                 var opt = document.createElement('option');
                 opt.value = output.name;
@@ -285,6 +290,7 @@ function updateBackend(equipmentrole) {
     var equipmentrole_name = equipmentrole.name
     var dropdown_oi = document.getElementById(equipmentrole.name);
     var equipment_name = dropdown_oi.value;
+    
     dropdown_oi = document.getElementById(equipmentrole.name + "_process");
     var process_name = dropdown_oi.value;
     dropdown_oi = document.getElementById(equipmentrole.name + "_tips");

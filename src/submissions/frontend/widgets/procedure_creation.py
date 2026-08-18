@@ -99,6 +99,7 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, str, str, QVariant)
     @pyqtSlot(str, str, str, QVariant, bool)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
+        logger.debug(f"incoming processversion: {processversion}")
         self.procedure.update_equipment(equipmentrole=equipmentrole, equipment=equipment, processversion=processversion, tips=tips, checked=checked)
 
     @pyqtSlot(str, str)
@@ -124,6 +125,7 @@ class ProcedureCreation(DefaultWebDialog):
 
     @pyqtSlot(list)
     def rearrange_plate(self, sample_list: List[dict]):
+        logger.debug(f"Rearranging plate with sample_list: {pformat(sample_list)}")
         self.procedure.update_samples(sample_list=sample_list)
 
     @pyqtSlot(str)

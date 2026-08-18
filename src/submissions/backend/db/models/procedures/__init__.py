@@ -920,7 +920,7 @@ class ProcedureType(BaseClass):
         pyd_proc_type = self.to_pydantic()
         expanded = pyd_proc_type.improved_dict_expand_fields([
             {"reagentrole": [{"reagent": ["reagentlot"]}]},
-            {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", "process"]}]}
+            {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", {"process": ["processversion", "tips"]}]}]}
         ])
         pyd_proc_type.model_extra.update(expanded)
 
@@ -1803,7 +1803,7 @@ class Procedure(BaseClass):
             pyd_proc_type = self.proceduretype.to_pydantic()
             expanded = pyd_proc_type.improved_dict_expand_fields([
                 {"reagentrole": [{"reagent": ["reagentlot"]}]},
-                {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", "process"]}]}
+                {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", {"process": ["processversion", "tips"]}]}]}
             ])
             # annotate filled flags on expanded entries
             # attach expanded dicts so templates can read them via proceduretype['reagentrole']

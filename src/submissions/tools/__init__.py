@@ -1003,6 +1003,8 @@ def sanitize_object_for_json(input_obj):
 
     from backend.db.models import BaseClass
     match input_obj:
+        case bool():
+            return jdumps(input_obj)
         case datetime() | date():
             return input_obj.isoformat()
         case list():
