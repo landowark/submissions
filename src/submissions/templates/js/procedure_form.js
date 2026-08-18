@@ -156,6 +156,10 @@ window.addEventListener('load', function () {
                 // NOW it is safe to run your startup logic
                 equipment_json.forEach(equipment_startup);
                 Array.prototype.forEach.call(reagentRoles, reagentrole_startup)
+                // Fallback: re-run startup shortly after to handle timing/race conditions
+                setTimeout(function(){
+                    try{ equipment_json.forEach(equipment_startup); Array.prototype.forEach.call(reagentRoles, reagentrole_startup); }catch(e){ console.warn('fallback startup failed', e); }
+                }, 250);
             } else {
                 console.error("Backend object not found in channel objects.");
             }
@@ -248,16 +252,27 @@ function updateTipChoices(equipmentrole) {
     var equipment_name = document.getElementById(equipmentrole.name).value;
     var assoc_name = equipmentrole.name + "->" + equipment_name;
     var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
-    if (!assoc) { return }
+    var processes = [];
+    if (!assoc) {
+        // Fallback: aggregate processes from all associations if exact assoc not found
+        for (let ai = 0; ai < equipmentrole.equipmentroleequipmentassociation.length; ai++) {
+            let a = equipmentrole.equipmentroleequipmentassociation[ai];
+            if (a.process) {
+                for (let pi = 0; pi < a.process.length; pi++) {
+                    processes.push(a.process[pi]);
+                }
+            }
+        }
+    } else {
+        processes = assoc.process;
+    }
 
     // Check if the key exists in used_tips to prevent "undefined" errors
     var has_used_tips = Object.prototype.hasOwnProperty.call(used_tips, equipmentrole.name);
-
-    var processes = assoc.process;
     for (let iii = 0; iii < processes.length; iii++) {
         for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
             var output = processes[iii].tips[jjj];
-            if (Boolean(output.active)) {
+            if (output.active === undefined || Boolean(output.active)) {
                 var opt = document.createElement('option');
                 opt.value = output.name;
                 opt.innerHTML = output.name;

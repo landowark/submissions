@@ -115,8 +115,8 @@
     </body>
 
     {% block script %}
-    <script>const equipment_json = {{ proceduretype['equipmentrole'] | sanitize }};</script>
-    <script>const used_tips = {{ procedure.used_tips | sanitize | default([])}};</script>
+    <script>window.equipment_json = {{ proceduretype['equipmentrole'] | sanitize }};</script>
+    <script>window.used_tips = {{ procedure.used_tips | sanitize | default({})}};</script>
     
     <script>
         var rsl_plate_num = "{{ run['plate_number'] }}";

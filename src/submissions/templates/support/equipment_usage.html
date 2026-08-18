@@ -49,7 +49,7 @@
 {% endfor %}
 {% endif %}
 <script>
-    const equipment_json = {{ equipmentroles }};
+    window.equipment_json = {{ equipmentroles }};
 
     window.addEventListener('load', function () {
         if (typeof QWebChannel !== 'undefined') {
@@ -61,6 +61,10 @@
                     console.log("Backend channel established successfully.");
                     // NOW it is safe to run your startup logic
                     equipment_json.forEach(startup);
+                    // Fallback: re-run startup shortly after to handle timing/race conditions
+                    setTimeout(function(){
+                        try{ equipment_json.forEach(startup); }catch(e){ console.warn('fallback startup failed', e); }
+                    }, 250);
                 } else {
                     console.error("Backend object not found in channel objects.");
                 }
@@ -115,12 +119,24 @@
         var equipment_name = document.getElementById(equipmentrole.name).value;
         var assoc_name = equipmentrole.name + "->" + equipment_name;
         var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
-        if (!assoc) { return }
-        var processes = assoc.process;
+        var processes = [];
+        if (!assoc) {
+            // Fallback: aggregate processes from all associations if exact assoc not found
+            for (let ai = 0; ai < equipmentrole.equipmentroleequipmentassociation.length; ai++) {
+                let a = equipmentrole.equipmentroleequipmentassociation[ai];
+                if (a.process) {
+                    for (let pi = 0; pi < a.process.length; pi++) {
+                        processes.push(a.process[pi]);
+                    }
+                }
+            }
+        } else {
+            processes = assoc.process;
+        }
         for (let iii = 0; iii < processes.length; iii++) {
             for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
                 var output = processes[iii].processversion[jjj];
-                if (Boolean(output.active)) {
+                if (output.active === undefined || Boolean(output.active)) {
                     var opt = document.createElement('option');
                     opt.value = output.name;
                     opt.innerHTML = output.name;
