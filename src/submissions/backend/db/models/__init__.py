@@ -907,7 +907,7 @@ class BaseClass(Base):
             try:
                 return super().__setattr__(key, value)
             except AttributeError as e:
-                logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
+                logger.exception(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
                 
     @classmethod
     def get_relationship_sqlclass(cls, key: str) -> BaseClass | None:
