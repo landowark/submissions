@@ -794,7 +794,8 @@ class ProcedureType(BaseClass):
         # NOTE: Ensure this has access to "Default SubmissionType"
         check_subtypes = [st.name for st in list_]
         if "Default SubmissionType" not in check_subtypes:
-            list_.append(SubmissionType.query_or_create(name="Default SubmissionType"))
+            default, _ = SubmissionType.query_or_create(name="Default SubmissionType")
+            list_.append(default)
         self._submissiontype = list_
         
     @hybrid_property

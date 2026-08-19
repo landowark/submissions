@@ -862,6 +862,7 @@ class BaseClass(Base):
             attr = getattr_static(self.__class__, key)
             class_has_attr = True
         except AttributeError as e:
+            logger.exception(f"Attribute {key} not found in {self.__class__.__name__}: {e}")
             attr = None
             class_has_attr = False
         
@@ -884,6 +885,7 @@ class BaseClass(Base):
                         self._wrap_misc_info()
                     self._misc_info.update({key: safe_value})
                 except AttributeError:
+                    logger.exception(f"Attempt to set {key} on {self.__class__.__name__} failed due to missing _misc_info: {value}. Setting directly on object instead.")
                     super().__setattr__("_misc_info", {key: safe_value})
         else:
             # If the class attribute is a descriptor for a property (including

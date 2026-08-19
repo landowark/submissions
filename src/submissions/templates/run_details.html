@@ -40,7 +40,7 @@
     {% endblock %}
     {% block signing_button %}
     {% if not child %}
-    <button type="button" id="sign_btn"{% if run['permission'] and run['signed_by'] != "NA" %}{% else %} hidden{% endif %}>Sign Off</button>
+    <button type="button" id="sign_btn"{% if run['permission'] and not run['signed_by'] %}{% else %} hidden{% endif %}>Sign Off</button>
     {% endif %}
     {% endblock %}
     <br>
@@ -61,10 +61,13 @@ for(let i = 0; i < sampleSelection.length; i++) {
     })
 }
 
-document.getElementById("sign_btn").addEventListener("click", function(){
-    console.log("Signing off.");
-    backend.sign_off("{{ run['rsl_plate_number'] }}");
-});
+const signBtn = document.getElementById("sign_btn");
+if (signBtn) {
+    signBtn.addEventListener("click", function(){
+        console.log("Signing off.");
+        backend.sign_off("{{ run['rsl_plate_number'] }}");
+    });
+}
 </script>
 {{ super() }}
 {% endblock %}

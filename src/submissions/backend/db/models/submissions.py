@@ -11,7 +11,7 @@ from itertools import chain
 from types import GeneratorType, NoneType
 from pandas import DataFrame
 from numpy import sum as npsum, busday_count
-from tempfile import TemporaryFile
+from tempfile import NamedTemporaryFile
 from uuid import uuid4
 from inspect import isclass
 from operator import attrgetter
@@ -320,7 +320,7 @@ class ClientSubmission(BaseClass, LogMixin):
     @hybrid_property
     def completed_date(self):
         if self.run:
-            dates = [run.completed_date for run in self.run if run.completed_date]
+            dates = [proc.completed_date for proc in self.procedures if proc.completed_date]
             if not dates:
                 return None
             return max(dates, default=None)
@@ -1099,7 +1099,7 @@ class Run(BaseClass, LogMixin):
                     except AttributeError:
                         field_value = dict(value="NA", missing=True)
             new_dict[key] = field_value
-        new_dict['filepath'] = Path(TemporaryFile().name)
+        new_dict['filepath'] = Path(NamedTemporaryFile().name)
         new_dict['name'] = self.rsl_plate_number
         new_dict['sql_instance'] = self
         dict_.update(new_dict)
