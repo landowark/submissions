@@ -127,13 +127,13 @@ class TestDiscountQuery:
         labs, _, discounts = self._setup(seed)
         result = M.Discount.query(clientlab=labs["acme"])
         assert not isinstance(result, list)
-        assert hasattr(result, "id")
+        assert result.id == discounts["d1"].id
 
     def test_proceduretype_instance_selects_discount(self, seed):
         _, pts, discounts = self._setup(seed)
         result = M.Discount.query(proceduretype=pts["pcr"])
         assert not isinstance(result, list)
-        assert hasattr(result, "id")
+        assert result.id == discounts["d1"].id
 
     def test_clientlab_with_no_discount_returns_empty(self, seed):
         labs, _, _ = self._setup(seed)

@@ -976,6 +976,8 @@ def handle_results(input_value:dict|str, html: bool=True, keep_iso: bool = False
             if html:
                 output = html_escape(output)
         case datetime() | date():
+            if isinstance(input_value, date) and not isinstance(input_value, datetime):
+                input_value = datetime.combine(input_value, datetime.min.time())
             output = input_value.isoformat(timespec='minutes')
             if not html:
                 output = output.split("T")[0]

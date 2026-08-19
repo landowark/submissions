@@ -139,3 +139,71 @@ def seed(db):
         return db.get(cls, ident)
 
     return _seed
+
+# --------------------------------------------------------------------------- #
+# 4. A fully populated object graph, built through the real constructors.      #
+#                                                                              #
+#    The ``seed`` fixture above deliberately writes columns with Core inserts   #
+#    so that fixture setup never depends on constructor behavior. This fixture  #
+#    is the deliberate opposite: it drives ``scripts/make_dummy_db.py``'s seed  #
+#    functions, which build the graph the way the application does — through    #
+#    ``__init__``, hybrid-property setters and relationship coercion. Anything  #
+#    that makes a model unconstructible shows up here as a collection error.    #
+#                                                                              #
+#    One definition of "a realistic database" therefore serves both the CLI     #
+#    generator and the tests; a new model wired into the generator is covered   #
+#    here for free.                                                            #
+# --------------------------------------------------------------------------- #
+def _load_generator():
+    """Import ``scripts/make_dummy_db.py`` as a module without running its CLI."""
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[1] / "scripts" / "make_dummy_db.py"
+    spec = importlib.util.spec_from_file_location("_make_dummy_db", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="session")
+def graph_spec():
+    """Session-scoped so the generator module is imported once, not per test."""
+    return _load_generator()
+
+
+@pytest.fixture()
+def graph(db, graph_spec):
+    """
+    A small but complete graph: catalogs, submission/procedure/results types, and
+    four submissions with runs, procedures, samples and results hanging off them.
+
+    Returns a dict of the seeded objects keyed by kind, so tests can reach into
+    any layer without rebuilding it.
+    """
+    from random import Random
+
+    rng = Random(20260819)
+    g = graph_spec
+
+    g.seed_config_items(db)
+    labs, contacts = g.seed_organizations(db, rng)
+    reagent_roles, reagents, reagent_lots = g.seed_reagents(db, rng)
+    (equipment_roles, equipment, processes,
+     processversions, tips, tipslots) = g.seed_equipment(db, rng)
+    (submissiontypes, proceduretypes, resultstypes,
+     submissiontype_specs) = g.seed_types(db, reagent_roles, equipment_roles)
+    g.seed_discounts(db, labs, proceduretypes)
+    submissions, runs, samples = g.seed_submissions(
+        db, rng, labs, contacts, submissiontypes, submissiontype_specs,
+        proceduretypes, reagent_roles, reagent_lots, equipment_roles, equipment,
+        processversions, tipslots, resultstypes, 4,
+    )
+
+    return dict(
+        session=db, labs=labs, contacts=contacts,
+        reagent_roles=reagent_roles, reagents=reagents, reagent_lots=reagent_lots,
+        equipment_roles=equipment_roles, equipment=equipment, processes=processes,
+        processversions=processversions, tips=tips, tipslots=tipslots,
+        submissiontypes=submissiontypes, proceduretypes=proceduretypes,
+        resultstypes=resultstypes, submissions=submissions, runs=runs, samples=samples,
+    )
