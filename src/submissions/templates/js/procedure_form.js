@@ -175,115 +175,149 @@ function reagentrole_startup(reagentrole) {
     backend.update_reagent(selector.id, selector.value, checkbox.checked);
 }
 
-function equipment_startup(equipmentrole) {
-    console.log(equipmentrole);
-    updateEquipmentChoices(equipmentrole);
-    var eq_dropdown = document.getElementById(equipmentrole.name);
-    eq_dropdown.addEventListener("change", function(event){
-        updateProcessChoices(equipmentrole);
-        updateBackend(equipmentrole);
-    });
-    var process_dropdown = document.getElementById(equipmentrole.name + "_process");
-    process_dropdown.addEventListener("change", function(event){
-        updateTipChoices(equipmentrole);
-        updateBackend(equipmentrole);
-    });
-    var tips_dropdown = document.getElementById(equipmentrole.name + "_tips");
-    tips_dropdown.addEventListener("change", function(event){
-        updateBackend(equipmentrole);
-    });
-    updateBackend(equipmentrole);
+async function equipment_startup(role_name) {
+    // console.log(equipmentrole);
+    // updateEquipmentChoices(equipmentrole);
+    // var eq_dropdown = document.getElementById(equipmentrole.name);
+    // eq_dropdown.addEventListener("change", function(event){
+    //     updateProcessChoices(equipmentrole);
+    //     updateBackend(equipmentrole);
+    // });
+    // var process_dropdown = document.getElementById(equipmentrole.name + "_process");
+    // process_dropdown.addEventListener("change", function(event){
+    //     updateTipChoices(equipmentrole);
+    //     updateBackend(equipmentrole);
+    // });
+    // var tips_dropdown = document.getElementById(equipmentrole.name + "_tips");
+    // tips_dropdown.addEventListener("change", function(event){
+    //     updateBackend(equipmentrole);
+    // });
+    // updateBackend(equipmentrole);
+    var eq_dropdown = document.getElementById(role_name);
+    var proc_dropdown = document.getElementById(role_name + "_process");
+    var tips_dropdown = document.getElementById(role_name + "_tips");
+    eq_dropdown.addEventListener("change", function(){ updateProcessChoices(role_name); updateBackend(role_name); });
+    proc_dropdown.addEventListener("change", function(){ updateTipChoices(role_name); updateBackend(role_name); });
+    tips_dropdown.addEventListener("change", function(){ updateBackend(role_name); });
+    var selected = await backend.get_selected_equipment(role_name);
+    await updateEquipmentChoices(role_name, selected);
+    updateBackend(role_name);
 }
 
-function updateEquipmentChoices(equipmentrole) {
-    console.log("Updating equipment choices.");
-    var dropdown_oi = document.getElementById(equipmentrole.name);
-    while (dropdown_oi.options.length > 0) {
-        dropdown_oi.remove(0);
-    }
-    dropdown_oi.json = equipmentrole;
-    for (let iii = 0; iii < equipmentrole.equipment.length; iii++) {
-        var opt = document.createElement('option');
-        opt.value = equipmentrole.equipment[iii];
-        opt.innerHTML = equipmentrole.equipment[iii];
-        dropdown_oi.appendChild(opt);
-    }
-    updateProcessChoices(equipmentrole);
+async function updateEquipmentChoices(role_name, selected) {
+    // console.log("Updating equipment choices.");
+    // var dropdown_oi = document.getElementById(equipmentrole.name);
+    // while (dropdown_oi.options.length > 0) {
+    //     dropdown_oi.remove(0);
+    // }
+    // dropdown_oi.json = equipmentrole;
+    // for (let iii = 0; iii < equipmentrole.equipment.length; iii++) {
+    //     var opt = document.createElement('option');
+    //     opt.value = equipmentrole.equipment[iii];
+    //     opt.innerHTML = equipmentrole.equipment[iii];
+    //     dropdown_oi.appendChild(opt);
+    // }
+    // updateProcessChoices(equipmentrole);
+    var dd = document.getElementById(role_name);
+    dd.innerHTML = ""; // Clear existing options
+    var names = await backend.get_equipment_list(role_name);
+    names.forEach(function(name) { dd.appendChild(new Option(name, name)); });
+    if (selected && selected.equipment) { dd.value = selected.equipment; }
+    await updateProcessChoices(role_name, selected);
 }
 
-function updateProcessChoices(equipmentrole) {
-    console.log("Updating process choices.");
-    console.log("Looking for element with name: " + equipmentrole.name + "_process");
-    var dropdown_oi = document.getElementById(equipmentrole.name + "_process");
-    while (dropdown_oi.options.length > 0) {
-        dropdown_oi.remove(0);
-    }
-    dropdown_oi.json = equipmentrole;
-    var equipment_name = document.getElementById(equipmentrole.name).value;
-    var assoc_name = equipmentrole.name + "->" + equipment_name;
-    console.log("Looking for association named: " + assoc_name)
-    var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
-    console.log("Found association: " + assoc.name)
-    if (!assoc) { return }
-    var processes = assoc.process;
-    for (let iii = 0; iii < processes.length; iii++) {
-        console.log("Adding in process: " + processes[iii])
-        for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
-            var output = processes[iii].processversion[jjj];
-            console.log("Setting output to: " + processes[iii].processversion[jjj])
-            if (Boolean(output.active)) {
-                var opt = document.createElement('option');
-                opt.value = output.name;
-                opt.innerHTML = output.name;
-                dropdown_oi.appendChild(opt);
-            }
-        }
-    }
-    updateTipChoices(equipmentrole);
+
+async function updateProcessChoices(role_name, selected) {
+    // console.log("Updating process choices.");
+    // console.log("Looking for element with name: " + equipmentrole.name + "_process");
+    // var dropdown_oi = document.getElementById(equipmentrole.name + "_process");
+    // while (dropdown_oi.options.length > 0) {
+    //     dropdown_oi.remove(0);
+    // }
+    // dropdown_oi.json = equipmentrole;
+    // var equipment_name = document.getElementById(equipmentrole.name).value;
+    // var assoc_name = equipmentrole.name + "->" + equipment_name;
+    // console.log("Looking for association named: " + assoc_name)
+    // var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+    // console.log("Found association: " + assoc.name)
+    // if (!assoc) { return }
+    // var processes = assoc.process;
+    // for (let iii = 0; iii < processes.length; iii++) {
+    //     console.log("Adding in process: " + processes[iii])
+    //     for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
+    //         var output = processes[iii].processversion[jjj];
+    //         console.log("Setting output to: " + processes[iii].processversion[jjj])
+    //         if (Boolean(output.active)) {
+    //             var opt = document.createElement('option');
+    //             opt.value = output.name;
+    //             opt.innerHTML = output.name;
+    //             dropdown_oi.appendChild(opt);
+    //         }
+    //     }
+    // }
+    // updateTipChoices(equipmentrole);
+    var dd = document.getElementById(role_name + "_process");
+    dd.innerHTML = ""; // Clear existing options
+    var equipment = document.getElementById(role_name).value;
+    var names = await backend.get_process_list(role_name, equipment);
+    names.forEach(function(name) { dd.appendChild(new Option(name, name)); });
+    if (selected && selected.processversion) { dd.value = selected.processversion; }
+    await updateTipChoices(role_name, selected);
 }
 
-function updateTipChoices(equipmentrole) {
-    console.log("Updating tip choices.");
-    var dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
-    while (dropdown_oi.options.length > 0) {
-        dropdown_oi.remove(0);
-    }
-    dropdown_oi.json = equipmentrole;
-    var equipment_name = document.getElementById(equipmentrole.name).value;
-    var assoc_name = equipmentrole.name + "->" + equipment_name;
-    var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
-    var processes = [];
-    if (!assoc) {
-        // Fallback: aggregate processes from all associations if exact assoc not found
-        for (let ai = 0; ai < equipmentrole.equipmentroleequipmentassociation.length; ai++) {
-            let a = equipmentrole.equipmentroleequipmentassociation[ai];
-            if (a.process) {
-                for (let pi = 0; pi < a.process.length; pi++) {
-                    processes.push(a.process[pi]);
-                }
-            }
-        }
-    } else {
-        processes = assoc.process;
-    }
+async function updateTipChoices(role_name, selected) {
+    // console.log("Updating tip choices.");
+    // var dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
+    // while (dropdown_oi.options.length > 0) {
+    //     dropdown_oi.remove(0);
+    // }
+    // dropdown_oi.json = equipmentrole;
+    // var equipment_name = document.getElementById(equipmentrole.name).value;
+    // var assoc_name = equipmentrole.name + "->" + equipment_name;
+    // var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+    // var processes = [];
+    // if (!assoc) {
+    //     // Fallback: aggregate processes from all associations if exact assoc not found
+    //     for (let ai = 0; ai < equipmentrole.equipmentroleequipmentassociation.length; ai++) {
+    //         let a = equipmentrole.equipmentroleequipmentassociation[ai];
+    //         if (a.process) {
+    //             for (let pi = 0; pi < a.process.length; pi++) {
+    //                 processes.push(a.process[pi]);
+    //             }
+    //         }
+    //     }
+    // } else {
+    //     processes = assoc.process;
+    // }
 
-    // Check if the key exists in used_tips to prevent "undefined" errors
-    var has_used_tips = Object.prototype.hasOwnProperty.call(used_tips, equipmentrole.name);
-    for (let iii = 0; iii < processes.length; iii++) {
-        for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
-            var output = processes[iii].tips[jjj];
-            if (output.active === undefined || Boolean(output.active)) {
-                var opt = document.createElement('option');
-                opt.value = output.name;
-                opt.innerHTML = output.name;
-                // Only evaluate selection if the top-level key exists
-                if (has_used_tips && used_tips[equipmentrole.name].includes(opt.value)) {
-                    opt.selected = true;
-                }
-                dropdown_oi.appendChild(opt);
-            }
-        }
-    }
+    // // Check if the key exists in used_tips to prevent "undefined" errors
+    // var has_used_tips = Object.prototype.hasOwnProperty.call(used_tips, equipmentrole.name);
+    // for (let iii = 0; iii < processes.length; iii++) {
+    //     for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
+    //         var output = processes[iii].tips[jjj];
+    //         if (output.active === undefined || Boolean(output.active)) {
+    //             var opt = document.createElement('option');
+    //             opt.value = output.name;
+    //             opt.innerHTML = output.name;
+    //             // Only evaluate selection if the top-level key exists
+    //             if (has_used_tips && used_tips[equipmentrole.name].includes(opt.value)) {
+    //                 opt.selected = true;
+    //             }
+    //             dropdown_oi.appendChild(opt);
+    //         }
+    //     }
+    // }
+    var dd = document.getElementById(role_name + "_tips");
+    dd.innerHTML = ""; // Clear existing options
+    var equipment = document.getElementById(role_name).value;
+    var processversion = document.getElementById(role_name + "_process").value;
+    var names = await backend.get_tipslot_names(role_name, equipment, processversion);
+    var chosen = (selected && selected.tips) ? selected.tipslot : [];
+    names.forEach(function(name) {
+        var opt = new Option(name, name);
+        if (chosen.includes(name)) { opt.selected = true; }
+        dd.appendChild(opt);
+    });
 }
 
 function getSelectValues(select) {

@@ -711,8 +711,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         out_tips = []
         for tipslot in tips:
             try:
-                tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tipslot.split(" - ")]
-                tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
+                # tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tipslot.split(" - ")]
+                tips = TipsLot.query(name=tipslot, limit=1)
                 out_tips.append(tips.to_pydantic())
             except ValueError:
                 logger.warning(f"No tips info to unpack")
