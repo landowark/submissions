@@ -8,7 +8,7 @@ from csv import writer as csvwriter
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, Dict, Generator, List, Tuple, TYPE_CHECKING, Union
-from pydantic import AfterValidator, ConfigDict, Field, ValidationInfo, field_validator, computed_field, model_validator
+from pydantic import AfterValidator, ConfigDict, Field, field_validator, computed_field, model_validator
 from PyQt6.QtWidgets import QWidget
 from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool, parse_optional_datetime
@@ -238,8 +238,6 @@ class PydSample(PydConcrete):
         if clean_id.startswith(("pos", "positive", "pc")):
             return "1" if to_str else 1
         return "0" if to_str else 0
-
-    
 
     @field_validator("sample_id")
     @classmethod

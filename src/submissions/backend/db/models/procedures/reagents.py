@@ -476,7 +476,7 @@ class ReagentLot(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    lot = Column(String(64), nullable=False)  #: lot number of reagent
+    lot = Column(String(64), nullable=False, unique=True)  #: lot number of reagent
     _scan_ids: Mapped[List[str]] = mapped_column(JSON, default=[])
     _expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
     _active = Column(INTEGER, default=1)

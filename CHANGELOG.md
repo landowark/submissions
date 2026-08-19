@@ -1,3 +1,9 @@
+# 202608.1
+
+- Fixed issue with platemap not populating in details.
+- Fixed issue with tips not populating in procedure creation.
+- Bug fixing with help of LLM.
+
 # 202607.14
 
 - BaseClass.details_dict now handles hybrid_properties.

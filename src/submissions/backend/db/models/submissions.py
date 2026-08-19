@@ -880,16 +880,12 @@ class Run(BaseClass, LogMixin):
 
     @hybrid_property
     def completed_date(self):
-        if not self.signed_by:
+        if not self._signed_by:
             return None
         if self._completed_date:
             return self._completed_date
-        else:
-            dates = [proc.completed_date for proc in self.procedure]
-            if not dates:
-                return None
-            value = max(dates, default=None)
-            return value
+        dates = [proc.completed_date for proc in self.procedure]
+        return max(dates, default=None)
 
     @completed_date.setter
     def completed_date(self, value):
@@ -911,7 +907,7 @@ class Run(BaseClass, LogMixin):
 
     @hybrid_property
     def signed_by(self):
-        return self._signed_by or "NA"
+        return self._signed_by
 
     @signed_by.setter
     def signed_by(self, value):
@@ -1375,16 +1371,6 @@ class Run(BaseClass, LogMixin):
         except ValueError:
             return None
         return int(delta)
-
-    # def met_turnaround(self):
-    #     try:
-    #         tat = self.clientsubmission.submissiontype.turnaround_time.days
-    #     except AttributeError:
-    #         tat = 3
-    #     if self.turnaround_time:
-    #         return self.turnaround_time < tat
-    #     else:
-    #         return False
 
     @property
     def allowed_procedures(self):

@@ -23,6 +23,8 @@ class ConcentrationViewer(PosNegPane):
         """
 
         super().update_data()
+        if not self.chart_settings:      # nothing to plot yet
+            return
         try:
             self.report_obj = ConcentrationMaker(**self.chart_settings)
         except (TypeError,  AttributeError) as e:

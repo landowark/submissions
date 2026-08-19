@@ -794,7 +794,7 @@ class ProcedureType(BaseClass):
         # NOTE: Ensure this has access to "Default SubmissionType"
         check_subtypes = [st.name for st in list_]
         if "Default SubmissionType" not in check_subtypes:
-            list_.append(SubmissionType.query(name="Default SubmissionType", limit=1))
+            list_.append(SubmissionType.query_or_create(name="Default SubmissionType"))
         self._submissiontype = list_
         
     @hybrid_property
@@ -2267,7 +2267,7 @@ class ResultsType(BaseClass):
         proceduretype = kwargs.pop('proceduretype', None)
         info = kwargs.pop("info", {})
         samples = kwargs.pop("samples", {})
-        saved_settings = kwargs.pop("saved_settings", [])
+        saved_settings = kwargs.pop("saved_settings", {})
         info_key_order = kwargs.pop("info_key_order", [])
         sample_key_order = kwargs.pop("sample_key_order", [])
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
@@ -2383,7 +2383,7 @@ class ResultsType(BaseClass):
 
     @hybrid_property
     def saved_settings(self):
-        return self._saved_settings or []
+        return self._saved_settings or {}
     
     @saved_settings.setter
     def saved_settings(self, value):

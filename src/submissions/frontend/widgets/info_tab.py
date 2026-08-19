@@ -24,6 +24,9 @@ class InfoPane(QWidget):
         self.report = Report()
         self.datepicker = StartEndDatePicker(default_start=-180)
         self.webview = QWebEngineView()
+        self.chart_settings = {}
+        self.fig = None
+        self.report_object = None
         self.datepicker.start_date.dateChanged.connect(self.update_data)
         self.datepicker.end_date.dateChanged.connect(self.update_data)
         self.layout = QGridLayout(self)
@@ -46,9 +49,8 @@ class InfoPane(QWidget):
         # NOTE: Placed in lower row to allow for addition of custom rows.
         self.layout.addWidget(self.webview, 6, 0, 1, 4)
         self.setLayout(self.layout)
-        self.fig = None
-        self.report_object = None
-        self.chart_settings = {}
+        
+        
 
     def update_data(self, *args, **kwargs) -> Report | None:
         from backend.db.models import SubmissionType
