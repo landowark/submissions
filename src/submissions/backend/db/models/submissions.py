@@ -320,7 +320,7 @@ class ClientSubmission(BaseClass, LogMixin):
     @hybrid_property
     def completed_date(self):
         if self.run:
-            dates = [proc.completed_date for proc in self.procedures if proc.completed_date]
+            dates = [run.completed_date for run in self.run if run.completed_date]
             if not dates:
                 return None
             return max(dates, default=None)
@@ -884,7 +884,7 @@ class Run(BaseClass, LogMixin):
             return None
         if self._completed_date:
             return self._completed_date
-        dates = [proc.completed_date for proc in self.procedure]
+        dates = [proc.completed_date for proc in self.procedure if proc.completed_date]
         return max(dates, default=None)
 
     @completed_date.setter

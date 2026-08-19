@@ -45,7 +45,7 @@ class ReportMaker(object):
         from backend.db.models import Procedure 
         self.start_date = start_date
         self.end_date = end_date
-        # NOTE: Set page size to zero to override limit defaults to unlimited.
+        # NOTE: limit defaults to unlimited.
         self.procedures = Procedure.query(start_date=start_date, end_date=end_date)
         if organizations is not None:
             self.procedures = [procedure for procedure in self.procedures if procedure.run.clientsubmission.clientlab.name in organizations]

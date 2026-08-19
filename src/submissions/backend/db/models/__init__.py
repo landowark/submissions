@@ -862,7 +862,6 @@ class BaseClass(Base):
             attr = getattr_static(self.__class__, key)
             class_has_attr = True
         except AttributeError as e:
-            logger.exception(f"Attribute {key} not found in {self.__class__.__name__}: {e}")
             attr = None
             class_has_attr = False
         
@@ -870,6 +869,7 @@ class BaseClass(Base):
         if not class_has_attr:
             if is_internal_attr_key(key):
                 return super().__setattr__(key, value)   # let SQLAlchemy have its cache attr
+            logger.debug(f"Attribute {key} not found in {self.__class__.__name__}: {e}")
             # ensure value is json serializable (or coerce it)
             try:
                 safe_value = self.sanitize_obj_for_json(obj_=value)
