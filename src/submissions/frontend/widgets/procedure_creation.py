@@ -156,6 +156,8 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, str)
     @pyqtSlot(str, str, bool)
     def update_reagent(self, reagentrole: str, name_lot_expiry: str, checked:bool=True):
+        if name_lot_expiry in ("", "--New--"):
+            return
         try:
             name, lot = name_lot_expiry.split(" - ", 1)
         except ValueError as e:
