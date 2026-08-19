@@ -921,6 +921,15 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
+    def last_used(self):
+        """Return the resolved ReagentLot linked to this association."""
+        return self._last_used
+
+    @last_used.setter
+    def last_used(self, value):
+        self.last_used = value
+
+    @hybrid_property
     def always_used(self):
         """Return whether this reagent role is always used in the procedure type."""
         au = getattr(self, "_always_used", 1)
@@ -1091,7 +1100,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
     def update_last_used(self, reagentlot: ReagentLot):
-        self._last_used = reagentlot
+        self.last_used = reagentlot
         self.save()
 
 
