@@ -226,17 +226,29 @@ class ReagentRole(BaseClass):
         :return: List of reagent pydantic objects for this role.
         :rtype: list
         """
+        from backend.validators.pydant import PydProcedureType
         if not proceduretype:
             return [reagent.to_pydantic() for reagent in self.reagent]
+        if isinstance(proceduretype, PydProcedureType):
+            proceduretype = proceduretype.name
         if isinstance(proceduretype, str):
             proceduretype = ProcedureType.query(name=proceduretype)
-        assoc = next((item for item in self.reagentroleproceduretypeassociation if item.proceduretype == proceduretype), None)
-        reagents = [reagent for reagent in self.reagent]
-        if assoc:
-            last_used = assoc.last_used
-            if last_used:
-                reagents.insert(0, reagents.pop(reagents.index(last_used)))
-        return [reagent.to_pydantic() for reagent in reagents]
+        assocs = (
+            self.__database_session__.query(ProcedureTypeReagentRoleAssociation)
+            .join(Procedure, ProcedureReagentLotAssociation.procedure_id == Procedure.id)
+            .filter(Procedure.proceduretype_id == proceduretype.id)
+            .filter(ProcedureReagentLotAssociation.reagentrole_id == self.id)
+            .all()
+        )
+        used = {assoc.reagentrole.reagent for assoc in assocs}
+        return [reagent.to_pydantic() for reagent in self.reagent if reagent in used]
+        # assoc = next((item for item in self.reagentroleproceduretypeassociation if item.proceduretype == proceduretype), None)
+        # reagents = [reagent for reagent in self.reagent]
+        # if assoc:
+        #     last_used = assoc.last_used
+        #     if last_used:
+        #         reagents.insert(0, reagents.pop(reagents.index(last_used)))
+        # return [reagent.to_pydantic() for reagent in reagents]
 
     
 class Reagent(BaseClass, LogMixin):
