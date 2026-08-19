@@ -169,10 +169,23 @@ window.addEventListener('load', function () {
     }
 });
 
-function reagentrole_startup(reagentrole) {
-    selector = reagentrole.querySelector(".reagentrole");
-    checkbox = reagentrole.querySelector(".procedure_checkbox");
-    backend.update_reagent(selector.id, selector.value, checkbox.checked);
+// function reagentrole_startup(reagentrole) {
+//     selector = reagentrole.querySelector(".reagentrole");
+//     checkbox = reagentrole.querySelector(".procedure_checkbox");
+//     backend.update_reagent(selector.id, selector.value, checkbox.checked);
+// }
+
+async function reagentrole_startup(container) {
+    var selector = container.querySelector(".reagentrole");
+    var checkbox = container.querySelector(".procedure_checkbox");
+    var role_name = selector.id;
+    selector.innerHTML = ""; // Clear existing options
+    var names = await backend.get_reagentlot_names(role_name);
+    names.forEach(function(name) { selector.appendChild(new Option(name, name)); });
+    selector.appendChild(new Option("--New--", "--New--"));
+    var selected = await backend.get_selected_reagent(role_name);
+    if (selected && selected.reagentlot) { selector.value = selected.reagentlot; }
+    backend.update_reagent(role_name, selector.value, checkbox.checked);
 }
 
 async function equipment_startup(role_name) {
@@ -220,7 +233,7 @@ async function updateEquipmentChoices(role_name, selected) {
     // updateProcessChoices(equipmentrole);
     var dd = document.getElementById(role_name);
     dd.innerHTML = ""; // Clear existing options
-    var names = await backend.get_equipment_list(role_name);
+    var names = await backend.get_equipment_names(role_name);
     names.forEach(function(name) { dd.appendChild(new Option(name, name)); });
     if (selected && selected.equipment) { dd.value = selected.equipment; }
     await updateProcessChoices(role_name, selected);
@@ -259,7 +272,7 @@ async function updateProcessChoices(role_name, selected) {
     var dd = document.getElementById(role_name + "_process");
     dd.innerHTML = ""; // Clear existing options
     var equipment = document.getElementById(role_name).value;
-    var names = await backend.get_process_list(role_name, equipment);
+    var names = await backend.get_processversion_names(role_name, equipment);
     names.forEach(function(name) { dd.appendChild(new Option(name, name)); });
     if (selected && selected.processversion) { dd.value = selected.processversion; }
     await updateTipChoices(role_name, selected);
@@ -312,7 +325,7 @@ async function updateTipChoices(role_name, selected) {
     var equipment = document.getElementById(role_name).value;
     var processversion = document.getElementById(role_name + "_process").value;
     var names = await backend.get_tipslot_names(role_name, equipment, processversion);
-    var chosen = (selected && selected.tips) ? selected.tipslot : [];
+    var chosen = (selected && selected.tipslot) ? selected.tipslot : [];
     names.forEach(function(name) {
         var opt = new Option(name, name);
         if (chosen.includes(name)) { opt.selected = true; }
@@ -335,19 +348,24 @@ function getSelectValues(select) {
     return result;
 }
 
-function updateBackend(equipmentrole) {
-    var equipmentrole_name = equipmentrole.name
-    var dropdown_oi = document.getElementById(equipmentrole.name);
-    var equipment_name = dropdown_oi.value;
-    
-    dropdown_oi = document.getElementById(equipmentrole.name + "_process");
-    var process_name = dropdown_oi.value;
-    dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
-    var tips_names = getSelectValues(dropdown_oi);;
-
-    console.log("Updating backend with:", equipmentrole_name, equipment_name, process_name, tips_names);
-    backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_names)
+function updateBackend(role_name) {
+    var equipment_name = document.getElementById(role_name).value;
+    var process_name = document.getElementById(role_name + "_process").value;
+    var tips_names = getSelectValues(document.getElementById(role_name + "_tips"));
+    console.log("Updating backend with:", role_name, equipment_name, process_name, tips_names);
+    backend.update_equipment(role_name, equipment_name, process_name, tips_names);
 }
+//     var dropdown_oi = document.getElementById(equipmentrole.name);
+//     var equipment_name = dropdown_oi.value;
+    
+//     dropdown_oi = document.getElementById(equipmentrole.name + "_process");
+//     var process_name = dropdown_oi.value;
+//     dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
+//     var tips_names = getSelectValues(dropdown_oi);;
+
+//     console.log("Updating backend with:", equipmentrole_name, equipment_name, process_name, tips_names);
+//     backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_names)
+// }
 
 function runPreprocessFunction(element) {
     backend.run_preprocess_function(element.innerText);

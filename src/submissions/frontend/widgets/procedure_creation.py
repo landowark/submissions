@@ -169,6 +169,32 @@ class ProcedureCreation(DefaultWebDialog):
         return [item.name for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
 
     @pyqtSlot(str, result=list)
+    def get_reagentlot_names(self, reagentrole_name: str):
+        from backend.db.models import ReagentRole
+        role = ReagentRole.query(name=reagentrole_name, limit=1)
+        if not role:
+            return []
+        names = []
+        for reagent in role.get_reagents(proceduretype=self.procedure.proceduretype):
+            for lot in reagent.reagentlot:
+                if lot.active:
+                    names.append(lot.name) # reagentname - lot
+        return names
+
+    @pyqtSlot(str, result=QVariant)
+    def get_selected_reagent(self, reagentrole_name:str) -> dict:
+        assoc = next(
+            (a for a in self.procedure.reagentlot
+             if getattr(a.reagentrole, "name", a.reagentrole) == reagentrole_name),
+             None
+        )
+        if not assoc:
+            return {}
+        return {
+            "reagentlot": getattr(assoc.reagentlot, "name", assoc.reagentlot)
+        }
+
+    @pyqtSlot(str, result=list)
     def get_equipment_names(self, equipmentrole:str) -> list:
         from backend.db.models import EquipmentRole
         role = EquipmentRole.query(name=equipmentrole)
@@ -182,7 +208,7 @@ class ProcedureCreation(DefaultWebDialog):
         assoc = EquipmentRoleEquipmentAssociation.query(equipmentrole=equipmentrole, equipment=equipment, limit=1)
         if not assoc:
             return []
-        return [pv.name for pv in assoc.process for pv in process.processversion if pv.active]
+        return [pv.name for process in assoc.process for pv in process.processversion if pv.active]
 
     @pyqtSlot(str, str, str, result=list)
     def get_tipslot_names(self, equipmentrole:str, equipment:str, processversion:str) -> list:
@@ -196,13 +222,13 @@ class ProcedureCreation(DefaultWebDialog):
 
     @pyqtSlot(str, result=QVariant)
     def get_selected_equipment(self, equipmentrole:str) -> dict:
-        eoi = nex((e for e in self.procedure.equipment if e.equipmentrole == equipmentrole), None)
+        eoi = next((e for e in self.procedure.equipment if e.equipmentrole == equipmentrole), None)
         if not eoi:
             return {}
         return {
             "equipment": getattr(eoi.equipment, "name", eoi.equipment),
             "processversion": getattr(eoi.processversion, "name", eoi.processversion),
-            "tipslot": [getattr(t, "name, t") for t in (eoi.tipslot or [])]
+            "tipslot": [getattr(t, "name", t) for t in (eoi.tipslot or [])]
         }
         
     @pyqtSlot(str, result=QVariant)

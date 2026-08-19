@@ -50,7 +50,9 @@
                     {% endif %}
                     <div class="reagentrole_container">
                         <input type="checkbox" class="procedure_checkbox" id="{{ rname }}_check" name="{{ rname }}" {% if rname in procedure['active_reagentroles'] %}checked{% endif %}><label for="{{ rname }}">{{ rname }}:</label><br>
-                        <select class="reagentrole dropdown" id="{{ rname }}" name="{{ rname }}" {% if rname not in procedure['active_reagentroles'] %}disabled{% endif %}>
+                        <select class="reagentrole dropdown" id="{{rname}}" name="{{rname}}" {% if rname not in procedure['active_reagentroles'] %}disabled{% endif %}>
+                        </select>
+                        <!-- <select class="reagentrole dropdown" id="{{ rname }}" name="{{ rname }}" {% if rname not in procedure['active_reagentroles'] %}disabled{% endif %}>
                                 {% if reagentrole is mapping %}
                                     {% for reagent in reagentrole.get('reagent', []) %}
                                         {% for reagentlot in reagent.get('reagentlot', []) %}
@@ -61,7 +63,7 @@
                                     {% endfor %}
                                     <option value="--New--">--New--</option>
                                 {% endif %}
-                        </select>
+                        </select> -->
                     </div>
                     <div class="new_reagent" id="new_{{ rname }}"></div>
                     <br>
