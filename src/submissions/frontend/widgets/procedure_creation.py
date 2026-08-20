@@ -233,14 +233,14 @@ class ProcedureCreation(DefaultWebDialog):
             "tipslot": [getattr(t, "name", t) for t in (eoi.tipslot or [])]
         }
         
-    @pyqtSlot(str, result=QVariant)
-    def scanned_reagentlot(self, scanned: str) -> QVariant:
-        from backend.db import ReagentLot
-        reagentlot = ReagentLot.query(lims_id=lims_id)
-        if reagentlot:
-            reagentrole = [role.name for role in reagentlot.reagent.reagentrole if self.proceduretype.name in [t.name for t in role.proceduretype]][0]
-            reagentlot = reagentlot.name
-        return dict(reagentrole=reagentrole, reagentlot=reagentlot)
+    # @pyqtSlot(str, result=QVariant)
+    # def scanned_reagentlot(self, scanned: str) -> dict:
+    #     from backend.db import ReagentLot
+    #     reagentlot = ReagentLot.query(lims_id=lims_id)
+    #     if reagentlot:
+    #         reagentrole = [role.name for role in reagentlot.reagent.reagentrole if self.proceduretype.name in [t.name for t in role.proceduretype]][0]
+    #         reagentlot = reagentlot.name
+    #     return dict(reagentrole=reagentrole, reagentlot=reagentlot)
         
     
     @pyqtSlot(str)
@@ -252,6 +252,10 @@ class ProcedureCreation(DefaultWebDialog):
         else:
             raise ValueError(f"Function group for {function_name} not found.")
         self.dlg = func(parent=self.app, resultstype=resultstype, procedure=self.procedure)
+
+    @pyqtSlot(str, str)
+    def update_date(self, key: str, new_value: str):
+        self.text_changed(key, new_value)
 
     def return_sql(self, new: bool = False):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
