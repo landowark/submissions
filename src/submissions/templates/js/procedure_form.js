@@ -1,5 +1,4 @@
 const formchecks = document.getElementsByClassName('form_check');
-// const scanBtn = document.getElementById('scanBtn');
 
 for(let i = 0; i < formchecks.length; i++) {
   formchecks[i].addEventListener("change", function() {
@@ -66,13 +65,6 @@ for (let i = 0; i < reagentRoles.length; i++) {
         var rr_lot_label = document.createElement("label");
         rr_lot_label.setAttribute("for", "new_" + this.id + "_lot");
         rr_lot_label.innerHTML = "Lot:";
-        // Barcode stuff that crashed into reality.
-        // var rr_lims = document.createElement("input");
-        // rr_lims.setAttribute("type", "text");
-        // rr_lims.setAttribute("id", "new_" + this.id + "_lims");
-        // var rr_lims_label = document.createElement("label");
-        // rr_lims_label.setAttribute("for", "new_" + this.id + "_lims");
-        // rr_lims_label.innerHTML = "Barcode:";
         var rr_expiry = document.createElement("input");
         rr_expiry.setAttribute("type", "date");
         rr_expiry.setAttribute("id", "new_" + this.id + "_expiry");
@@ -88,9 +80,7 @@ for (let i = 0; i < reagentRoles.length; i++) {
         new_form.appendChild(br.cloneNode());
         new_form.appendChild(rr_lot_label);
         new_form.appendChild(rr_lot);
-        new_form.appendChild(br.cloneNode());
-        new_form.appendChild(rr_lims_label);
-        new_form.appendChild(rr_lims);
+        
         new_form.appendChild(br.cloneNode());
         new_form.appendChild(rr_expiry_label);
         new_form.appendChild(rr_expiry);
@@ -169,12 +159,6 @@ window.addEventListener('load', function () {
     }
 });
 
-// function reagentrole_startup(reagentrole) {
-//     selector = reagentrole.querySelector(".reagentrole");
-//     checkbox = reagentrole.querySelector(".procedure_checkbox");
-//     backend.update_reagent(selector.id, selector.value, checkbox.checked);
-// }
-
 async function reagentrole_startup(container) {
     var selector = container.querySelector(".reagentrole");
     var checkbox = container.querySelector(".procedure_checkbox");
@@ -189,23 +173,6 @@ async function reagentrole_startup(container) {
 }
 
 async function equipment_startup(role_name) {
-    // console.log(equipmentrole);
-    // updateEquipmentChoices(equipmentrole);
-    // var eq_dropdown = document.getElementById(equipmentrole.name);
-    // eq_dropdown.addEventListener("change", function(event){
-    //     updateProcessChoices(equipmentrole);
-    //     updateBackend(equipmentrole);
-    // });
-    // var process_dropdown = document.getElementById(equipmentrole.name + "_process");
-    // process_dropdown.addEventListener("change", function(event){
-    //     updateTipChoices(equipmentrole);
-    //     updateBackend(equipmentrole);
-    // });
-    // var tips_dropdown = document.getElementById(equipmentrole.name + "_tips");
-    // tips_dropdown.addEventListener("change", function(event){
-    //     updateBackend(equipmentrole);
-    // });
-    // updateBackend(equipmentrole);
     var eq_dropdown = document.getElementById(role_name);
     var proc_dropdown = document.getElementById(role_name + "_process");
     var tips_dropdown = document.getElementById(role_name + "_tips");
@@ -218,19 +185,6 @@ async function equipment_startup(role_name) {
 }
 
 async function updateEquipmentChoices(role_name, selected) {
-    // console.log("Updating equipment choices.");
-    // var dropdown_oi = document.getElementById(equipmentrole.name);
-    // while (dropdown_oi.options.length > 0) {
-    //     dropdown_oi.remove(0);
-    // }
-    // dropdown_oi.json = equipmentrole;
-    // for (let iii = 0; iii < equipmentrole.equipment.length; iii++) {
-    //     var opt = document.createElement('option');
-    //     opt.value = equipmentrole.equipment[iii];
-    //     opt.innerHTML = equipmentrole.equipment[iii];
-    //     dropdown_oi.appendChild(opt);
-    // }
-    // updateProcessChoices(equipmentrole);
     var dd = document.getElementById(role_name);
     dd.innerHTML = ""; // Clear existing options
     var names = await backend.get_equipment_names(role_name);
@@ -239,36 +193,7 @@ async function updateEquipmentChoices(role_name, selected) {
     await updateProcessChoices(role_name, selected);
 }
 
-
 async function updateProcessChoices(role_name, selected) {
-    // console.log("Updating process choices.");
-    // console.log("Looking for element with name: " + equipmentrole.name + "_process");
-    // var dropdown_oi = document.getElementById(equipmentrole.name + "_process");
-    // while (dropdown_oi.options.length > 0) {
-    //     dropdown_oi.remove(0);
-    // }
-    // dropdown_oi.json = equipmentrole;
-    // var equipment_name = document.getElementById(equipmentrole.name).value;
-    // var assoc_name = equipmentrole.name + "->" + equipment_name;
-    // console.log("Looking for association named: " + assoc_name)
-    // var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
-    // console.log("Found association: " + assoc.name)
-    // if (!assoc) { return }
-    // var processes = assoc.process;
-    // for (let iii = 0; iii < processes.length; iii++) {
-    //     console.log("Adding in process: " + processes[iii])
-    //     for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
-    //         var output = processes[iii].processversion[jjj];
-    //         console.log("Setting output to: " + processes[iii].processversion[jjj])
-    //         if (Boolean(output.active)) {
-    //             var opt = document.createElement('option');
-    //             opt.value = output.name;
-    //             opt.innerHTML = output.name;
-    //             dropdown_oi.appendChild(opt);
-    //         }
-    //     }
-    // }
-    // updateTipChoices(equipmentrole);
     var dd = document.getElementById(role_name + "_process");
     dd.innerHTML = ""; // Clear existing options
     var equipment = document.getElementById(role_name).value;
@@ -279,47 +204,6 @@ async function updateProcessChoices(role_name, selected) {
 }
 
 async function updateTipChoices(role_name, selected) {
-    // console.log("Updating tip choices.");
-    // var dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
-    // while (dropdown_oi.options.length > 0) {
-    //     dropdown_oi.remove(0);
-    // }
-    // dropdown_oi.json = equipmentrole;
-    // var equipment_name = document.getElementById(equipmentrole.name).value;
-    // var assoc_name = equipmentrole.name + "->" + equipment_name;
-    // var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
-    // var processes = [];
-    // if (!assoc) {
-    //     // Fallback: aggregate processes from all associations if exact assoc not found
-    //     for (let ai = 0; ai < equipmentrole.equipmentroleequipmentassociation.length; ai++) {
-    //         let a = equipmentrole.equipmentroleequipmentassociation[ai];
-    //         if (a.process) {
-    //             for (let pi = 0; pi < a.process.length; pi++) {
-    //                 processes.push(a.process[pi]);
-    //             }
-    //         }
-    //     }
-    // } else {
-    //     processes = assoc.process;
-    // }
-
-    // // Check if the key exists in used_tips to prevent "undefined" errors
-    // var has_used_tips = Object.prototype.hasOwnProperty.call(used_tips, equipmentrole.name);
-    // for (let iii = 0; iii < processes.length; iii++) {
-    //     for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
-    //         var output = processes[iii].tips[jjj];
-    //         if (output.active === undefined || Boolean(output.active)) {
-    //             var opt = document.createElement('option');
-    //             opt.value = output.name;
-    //             opt.innerHTML = output.name;
-    //             // Only evaluate selection if the top-level key exists
-    //             if (has_used_tips && used_tips[equipmentrole.name].includes(opt.value)) {
-    //                 opt.selected = true;
-    //             }
-    //             dropdown_oi.appendChild(opt);
-    //         }
-    //     }
-    // }
     var dd = document.getElementById(role_name + "_tips");
     dd.innerHTML = ""; // Clear existing options
     var equipment = document.getElementById(role_name).value;
@@ -355,17 +239,6 @@ function updateBackend(role_name) {
     console.log("Updating backend with:", role_name, equipment_name, process_name, tips_names);
     backend.update_equipment(role_name, equipment_name, process_name, tips_names);
 }
-//     var dropdown_oi = document.getElementById(equipmentrole.name);
-//     var equipment_name = dropdown_oi.value;
-    
-//     dropdown_oi = document.getElementById(equipmentrole.name + "_process");
-//     var process_name = dropdown_oi.value;
-//     dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
-//     var tips_names = getSelectValues(dropdown_oi);;
-
-//     console.log("Updating backend with:", equipmentrole_name, equipment_name, process_name, tips_names);
-//     backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_names)
-// }
 
 function runPreprocessFunction(element) {
     backend.run_preprocess_function(element.innerText);
@@ -381,51 +254,3 @@ var dateInputs = document.querySelectorAll('input.date_change');
         });
     });
 
-// Barcode scanning stuff that crashed into reality a little too hard.
-
-let isListening = false;
-let inputBuffer = "";
-
-scanBtn.addEventListener('click', () => {
-    isListening = !isListening;
-    
-    if (isListening) {
-        scanBtn.textContent = "Stop Scanning";
-        scanBtn.classList.add('active');
-        inputBuffer = ""; // Reset buffer on start
-        // bufferDisplay.textContent = "Current input: ";
-    } else {
-        scanBtn.textContent = "Scan Barcodes";
-        scanBtn.classList.remove('active');
-    }
-});
-
-window.addEventListener('keydown', (event) => {
-    // Ignore key presses if the toggle is off
-    if (!isListening) return;
-    
-    // Check if the user pressed Enter (Carriage Return)
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        var reagentrole = "";
-        var reagentlot = "";
-        console.log("Submitted text: " + inputBuffer.trim());
-        backend.scanned_reagentlot(inputBuffer.trim(), function(result) {
-            reagentrole = result.reagentrole;
-            reagentlot = result.reagentlot;
-            console.log("Returned role: " + reagentrole);
-            console.log("Returned lot: " + reagentlot);
-        });
-        inputBuffer = ""; // Clear buffer after submission
-        // bufferDisplay.textContent = "Current input: ";
-        
-        // Optional: Turn off listening automatically after Enter
-        // toggleBtn.click(); 
-        return;
-    }
-
-    // Capture only single character alphanumeric/symbol keys (ignores Shift, Ctrl, etc.)
-    if (event.key.length === 1) {
-        inputBuffer += event.key;
-    }
-});

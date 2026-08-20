@@ -852,7 +852,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             process['processversion'].insert(0, process['processversion'].pop(processversion_index))
             if process.get('tips'):
                 for tips in equipment.tipslot:
-                    tipslot_index = next((iii for iii, item in process['tips'] if item['name'] == tips), None)
+                    tipslot_index = next((iii for iii, item in enumerate(process['tips']) if item['name'] == tips), None)
                     if not tipslot_index:
                         continue
                     process['tips'].insert(0, process['tips'].pop(tipslot_index))
