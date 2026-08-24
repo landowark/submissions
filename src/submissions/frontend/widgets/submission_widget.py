@@ -90,6 +90,7 @@ class SubmissionFormContainer(QWidget):
     import_drag = pyqtSignal(Path)
 
     def __init__(self, parent: QWidget) -> None:
+        self.form = None
         super().__init__(parent)
         self.app = self.parent().parent()
         self.setStyleSheet('background-color: light grey;')
