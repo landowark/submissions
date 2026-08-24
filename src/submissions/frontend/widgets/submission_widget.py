@@ -74,7 +74,7 @@ class MyQSpinBox(QSpinBox):
 class MyQDoubleSpinBox(QDoubleSpinBox):
 
     def __init__(self, scrollWidget=None, *args, **kwargs):
-        super(MyQSpinBox, self).__init__(*args, **kwargs)
+        super(MyQDoubleSpinBox, self).__init__(*args, **kwargs)
         self.scrollWidget = scrollWidget
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -170,26 +170,26 @@ class SubmissionFormContainer(QWidget):
         # NOTE: set file dialog
         if isinstance(fname, bool) or fname is None:
             fname = select_open_file(self, file_extension="xlsx")
-        if not fname:
-            report.add_result(Alert(msg=f"File {fname.__str__()} not found.", status=AlertStatus.CRITICAL.value))
+        if not fname or not fname.exists():
+            report.add_result(Alert(msg=f"File {fname.__str__()} not found.", status=AlertStatus.WARNING.value))
             return report
         # NOTE: create sheetparser using excel sheet and context from gui
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
         self.pydclientsubmission = self.clientsubmission_manager.to_pydantic()
+        try:
+            assert isinstance(self.pydclientsubmission, PydClientSubmission)
+        except AssertionError as e:
+            logger.error(f"Got wrong type for {self.pydclientsubmission}: {type(self.pydclientsubmission)}")
+            raise e
         # blank samples have no id here.
         checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.sample)
         if checker.exec():
-            try:
-                assert isinstance(self.pydclientsubmission, PydClientSubmission)
-            except AssertionError as e:
-                logger.error(f"Got wrong type for {self.pydclientsubmission}: {type(self.pydclientsubmission)}")
-                raise e
             self.form = self.pydclientsubmission.to_form(parent=self)
             self.layout().addWidget(self.form)
         else:
             message = "Submission cancelled."
             logger.warning(message)
-            report.add_result(Alert(msg=message, owner=self.__class__.__name__, status=AlertStatus.WARNING.value))
+            report.add_result(Alert(msg=message, status=AlertStatus.WARNING.value))
         return report
 
     

@@ -57,4 +57,3 @@ __copyright__ = f"2022-{year}, Government of Canada"
 __github__ = "https://github.com/landowark/submissions"
 
 project_path = Path(__file__).parents[2].absolute()
-
