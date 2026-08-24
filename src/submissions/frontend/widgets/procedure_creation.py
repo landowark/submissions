@@ -4,7 +4,6 @@ Main module to construct the procedure form
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
-from json import dump as jdump
 from datetime import datetime
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import pyqtSlot, QVariant, Qt
@@ -233,16 +232,6 @@ class ProcedureCreation(DefaultWebDialog):
             "tipslot": [getattr(t, "name", t) for t in (eoi.tipslot or [])]
         }
         
-    # @pyqtSlot(str, result=QVariant)
-    # def scanned_reagentlot(self, scanned: str) -> dict:
-    #     from backend.db import ReagentLot
-    #     reagentlot = ReagentLot.query(lims_id=lims_id)
-    #     if reagentlot:
-    #         reagentrole = [role.name for role in reagentlot.reagent.reagentrole if self.proceduretype.name in [t.name for t in role.proceduretype]][0]
-    #         reagentlot = reagentlot.name
-    #     return dict(reagentrole=reagentrole, reagentlot=reagentlot)
-        
-    
     @pyqtSlot(str)
     def run_preprocess_function(self, function_name):
         over = self.preprocessing_functions.get(function_name, None)

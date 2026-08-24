@@ -103,7 +103,6 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):
     def determine_control(self, sample_id: str | None) -> Tuple[str, int]:
         return self.check_sample_id(sample_id=sample_id, submitter_id=self.submitter_id)
         
-        
     def to_pydantic(self):
         return [self._pyd_object(**sample) for sample in self.parsed_info if sample.get('sample_id', None)]
 

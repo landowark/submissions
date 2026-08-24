@@ -372,7 +372,6 @@ def jinja_template_loading() -> Environment:
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     env.filters['get_type'] = get_type
-    # env.filters['extract_value'] = handle_results
     env.filters['sanitize'] = sanitize_object_for_json
     env.filters['handle_key'] = handle_keys
     env.filters['handle_results'] = handle_results
@@ -1030,9 +1029,6 @@ def iterable_enforcer(value, pass_dict: bool = True) -> list:
             else:
                 pass
         return [value]
-
-
-# _MISC_INFO_INTERNAL_MARKERS = ("AssociationProxy", "sa_instance_state", "_sa_")
 
 
 def is_internal_attr_key(key) -> bool:

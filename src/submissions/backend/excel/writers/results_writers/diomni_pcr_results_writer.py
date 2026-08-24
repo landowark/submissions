@@ -21,7 +21,6 @@ class DiomniPCRInfoWriter(DefaultResultsInfoWriter):
 class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None, start_row: int = 1, *args, **kwargs) -> Workbook:
-        # super().write_to_workbook(workbook, sheet, start_row, *args, **kwargs)
         font = Font(bold=True, color="ffffffff", size=16)
         fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
         align = Alignment(horizontal="center")

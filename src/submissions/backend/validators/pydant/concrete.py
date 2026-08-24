@@ -185,21 +185,17 @@ class PydSample(PydConcrete):
         # If input data isn't a dictionary (e.g. object instantiation edge cases), pass through
         if not isinstance(data, dict):
             return data
-
         # Extract and convert sample_id to string early, mirroring 'int_to_str' behavior
         raw_sample_id = data.get("sample_id", "")
         sample_id_str = str(raw_sample_id) if raw_sample_id is not None else ""
-
         # Compute the intended status based on the sample_id template
         inferred_status = cls.get_self_control_status(sample_id_str, to_str=False)
-
         # Safely unwrap current explicit 'is_control' value if provided
         value = data.get("is_control", 0)
         if hasattr(value, 'value'): 
             value = value.value
         elif isinstance(value, dict):
             value = value.get('value', 0)
-
         # Apply fallback interpolation logic directly to the raw payload
         match value:
             case int():
@@ -216,7 +212,6 @@ class PydSample(PydConcrete):
                     validated_int = inferred_status
             case _:
                 validated_int = inferred_status
-
         # Enforce range limits [-1, 0, 1]
         if validated_int >= 1:
             data["is_control"] = 1
@@ -224,14 +219,12 @@ class PydSample(PydConcrete):
             data["is_control"] = -1
         else:
             data["is_control"] = 0
-
         return data
 
     @classmethod
     def get_self_control_status(cls, sample_id: str, to_str: bool = False) -> Union[int, str]:
         if not sample_id or not isinstance(sample_id, str):
             return "0" if to_str else 0
-            
         clean_id = sample_id.strip().lower()
         if clean_id.startswith(("en", "neg", "negative", "nc")):
             return "-1" if to_str else -1
@@ -326,7 +319,6 @@ class PydSample(PydConcrete):
             except Exception:
                 logger.exception(f"Failed to set is_control={self.is_control} on transient {self.sql_instance}")
             return self.sql_instance, None
-        
         self.sql_instance.clientsubmission = getattr(self, "clientsubmission", [])
         self.sql_instance.run = getattr(self, "run", [])
         self.sql_instance.procedure = getattr(self, "procedure", [])
@@ -344,7 +336,6 @@ class PydSample(PydConcrete):
 
     @staticmethod
     def is_sample_id_valid(sample) -> bool:
-    
         match sample:
             case PydSample():
                 sample = sample.sample_id
@@ -684,7 +675,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         else:
             idx = 0
         reagentlot = ReagentLot.query(reagent=name, lot=lot, limit=1)
-        
         if not reagentlot:
             logger.warning(f"Could not find reagentlot {name} to update. Creating new reagentlot.")
             reagentlot = ReagentLot(reagent=name, lot=lot, active=True)
@@ -835,7 +825,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 continue
             
             reagent['reagentlot'].insert(0, reagent['reagentlot'].pop(reagentlot_index))
-            # reagent['reagentlot'].append(dict(name="--New--", active=True))
         for equipment in self.equipment:
             proceduretype_equipmentrole: dict = next((item for item in proceduretype_dict['equipmentrole'] if item['name'] == equipment.equipmentrole), None)
             if not proceduretype_equipmentrole:

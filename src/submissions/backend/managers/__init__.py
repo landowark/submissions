@@ -3,6 +3,7 @@ Module for manager defaults.
 """
 from __future__ import annotations
 from logging import getLogger
+from typing import List
 logger = getLogger(f"submissions.{__name__}")
 from copy import deepcopy
 from pathlib import Path
@@ -48,7 +49,7 @@ class DefaultManager(object):
         self.sheets = self.set_sheets()
         self.set_pyd()
 
-    def set_sheets(self) -> dict:
+    def set_sheets(self) -> List[dict]:
         try:
             return self.__class__.sheets
         except AttributeError:

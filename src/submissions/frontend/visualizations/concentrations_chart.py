@@ -16,7 +16,6 @@ class ConcentrationsChart(ResultsFigure):
         super().__init__(df=df, settings=settings, **kwargs)
         
     def construct_chart(self, df: DataFrame | None = None,  **kwargs):
-        
         check = super().construct_chart(df=df, **kwargs)
         if not check:
             scatter = pxscatter()

@@ -939,7 +939,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @last_used.setter
     def last_used(self, value):
-        self.last_used = value
+        self._last_used = value
 
     @hybrid_property
     def always_used(self):

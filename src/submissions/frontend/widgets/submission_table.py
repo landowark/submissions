@@ -166,7 +166,6 @@ class SubmissionsTree(QTreeView):
                 return
         else:
             return
-        # query_obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
         # NOTE: Convert to data in id column (i.e. column 0)
         self.menu = QMenu(self)
         self.con_actions = query_obj.custom_context_events

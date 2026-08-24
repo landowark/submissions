@@ -565,7 +565,6 @@ class BaseClass(Base):
         new = instance is None
         if new:
             instance = cls()
-
         for k, v in fields.items():
             if k == "id":                      # never force/overwrite the primary key
                 continue
@@ -864,7 +863,6 @@ class BaseClass(Base):
         except AttributeError as e:
             attr = None
             class_has_attr = False
-        
         # NOTE: if attribute not found in this object, value gets shoved into misc_info
         if not class_has_attr:
             if is_internal_attr_key(key):
@@ -1094,7 +1092,6 @@ class BaseClass(Base):
 
     @classmethod
     def construct_relevant_fields(cls) -> Generator[Tuple[str, Any], None, None]:
-        # dict_ = cls.__dict__
         dict_ = {k: v for k, v in cls.__dict__.items() if not k.startswith("_")}
         seen = set()
         for k, v in dict_.items():

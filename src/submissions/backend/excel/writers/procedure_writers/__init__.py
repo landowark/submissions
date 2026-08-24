@@ -30,8 +30,7 @@ class ProcedureReagentWriter(DefaultTABLEWriter):
         super().__init__(pydant_obj=pydant_obj, actual_objs_type="reagentlot", *args, **kwargs)
         self.sheet = f"{self.proceduretype.name[:20]} Quality"
 
-    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int = 1, *args, **kwargs) -> Workbook:
+    def write_to_workbook(self, workbook: Workbook, start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet, start_row=start_row)
         return workbook
 
@@ -43,8 +42,7 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
         super().__init__(pydant_obj=pydant_obj, actual_objs_type="equipment", *args, **kwargs)
         self.sheet = f"{self.proceduretype.name[:20]} Quality"
 
-    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int = 1, *args, **kwargs) -> Workbook:
+    def write_to_workbook(self, workbook: Workbook, start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet, start_row=start_row)
         return workbook
 
@@ -59,8 +57,7 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
         self.excluded = self.pydant_obj[0].class_config.excluded
         self.key_value_order = self.pydant_obj[0].class_config.key_value_order
         
-    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int = 1, *args, **kwargs) -> Workbook:
+    def write_to_workbook(self, workbook: Workbook, start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet, start_row=start_row)
         return workbook
 

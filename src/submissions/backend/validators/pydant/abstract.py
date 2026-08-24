@@ -267,11 +267,9 @@ class PydProcedureType(PydAbstract):
         else:
             row -= 1
             column -= 1
-        
         # Validation
         if row >= self.plate_rows or column >= self.plate_columns:
             raise IndexError(f"Indices ({row}, {column}) are outside the {self.plate_rows}x{self.plate_columns} grid.")
-
         if direction == IndexDirection.COL:
             # Vertical: (Columns passed * rows per column) + current row
             return (column * self.plate_rows) + (row + 1)

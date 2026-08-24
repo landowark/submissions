@@ -285,8 +285,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         }
     )
 
-    # sql_instance: BaseClass | None = Field(default=None, repr=False, exclude=True)
-
     @field_validator("sql_instance", mode="before")
     @classmethod
     def validate_sql_instance(cls, value):
@@ -452,7 +450,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             try:
                 return value['value']
             except KeyError as e:
-                # logger.exception(f"Could not filter {key} with value {value}")
                 return None
         return value
 
@@ -652,7 +649,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
  
         rel_fields   = self.__class__._relationship_fields   # {name: RelationshipField}
         # As of here, sql_instance.run is None, but the pydantic run is correct
-        
         col_fields   = self.__class__._column_fields         # [name, ...]
         improved     = self.improved_dict
  
@@ -1051,7 +1047,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             Template: Template to be rendered
         """
-        # env = jinja_template_loading()
         temp_name = f"{cls._sql_name.lower()}_details.html"
         try:
             template = jinja_env.get_template(temp_name)
@@ -1070,7 +1065,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         details = {details_name: self.clean_details_for_render(self.improved_dict | kwargs)}
         if isinstance(css_in, str | Path):
             css_in = [css_in]
-        # env = jinja_template_loading()
         html_folder = Path(jinja_env.loader.__getattribute__("searchpath")[0])
         css_in = ["styles", self._sql_name.lower()] + css_in
         css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
@@ -1112,8 +1106,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case SourcedField():
                     # Unwrap directly — no key guessing needed
                     value = value.value
-                # case datetime() | date():
-                #     value = value.isoformat(timespec="milliseconds")
                 case bytes():
                     continue
                 case dict():
@@ -1220,9 +1212,6 @@ class PydAbstract(PydBaseClass):
             if len(class_.described_fields) > 0:
                 yield class_
 
-    
-    
-    
     @property
     def improved_dict(self) -> dict:
         return self._strip_procedure_refs(super().improved_dict)

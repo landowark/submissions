@@ -32,7 +32,7 @@ from tools import (
 )
 from backend.validators.shared import parse_optional_datetime, vet_comment
 from datetime import datetime, date
-from typing import Generator, List, TYPE_CHECKING, Literal, Set
+from typing import Any, Generator, List, TYPE_CHECKING, Literal, Set
 from pathlib import Path
 if TYPE_CHECKING:
     from submissions.backend.db.models.procedures import ProcedureType, Procedure, Results
@@ -558,19 +558,6 @@ class ClientSubmission(BaseClass, LogMixin):
             self.comment = comment
             self.save()
 
-    # @property
-    # def details_dict(self) -> dict:
-    #     output = super().details_dict
-    #     if "contact" in output and issubclass(output['contact'].__class__, BaseClass):
-    #         output['contact'] = output['contact'].details_dict
-    #         output['contact_email'] = output['contact']['email']
-    #     output['sample'] = [sample for sample in output['clientsubmissionsampleassociation']]
-    #     output['name'] = self.name
-    #     output['abbreviation'] = self.submissiontype.abbreviation or "XX"
-    #     output['sample_count'] = len(self.clientsubmissionsampleassociation)
-    #     output['comment'] = self.comment
-    #     return output
-
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
         output = super().to_pydantic(filepath=filepath, **kwargs)
         return output
@@ -914,7 +901,7 @@ class Run(BaseClass, LogMixin):
         self._signed_by = value
 
     @classmethod
-    def get_submission_type(cls, submissiontype: str | SubmissionType | None = None) -> SubmissionType:
+    def get_submission_type(cls, submissiontype: str | SubmissionType | None = None) -> SubmissionType | None:
         """
         Gets the SubmissionType associated with this class
 
@@ -951,7 +938,6 @@ class Run(BaseClass, LogMixin):
         for sample in self.submission_samples:
             if sample.sample_id in [s.sample.sample_id for s in self.runsampleassociation]:
                 # Create a shallow copy to safely modify the dictionary before yielding
-                # yield dict(sample_id=sample.sample_id, active=True)
                 details = sample.details_dict.copy()
                 details['active'] = True
                 yield details
@@ -969,22 +955,8 @@ class Run(BaseClass, LogMixin):
     @property
     def details_dict(self) -> dict:
         output = super().details_dict
-        # output['plate_number'] = self.plate_number
-        # submission_samples = [sample for sample in self.clientsubmission.sample]
-        # active_samples = [dict(sample_id=assoc.sample.sample_id, active=True) for assoc in self.runsampleassociation
-        #                   if assoc.sample and assoc.sample.sample_id in [s.sample_id for s in submission_samples if s]]
-        # inactive_samples = [dict(sample_id=sample.sample_id, active=False) for sample in submission_samples if sample and
-        #                     sample.sample_id not in [s['sample_id'] for s in active_samples]]
         output['sample'] = list(self.active_samples) + list(self.inactive_samples)
         output['permission'] = is_power_user()
-        # output['excluded'] += ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
-        #                        'permission', "clientsubmission"]
-        # output['sample_count'] = self.sample_count
-        # output['clientsubmission'] = self.clientsubmission.name
-        # if isinstance(output['clientsubmission'], dict):
-        #     output['clientsubmission'] = output['clientsubmission'].get("value", "NA")
-        # output['started_date'] = self.started_date
-        # output['completed_date'] = self.completed_date
         return output
     
     def details_dict_expand_fields(self, fields: List[str] | List[dict]):
@@ -1226,7 +1198,6 @@ class Run(BaseClass, LogMixin):
 
     def add_procedure(self, obj, proceduretype_name: str):
         from frontend.widgets.procedure_creation import ProcedureCreation
-        from backend.validators.pydant import PydSample
         procedure_type: ProcedureType = next((proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
         assert len(procedure.sample) > 0
@@ -1378,7 +1349,6 @@ class Run(BaseClass, LogMixin):
 
     def get_submission_rank_of_sample(self, sample: Sample | str):
         if isinstance(sample, str):
-            # sample = Sample.query(sample_id=sample)
             sample = next((sample for sample in self.sample if sample.sample_id==sample), None)
         clientsubmissionsampleassoc = next((assoc for assoc in self.clientsubmission.clientsubmissionsampleassociation
                                             if assoc.sample == sample), None)
@@ -1393,7 +1363,6 @@ class Run(BaseClass, LogMixin):
         ranked_samples = []
         unranked_samples = []
         with self.__database_session__.no_autoflush:
-            # samples = [assoc.sample for assoc in self.runsampleassociation]
             samples = [assoc.to_PydProcedureSampleAssociation(procedure=procedure) for assoc in self.runsampleassociation]
         for sample in samples:
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
@@ -2009,7 +1978,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
                         clientsubmission: ClientSubmission | str | None = None,
                         sample: Sample | str | None = None,
                         id: int | None = None,
-                        **kwargs) -> ClientSubmissionSampleAssociation:
+                        **kwargs) -> List[Any]:
     
         return cls._query_or_create_sample_link(
                     parent=clientsubmission, parent_model=ClientSubmission, parent_lookup="rsl_plate_number",
@@ -2324,7 +2293,7 @@ class RunSampleAssociation(BaseClass):
                         run: Run | str | None = None,
                         sample: Sample | str | None = None,
                         id: int | None = None,
-                        **kwargs) -> ClientSubmissionSampleAssociation:
+                        **kwargs) -> List[Any]:
         """
         Queries for an association, if none exists creates a new one.
 
@@ -2405,7 +2374,6 @@ class ProcedureSampleAssociation(BaseClass):
         back_populates="sampleprocedureassociation",
         cascade="save-update, merge",
     )  #: associated equipment
-
     _results = relationship("Results", back_populates="_sampleprocedureassociation")  #: associated results
 
     @hybrid_property

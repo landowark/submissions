@@ -35,8 +35,7 @@ class DefaultNamer(object):
 
 class ClientSubmissionNamer(DefaultNamer):
 
-    def __init__(self, filepath: str | Path | Workbook , submissiontype: str|SubmissionType|None=None,
-                 data: dict | None = None, **kwargs):
+    def __init__(self, filepath: str | Path | Workbook , submissiontype: str|SubmissionType|None=None, **kwargs):
         from backend.db.models import SubmissionType
         super().__init__(filepath=filepath)
         match submissiontype:

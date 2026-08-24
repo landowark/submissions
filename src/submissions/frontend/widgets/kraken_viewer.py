@@ -242,8 +242,6 @@ class KrakenViewer(InfoPane):
                 }
             }
         """)
-
-
         all_samples = []
         after_cursor = None
         # Format must be a string since we changed the variable type to String
@@ -259,7 +257,6 @@ class KrakenViewer(InfoPane):
             if not samples_data["pageInfo"]["hasNextPage"]:
                 break
             after_cursor = samples_data["pageInfo"]["endCursor"]
-
         # Step 2: Get data and attachments and process CSVs (if requested by user)
         for sample in all_samples:
             matched_sample = self.match_sample(sample.get("name"))
@@ -290,7 +287,6 @@ class KrakenViewer(InfoPane):
                     file_node = edge["node"]
                     filename = file_node["filename"]
                     url = file_node["attachmentUrl"]
-                    
                     # Logic to check for .csv extension
                     if filename.lower().endswith('.csv'):
                         csv_data = self.read_csv_from_url(url)
@@ -348,31 +344,24 @@ class KrakenViewer(InfoPane):
         df['name'] = df['name'].astype(str).str.title()
         for col in ['meta.id', 'name']:
             df[col] = df[col].astype(str).str.strip()
-
         # 2. Identify all numeric vs non-numeric columns automatically
         # This ensures we don't miss any extra fields while summing reads
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         other_cols = [c for c in df.columns if c not in numeric_cols and c not in ['meta.id', 'name']]
-
         # 3. Create the Aggregation Map
         # Sum the counts/fractions, take the 'first' for dates/metadata
         agg_map = {col: 'sum' for col in numeric_cols}
         agg_map.update({col: 'first' for col in other_cols})
-
         # 4. Perform the GroupBy
         merged_df = df.groupby(['meta.id', 'name'], as_index=False).agg(agg_map)
-
         numeric_reads = pd_to_numeric(merged_df['kraken_assigned_reads'], errors='coerce')
-
         # 2. Use the numeric series to calculate the fractions
         merged_df['fraction_total_reads'] = merged_df.groupby('meta.id')['kraken_assigned_reads'].transform(
             lambda x: pd_to_numeric(x, errors='coerce').sum()
         )
-
         # 3. Perform the division, handling the 'divide by zero' case
         merged_df['fraction_total_reads'] = numeric_reads / merged_df['fraction_total_reads']
         merged_df['fraction_total_reads'] = merged_df['fraction_total_reads'].fillna(0)
-
         return merged_df
 
     @report_result

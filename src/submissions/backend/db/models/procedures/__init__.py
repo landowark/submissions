@@ -11,7 +11,7 @@ logger = getLogger(f"submissions.{__name__}")
 from jinja2 import Template
 from json import loads as jloads, JSONDecodeError
 from numpy import array as nparray, ndenumerate, sum as npsum
-from re import compile as rcompile, Pattern, IGNORECASE, VERBOSE, error as rerror, sub as rsub
+from re import compile as rcompile, Pattern, IGNORECASE, VERBOSE, error as rerror
 from zipfile import ZipFile
 from pydantic import BaseModel
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, cast, func, select
@@ -1534,7 +1534,6 @@ class Procedure(BaseClass):
                 "info": procedure_groups.get(resultstype, None),
                 "sample": sample_groups.get(resultstype, []),
             }
-
         return grouped
 
     @hybrid_property

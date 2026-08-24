@@ -34,17 +34,14 @@ def copy_sheet_attributes(source_sheet, target_sheet):
     target_sheet.merged_cells = copy(source_sheet.merged_cells)
     target_sheet.page_margins = copy(source_sheet.page_margins)
     target_sheet.freeze_panes = copy(source_sheet.freeze_panes)
-
     # NOTE: set row dimensions
     # NOTE: So you cannot copy the row_dimensions attribute. Does not work (because of meta data in the attribute I think). So we copy every row's row_dimensions. That seems to work.
     for rn in range(len(source_sheet.row_dimensions)):
         target_sheet.row_dimensions[rn] = copy(source_sheet.row_dimensions[rn])
-
     if source_sheet.sheet_format.defaultColWidth is None:
         logger.error('Unable to copy default column wide')
     else:
         target_sheet.sheet_format.defaultColWidth = copy(source_sheet.sheet_format.defaultColWidth)
-
     # NOTE: set specific column width and hidden property
     # NOTE: we cannot copy the entire column_dimensions attribute so we copy selected attributes
     for key, _ in source_sheet.column_dimensions.items():
@@ -84,7 +81,6 @@ def copy_cells(source_sheet, target_sheet):
                 target_cell._hyperlink = copy(source_cell.hyperlink)
             if not isinstance(source_cell, cell.ReadOnlyCell) and source_cell.comment:
                 target_cell.comment = copy(source_cell.comment)
-
 
 
 from .parsers import *
