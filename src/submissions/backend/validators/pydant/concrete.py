@@ -14,7 +14,7 @@ from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool, parse_optional_datetime
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list
+from tools import Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list, convert_row_column_to_well
 from ..shared import parse_expiry
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
@@ -1430,7 +1430,12 @@ class PydProcedureSampleAssociation(PydConcrete):
         output['sample_id'] = self.sample.sample_id if isinstance(self.sample, PydSample) else self.sample
         output['procedure'] = self.procedure.name if isinstance(self.procedure, PydProcedure) else self.procedure
         output['is_control'] = self.translate_control(output['is_control'], to_str=True)
+        output['well'] = self.well
         return output
+
+    @property
+    def well(self):
+        return convert_row_column_to_well(self.row, self.column)
     
     @staticmethod
     def translate_control(value: int, to_str:bool = False) -> str:

@@ -4,6 +4,7 @@ Default parsers for results
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
+from PyQt6.QtWidgets import QDialog
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.excel.parsers import DefaultKEYVALUEParser, DefaultTABLEParser
 from typing import Tuple, Generator, Any
@@ -38,8 +39,21 @@ class DefaultResultsSampleParser(DefaultTABLEParser):
         self._pyd_object = PydResults
 
 
+class DefaultResultsWidgetParser(QDialog):
+
+    pyd_name = "PydResults"
+
+    def __init__(self, results_type:str | None, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        from backend.validators.pydant import PydResults
+        self.resultstype = results_type or "Default ResultsType"
+        self._pyd_object = PydResults
+
+
 from .diomni_pcr_results_parser import *
 from .qubit_results_parser import *
+from .gelbox_results_parser import *
 
 __all__ = ["DefaultResultsInfoParser", "DefaultResultsSampleParser", 
-           "DiomniPCRInfoParser", "DiomniPCRSampleParser", "QubitInfoParser", "QubitSampleParser"]
+           "DiomniPCRInfoParser", "DiomniPCRSampleParser", "QubitInfoParser", 
+           "QubitSampleParser", "GelBoxParser"]

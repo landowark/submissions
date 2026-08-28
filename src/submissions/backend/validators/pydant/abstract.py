@@ -3,6 +3,8 @@ All abstract pyd models and associations between abstracts.
 """
 from __future__ import annotations
 from logging import getLogger
+
+from pydantic_core import PydanticUndefinedType
 logger = getLogger(f"submissions.{__name__}")
 from numpy import array as nparray, ndenumerate
 from datetime import timedelta
@@ -86,7 +88,7 @@ class PydResultsType(PydAbstract):
     results: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
     proceduretype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
 
-
+        
 class PydSubmissionType(PydAbstract):
     
     name: str = Field(default="NA", description="Name of this Submission Type.")
@@ -126,6 +128,16 @@ class PydSubmissionType(PydAbstract):
             value = "XX"
         return value
 
+    @field_validator("defaults", mode="before")
+    @classmethod
+    def enforce_defaults(cls, value):
+        match value:
+            case dict():
+                pass
+            case _:
+                value = dict()
+        return value
+
     def update_instrumentedattribute(self, key, value):
         """
         Updates all instrumented attributes to match the current state of the pydantic model.
@@ -149,6 +161,28 @@ class PydSubmissionType(PydAbstract):
             logger.error("Cannot remove proceduretypes from Default SubmissionType.")
             return
         super().remove_relationship(field, value)
+
+
+class PydProcedureTypeResultsTypeAssociation(PydAbstract):
+
+    proceduretype: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
+    resultstype: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
+    parser_name: str = Field(default="DefaultResultsInfoParser", description="Parser class to use for this procedure/result pairing.")
+    info_parser_name: str | None = Field(default=None, description="Override parser for the info/results summary block.")
+    sample_parser_name: str | None = Field(default=None, description="Override parser for the sample-level results block.")
+    writer_name: str = Field(default="DefaultResultsInfoWriter", description="Writer class to use for this procedure/result pairing.")
+    info_writer_name: str | None = Field(default=None, description="Override writer for the info/results summary block.")
+    sample_writer_name: str | None = Field(default=None, description="Override writer for the sample-level results block.")
+    sheet_name: str = Field(default="Results", description="Sheet name used for this results set.")
+    start_row: int = Field(default=1, description="Default row to begin writing parsing data.")
+    always_used: bool = Field(default=True, description="Whether this results type is required for the procedure type.")
+    saved_settings: dict = Field(default_factory=dict, description="Static config passed to parsers and writers for this pairing.")
+    parse_kwargs: dict = Field(default_factory=dict, description="Extra keyword args passed when creating the parser.")
+    write_kwargs: dict = Field(default_factory=dict, description="Extra keyword args passed when creating the writer.")
+    required_fields: List[str] = Field(default_factory=list, description="Fields required to validate or parse this results type.")
+    sort_order: int = Field(default=0, description="Ordering hint for display or processing.")
+
+    _validate_na = field_validator("always_used", mode="before")(coerce_int_to_bool)
 
 
 class PydProcedureType(PydAbstract):
@@ -340,5 +374,5 @@ class PydReagentRoleReagentAssociation(PydAbstract):
 
 
 __all__ = ["PydReagent", "PydTips", "PydReagentRole", "PydEquipmentRole", "PydProcess", "PydResultsType", "PydSubmissionType", 
-           "PydProcedureType", "PydProcedureTypeReagentRoleAssociation", "PydProcedureTypeEquipmentRoleAssociation", 
+           "PydProcedureType", "PydProcedureTypeResultsTypeAssociation", "PydProcedureTypeReagentRoleAssociation", "PydProcedureTypeEquipmentRoleAssociation", 
            "PydEquipmentRoleEquipmentAssociation", "PydReagentRoleReagentAssociation"]

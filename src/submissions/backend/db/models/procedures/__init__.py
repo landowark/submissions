@@ -34,8 +34,22 @@ if TYPE_CHECKING:
 proceduretype_resulttype = Table(
     "_proceduretype_resulttype",
     Base.metadata,
-    Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id")),
-    Column("resultstype_id", INTEGER, ForeignKey("_resultstype.id")),
+    Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id"), primary_key=True),
+    Column("resultstype_id", INTEGER, ForeignKey("_resultstype.id"), primary_key=True),
+    Column("parser_name", String(128), default="DefaultResultsInfoParser"),
+    Column("info_parser_name", String(128), nullable=True),
+    Column("sample_parser_name", String(128), nullable=True),
+    Column("writer_name", String(128), default="DefaultResultsInfoWriter"),
+    Column("info_writer_name", String(128), nullable=True),
+    Column("sample_writer_name", String(128), nullable=True),
+    Column("sheet_name", String(128), default="Results"),
+    Column("start_row", INTEGER, default=1),
+    Column("always_used", INTEGER, default=1),
+    Column("saved_settings", JSON, default=dict),
+    Column("parse_kwargs", JSON, default=dict),
+    Column("write_kwargs", JSON, default=dict),
+    Column("required_fields", JSON, default=list),
+    Column("sort_order", INTEGER, default=0),
     extend_existing=True
 )
 
@@ -583,8 +597,16 @@ class ProcedureType(BaseClass):
     _submissiontype = relationship("SubmissionType", back_populates="_proceduretype",
                                   secondary=submissiontype_proceduretype)  #: run this kittype was used for
 
-    _resultstype = relationship("ResultsType", back_populates="_proceduretype",
-                                  secondary=proceduretype_resulttype)  #: run this kittype was used for
+    
+
+    proceduretyperesultstypeassociation = relationship(
+        "ProcedureTypeResultsTypeAssociation",
+        back_populates="_proceduretype",
+        cascade="all, delete-orphan"
+    )
+
+    _resultstype = association_proxy("proceduretyperesultstypeassociation", "_resultstype",
+                                      creator=lambda resultstype: ProcedureTypeResultsTypeAssociation(resultstype=resultstype))  #: run this kittype was used for
     
     _discount = relationship("Discount", back_populates="_proceduretype")
 
@@ -734,7 +756,7 @@ class ProcedureType(BaseClass):
     def resultstype(self, value):
         from backend.validators.pydant import PydResultsType
         if value is None:
-            return
+            value = []
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -748,17 +770,23 @@ class ProcedureType(BaseClass):
                     output = item.to_sql(update=False)
                 case ResultsType():
                     output = item
+                case ProcedureTypeResultsTypeAssociation():
+                    output = item
                 case _:
                     logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}.resultstype.")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, ResultsType):
+                assoc = ProcedureTypeResultsTypeAssociation(resultstype=output, proceduretype=self)
+                if assoc not in list_:
+                    list_.append(assoc)
+            elif isinstance(output, ProcedureTypeResultsTypeAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._resultstype")
-        self._resultstype = list_
+        self.proceduretyperesultstypeassociation = list_
     
     @hybrid_property
     def submissiontype(self):
@@ -2244,6 +2272,107 @@ class Results(BaseClass):
         return output
 
 
+class ProcedureTypeResultsTypeAssociation(BaseClass):
+    """
+    Junction model associating procedure types with results types while carrying
+    parser/writer configuration needed to interpret results sheets.
+    """
+    proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated procedure
+    resultstype_id = Column(INTEGER, ForeignKey("_resultstype.id"), primary_key=True)  #: id of associated resultstype
+    _proceduretype = relationship(ProcedureType, back_populates="proceduretyperesultstypeassociation")
+    _resultstype = relationship("ResultsType", back_populates="resultstypeproceduretypeassociation")
+    _writer_kwargs = Column(JSON)
+    _parser_kwargs = Column(JSON)
+
+    @classproperty
+    def aliases(cls) -> List[str]:
+        return super().aliases + ["resultstypeproceduretypeassociation"]
+
+    def __init__(self, *args, **kwargs):
+        proceduretype = kwargs.pop("proceduretype", None)
+        resultstype = kwargs.pop("resultstype", None)
+        super().__init__(*args, **kwargs)
+        if proceduretype is not None:
+            try:
+                self.proceduretype = proceduretype
+            except Exception:
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with resultstype {resultstype}")
+        if resultstype is not None:
+            try:
+                self.resultstype = resultstype
+            except Exception:
+                logger.error(f"Couldn't set resultstype to {resultstype} for {self.__class__.__qualname__} with proceduretype {proceduretype}")
+
+    @hybrid_property
+    def proceduretype(self):
+        return self._proceduretype
+
+    @proceduretype.setter
+    def proceduretype(self, value):
+        from backend.validators.pydant import PydProcedureType
+        match value:
+            case str():
+                output = ProcedureType.query(name=value, limit=1)
+            case dict():
+                output = ProcedureType.query_or_create(**value)
+            case PydProcedureType():
+                output = value.to_sql(update=False)
+            case ProcedureType():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.proceduretype")
+                return
+        if isinstance(output, tuple):
+            output = output[0]
+        if isinstance(output, ProcedureType):
+            self._proceduretype = output
+        else:
+            logger.error(f"Could not set {self.__class__.__qualname__}._proceduretype to {type(output)}")
+
+    @hybrid_property
+    def resultstype(self):
+        return self._resultstype
+
+    @resultstype.setter
+    def resultstype(self, value):
+        from backend.validators.pydant import PydResultsType
+        match value:
+            case str():
+                output = ResultsType.query(name=value, limit=1)
+            case dict():
+                output = ResultsType.query_or_create(**value)
+            case PydResultsType():
+                output = value.to_sql(update=False)
+            case ResultsType():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.resultstype")
+                return
+        if isinstance(output, tuple):
+            output = output[0]
+        if isinstance(output, ResultsType):
+            self._resultstype = output
+        else:
+            logger.error(f"Could not set {self.__class__.__qualname__}._resultstype to {type(output)}")
+
+    @property
+    def parser_kwargs(self) -> dict:
+        return self.parser_kwargs or {}
+
+    @property
+    def writer_kwargs(self) -> dict:
+        return self.writer_kwargs or {}
+
+    @property
+    def manager(self):
+        from backend.managers import results
+        name = self.resultstype.name
+        return getattr(results, f"{name.replace(' ', '')}Manager")
+
+
+
+    
+
 class ResultsType(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -2251,7 +2380,13 @@ class ResultsType(BaseClass):
     _info = Column(JSON) #: where to look for procedure information
     _samples = Column(JSON) # where to look for sample information
     _results = relationship("Results", back_populates="_resultstype", cascade="all, delete-orphan")
-    _proceduretype = relationship(ProcedureType, back_populates="_resultstype", secondary=proceduretype_resulttype)
+    _proceduretype = association_proxy("proceduretyperesultstypeassociation", "_proceduretype",
+                                        creator = lambda proceduretype: ProcedureTypeResultsTypeAssociation(proceduretype=proceduretype))
+    resultstypeproceduretypeassociation = relationship(
+        "ProcedureTypeResultsTypeAssociation",
+        back_populates="_resultstype",
+        cascade="all, delete-orphan"
+    )
     _saved_settings = Column(JSON)
     _info_key_order = Column(JSON, default=[])
     _sample_key_order = Column(JSON, default=[])
@@ -2313,17 +2448,23 @@ class ResultsType(BaseClass):
                     output = item.to_sql(update=False)
                 case ProcedureType():
                     output = item
+                case ProcedureTypeResultsTypeAssociation():
+                    output = item
                 case _:
                     logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._proceduretype")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, ProcedureType):
+                assoc = ProcedureTypeResultsTypeAssociation(proceduretype=output, resultstype=self)
+                if assoc not in list_:
+                    list_.append(assoc)
+            elif isinstance(output, ProcedureTypeResultsTypeAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._proceduretype")
-        self._proceduretype = list_
+        self.proceduretyperesultstypeassociation = list_
 
     @hybrid_property
     def results(self):
@@ -2423,6 +2564,7 @@ from .reagents import *
 
 
 __all__ = ["Discount", "SubmissionType", "ProcedureType", "Procedure", "Results", "ResultsType",
+           "ProcedureTypeResultsTypeAssociation",
            "EquipmentRole", "Equipment", "EquipmentRoleEquipmentAssociation", "Process", "ProcessVersion", 
            "Tips", "TipsLot", "ProcedureEquipmentTipslotAssociation", "ProcedureEquipmentAssociation", "ProcedureTypeEquipmentRoleAssociation",
            "equipmentroleequipmentassociation_process", "process_tips",

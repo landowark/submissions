@@ -11,9 +11,10 @@ from frontend.widgets.functions import select_open_file
 from tools import get_application_from_parent
 from backend.validators import pydant
 from backend.db.models import BaseClass
-from openpyxl import load_workbook
+
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
+from PIL.ImageFile import ImageFile
 from csv import reader as csvreader
 
 
@@ -58,23 +59,23 @@ class DefaultManager(object):
     def set_pyd(self, _depth: int=0):
         if _depth > 2:
             raise RecursionError("set_pyd called too many times; could not resolve input_object.")
-        if isinstance(self.input_object, str):
-            self.input_object = Path(self.input_object)
-        if isinstance(self.input_object, Path):
-            self.input_object = self.input_object.absolute()
-            filepath = deepcopy(self.input_object)
-            if self.input_object.suffix == ".csv":
-                self.input_object = self.csv2xlsx(self.input_object)
-                if isinstance(self.input_object, tuple):
-                    self.input_object = self.input_object[1]
-            elif self.input_object.suffix == ".xlsx":
-                self.input_object = load_workbook(self.input_object, data_only=True)
-            else:
-                raise TypeError(f"Unknown file type: {self.input_object.suffix}")
-            self.input_object.file = filepath
+        # if isinstance(self.input_object, str):
+        #     self.input_object = Path(self.input_object)
+        # if isinstance(self.input_object, Path):
+        #     self.input_object = self.input_object.absolute()
+        #     filepath = deepcopy(self.input_object)
+        #     if self.input_object.suffix == ".csv":
+        #         self.input_object = self.csv2xlsx(self.input_object)
+        #         if isinstance(self.input_object, tuple):
+        #             self.input_object = self.input_object[1]
+        #     elif self.input_object.suffix == ".xlsx":
+        #         self.input_object = load_workbook(self.input_object, data_only=True)
+        #     else:
+        #         raise TypeError(f"Unknown file type: {self.input_object.suffix}")
+        #     self.input_object.file = filepath
         # NOTE: If input_object is a str or path, use parser to construct object
         match self.input_object:
-            case Workbook() | Worksheet():
+            case Workbook() | Worksheet() | ImageFile():
                 self.pyd = self.parse()
             case _ if issubclass(self.input_object.__class__, pydant.PydBaseClass):
                 self.pyd = self.input_object

@@ -115,7 +115,9 @@ class OmniManager(QDialog):
             field (str): The relationship field name.
             value (str): The value to add to the relationship.
         """
+        logger.debug(f"add_relationship(field={field!r}, value={value!r}, data={data!r})")
         self.pydant.add_relationship(field, value, data)
+        logger.debug(f"  -> pydant.{field} after add_relationship: {getattr(self.pydant, field, '<missing>!r')}")
         
     @pyqtSlot(str, str)
     def remove_relationship(self, field: str, value: str) -> None:
@@ -136,9 +138,11 @@ class OmniManager(QDialog):
         Returns:
             None
         """
+        logger.debug(f"submit() sees equipment={getattr(self.pydant, 'equipment', '<missing>!r')}")
         sql_instance = self.pydant.to_sql()
         if isinstance(sql_instance, tuple):
             sql_instance = sql_instance[0]
+        logger.debug(f"submit() to_sql() gave {[getattr(e, 'name', None) for e in getattr(sql_instance, 'equipment', [])]}")
         sql_instance.save()
         self.reset_form()
 

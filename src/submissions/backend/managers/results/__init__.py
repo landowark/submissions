@@ -6,10 +6,12 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from .. import DefaultManager
 from backend.db.models import Procedure
+from frontend.widgets import select_open_file
 from pathlib import Path
 from frontend.widgets import ExcelSheetSelector
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
+from PIL import Image
 from typing import Generator, List
 from backend.validators.pydant import PydResults
 
@@ -18,9 +20,14 @@ class DefaultResultsManager(DefaultManager):
 
     _pyd_object = PydResults
 
-    def __init__(self, procedure: Procedure, parent, input_object: Path | str | Workbook):
+    def __init__(self, procedure: Procedure, parent, input_object: Path | str ):
         self.procedure = procedure
-        super().__init__(parent=parent, input_object=input_object)
+        if not input_object:
+            input_object = select_open_file(title="Select Excel File", filetypes=[("Excel Files", "*.xlsx")])
+        input_object = Path(input_object) if isinstance(input_object, str) else input_object
+        wb = load_workbook(input_object) if isinstance(input_object, (str, Path)) else input_object
+        wb.file = input_object
+        super().__init__(parent=parent, input_object=wb)
 
     @classmethod
     def get_sheets_for_parsing(cls, workbook: Workbook) -> List[Worksheet]:
@@ -66,9 +73,21 @@ class DefaultResultsManager(DefaultManager):
                     procedure_name = None
                 sample = dict(sample=sample_name, procedure=procedure_name, row=sample_info.get('row'), column=sample_info.get('column'))
                 yield self._pyd_object(sample=sample_name, procedure=procedure_name, is_sample=True, **sample_info)
-    
+
+
+class DefaultImageManager(DefaultManager):
+
+    def __init__(self, procedure: Procedure, parent, input_object: Path | str | Image):
+        self.procedure = procedure
+        if not input_object:
+            input_object = select_open_file(title="Select Image File", filetypes=[("Image Files", "*.png *.jpg *.jpeg *.tif *.tiff")])
+        input_object = Path(input_object) if isinstance(input_object, str) else input_object
+        input_object = Image.open(input_object) if isinstance(input_object, (str, Path)) else input_object
+        super().__init__(parent=parent, input_object=input_object)
+        
 
 from .diomni_pcr_results_manager import *
 from .qubit_results_manager import *
+from .gelbox_results_manager import *
 
-__all__ = ["DefaultResultsManager", "DiomniPCRManager", "QubitManager"]
+__all__ = ["DefaultResultsManager", "DiomniPCRManager", "QubitManager", "GelBoxManager"]

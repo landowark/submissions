@@ -762,7 +762,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 try:
                     type_ = getattr(cls._sql_class, type_.property.key)
                 except AttributeError:
-                    logger.exception("Could not get attribute")
+                    logger.exception(f"Could not get attribute {type_name} from {cls._sql_class}")
                     try:
                         type_ = getattr(cls._sql_class, f"_{field}") # Dicey workaround for hybrid_property with underscore
                     except AttributeError as e:

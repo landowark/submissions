@@ -4,36 +4,24 @@ Gel box for artic quality control
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
-from operator import itemgetter
 from PyQt6.QtWidgets import (
-    QWidget, QDialog, QGridLayout, QLabel, QLineEdit, QDialogButtonBox, QTextEdit, QComboBox
+    QWidget, QGridLayout, QLabel, QTextEdit, QComboBox
 )
 from PyQt6.QtGui import QIcon
-from PIL import Image
+from PIL.ImageFile import ImageFile
 from pyqtgraph import ImageView, setConfigOptions
 from numpy import flip as npflip, rot90 as nprot90, array as nparray
-from typing import Tuple, List, TYPE_CHECKING
-from pathlib import Path
-if TYPE_CHECKING:
-    from backend.db.models import Run
+from typing import Tuple, List
 
 
 # Main window class
-class GelBox(QDialog):
+class GelBox(QWidget):
 
-    def __init__(self, parent, img_path: str | Path, submission: Run):
+    def __init__(self, parent, img: ImageFile):
         super().__init__(parent)
-        # NOTE: setting title
-        self.setWindowTitle(f"Gel - {img_path}")
-        self.img_path = img_path
-        self.submission = submission
+        self.img = img
         # NOTE: setting geometry
-        self.setGeometry(50, 50, 1200, 900)
-        # NOTE: icon
-        icon = QIcon("skin.png")
-        # NOTE: setting icon to the window
-        self.setWindowIcon(icon)
-        # NOTE: calling method
+        # self.setGeometry(50, 50, 1200, 900)
         self.UiComponents()
         # NOTE: showing all the widgets
 
@@ -49,47 +37,16 @@ class GelBox(QDialog):
         # NOTE: Create image.
         # NOTE: For some reason, ImageView wants to flip the image, so we have to rotate and flip the array first.
         # NOTE: Using the Image.rotate function results in cropped image, so using np.
-        img = npflip(nprot90(nparray(Image.open(self.img_path)), 1), 0)
+        img = npflip(nprot90(nparray(self.img), 1), 0)
         self.imv.setImage(img)
         layout = QGridLayout()
-        layout.addWidget(QLabel("DNA Core Submission Number"), 21, 1)
-        self.core_number = QLineEdit()
-        self.core_number.setText(self.submission.dna_core_submission_number)
-        layout.addWidget(self.core_number, 21, 2)
-        layout.addWidget(QLabel("Gel Barcode"), 21, 3)
-        self.gel_barcode = QLineEdit()
-        self.gel_barcode.setText(self.submission.gel_barcode)
-        layout.addWidget(self.gel_barcode, 21, 4)
-        # NOTE: setting this layout to the widget
-        # NOTE: plot window goes on right side, spanning 3 rows
+        # # NOTE: setting this layout to the widget
+        # # NOTE: plot window goes on right side, spanning 3 rows
         layout.addWidget(self.imv, 0, 1, 20, 20)
-        # NOTE: setting this widget as central widget of the main window
-        try:
-            control_info = sorted(self.submission.gel_controls, key=itemgetter('location'))
-        except KeyError:
-            control_info = None
-        self.form = ControlsForm(parent=self, control_info=control_info)
-        layout.addWidget(self.form, 22, 1, 1, 4)
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        layout.addWidget(self.buttonBox, 23, 1, 1, 1)
+        # # NOTE: setting this widget as central widget of the main window
         self.setLayout(layout)
 
-    def parse_form(self) -> Tuple[str, str | Path, list]:
-        """
-        Get relevant values from self/form
-
-        Returns:
-            Tuple[str, str|Path, list]: output values
-        """
-        dna_core_submission_number = self.core_number.text()
-        gel_barcode = self.gel_barcode.text()
-        values, comment = self.form.parse_form()
-        return dna_core_submission_number, gel_barcode, self.img_path, values, comment
-
-
+    
 class ControlsForm(QWidget):
 
     def __init__(self, parent, control_info: List = None) -> None:
@@ -98,7 +55,7 @@ class ControlsForm(QWidget):
         columns = []
         rows = []
         try:
-            tt_text = "\n".join([f"{item['sample_id']} - CELL {item['location']}" for item in control_info])
+            tt_text = "\n".join([f"{item['sample_id']} - CELL {item['well']}" for item in control_info])
         except TypeError:
             tt_text = None
         for iii, item in enumerate(
