@@ -5,6 +5,7 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import QDialog
+from PyQt6.QtCore import Qt
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.excel.parsers import DefaultKEYVALUEParser, DefaultTABLEParser
 from typing import Tuple, Generator, Any
@@ -45,6 +46,11 @@ class DefaultResultsWidgetParser(QDialog):
 
     def __init__(self, results_type:str | None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint, True)
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, True)
+        
+        # Optional: ensure it stays resizable
+        self.setWindowState(Qt.WindowState.WindowNoState)
         from backend.validators.pydant import PydResults
         self.resultstype = results_type or "Default ResultsType"
         self._pyd_object = PydResults

@@ -7,11 +7,13 @@ logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import (
     QWidget, QGridLayout, QLabel, QTextEdit, QComboBox
 )
-from PyQt6.QtGui import QIcon
 from PIL.ImageFile import ImageFile
+from tools import unc_to_mapped_drive_native
 from pyqtgraph import ImageView, setConfigOptions
 from numpy import flip as npflip, rot90 as nprot90, array as nparray
-from typing import Tuple, List
+from typing import Tuple, List, TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.validators.pydant import PydProcedure
 
 
 # Main window class
@@ -20,6 +22,8 @@ class GelBox(QWidget):
     def __init__(self, parent, img: ImageFile):
         super().__init__(parent)
         self.img = img
+        logger.debug(type(img))
+        
         # NOTE: setting geometry
         # self.setGeometry(50, 50, 1200, 900)
         self.UiComponents()
@@ -37,6 +41,7 @@ class GelBox(QWidget):
         # NOTE: Create image.
         # NOTE: For some reason, ImageView wants to flip the image, so we have to rotate and flip the array first.
         # NOTE: Using the Image.rotate function results in cropped image, so using np.
+        # img = npflip(nprot90(nparray(self.img), 1), 0)
         img = npflip(nprot90(nparray(self.img), 1), 0)
         self.imv.setImage(img)
         layout = QGridLayout()
@@ -49,18 +54,31 @@ class GelBox(QWidget):
     
 class ControlsForm(QWidget):
 
-    def __init__(self, parent, control_info: List = None) -> None:
+    def __init__(self, parent, procedure: PydProcedure, resultstype: str) -> None:
+
         super().__init__(parent)
         self.layout = QGridLayout()
         columns = []
         rows = []
+        settings = procedure.load_resultstype_settings(resultstype)
         try:
-            tt_text = "\n".join([f"{item['sample_id']} - CELL {item['well']}" for item in control_info])
+            tt_text = "\n".join([f"{item.sample_id} - CELL {item.well}" for item in procedure.sample if item.is_control < 0])
         except TypeError:
             tt_text = None
-        for iii, item in enumerate(
-                ["Negative Control Key", "Description", "Results - 65 C", "Results - 63 C", "Results - Spike"]
-        ):
+        try:
+            column_headers = settings['column headers']
+        except KeyError:
+            column_headers = ["Negative Control Key", "Description", "Results - 65 C", "Results - 63 C", "Results - Spike"]
+        try:
+            ntcs = settings['ntcs']
+        except KeyError:
+            ntcs = ["RSL-NTC", "ENC-NTC", "NTC"]
+        try:
+            ntc_types = settings['ntc types']
+        except KeyError:
+            ntc_types = ["Processing Negative (PBS)", "Extraction Negative (Extraction buffers ONLY)",
+                                    "Artic no-template control (mastermix ONLY)"]
+        for iii, item in enumerate(column_headers):
             label = QLabel(item)
             self.layout.addWidget(label, 0, iii, 1, 1)
             if iii > 1:
@@ -69,12 +87,11 @@ class ControlsForm(QWidget):
                 if tt_text:
                     label.setStyleSheet("font-weight: bold; color: blue; text-decoration: underline;")
                     label.setToolTip(tt_text)
-        for iii, item in enumerate(["RSL-NTC", "ENC-NTC", "NTC"], start=1):
+        for iii, item in enumerate(ntcs, start=1):
             label = QLabel(item)
             self.layout.addWidget(label, iii, 0, 1, 1)
             rows.append(item)
-        for iii, item in enumerate(["Processing Negative (PBS)", "Extraction Negative (Extraction buffers ONLY)",
-                                    "Artic no-template control (mastermix ONLY)"], start=1):
+        for iii, item in enumerate(ntc_types, start=1):
             label = QLabel(item)
             self.layout.addWidget(label, iii, 1, 1, 1)
         for iii in range(3):

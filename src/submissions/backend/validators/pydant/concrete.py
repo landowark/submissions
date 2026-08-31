@@ -7,7 +7,7 @@ from re import compile as rcompile
 from csv import writer as csvwriter
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Any, Dict, Generator, List, Tuple, TYPE_CHECKING, Union
+from typing import Annotated, Any, Dict, Generator, List, Literal, Tuple, TYPE_CHECKING, Union
 from pydantic import AfterValidator, ConfigDict, Field, field_validator, computed_field, model_validator
 from PyQt6.QtWidgets import QWidget
 from backend.validators import RSLNamer
@@ -880,6 +880,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=True, vw_modifier=1.15)
         return html
 
+    def load_resultstype_settings(self, resultstype: str | PydResultsType, mode: Literal["parser", "writer"] = "parser") -> dict:
+        if not resultstype:
+            return {}
+        resultstype = resultstype.name if isinstance(resultstype, PydResultsType) else resultstype
+        return self.sql_instance.load_results_settings(resultstype=resultstype, mode=mode)
     
 class PydClientSubmission(PydConcrete):
 

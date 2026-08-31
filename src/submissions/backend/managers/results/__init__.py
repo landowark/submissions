@@ -84,10 +84,12 @@ class DefaultImageManager(DefaultManager):
         input_object = Path(input_object) if isinstance(input_object, str) else input_object
         input_object = Image.open(input_object) if isinstance(input_object, (str, Path)) else input_object
         super().__init__(parent=parent, input_object=input_object)
+
+    
         
 
 from .diomni_pcr_results_manager import *
 from .qubit_results_manager import *
 from .gelbox_results_manager import *
 
-__all__ = ["DefaultResultsManager", "DiomniPCRManager", "QubitManager", "GelBoxManager"]
+__all__ = ["DefaultResultsManager", "DiomniPCRManager", "QubitManager", "GelManager"]

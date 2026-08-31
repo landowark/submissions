@@ -3,6 +3,9 @@ Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
 from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
+import os
+import re
+import subprocess
 logger = getLogger(f"submissions.{__name__}")
 from html import escape as html_escape
 from itertools import chain
@@ -162,19 +165,21 @@ def check_not_nan(cell_contents) -> bool:
         if npisnat(cell_contents):
             cell_contents = npnan
     except TypeError as e:
-        logger.exception(f"Cell contents {cell_contents} not value for isnat")
+        # logger.exception(f"Cell contents {cell_contents} not value for isnat")
+        pass
     try:
         if pdisnull(cell_contents):
             cell_contents = npnan
     except ValueError:
-        logger.exception(f"Cell contents {cell_contents} not value for isnull")
+        # logger.exception(f"Cell contents {cell_contents} not value for isnull")
+        pass
     try:
         return not npisnan(cell_contents)
     except TypeError:
-        logger.exception(f"Cell contents {cell_contents} not value for isnan")
+        # logger.exception(f"Cell contents {cell_contents} not value for isnan")
         return True
     except Exception as e:
-        logger.exception(f"Check encountered unknown error: {type(e).__name__} - {e}")
+        # logger.exception(f"Check encountered unknown error: {type(e).__name__} - {e}")
         return False
 
 
@@ -204,6 +209,13 @@ def get_first_blank_df_row(df: DataFrame) -> int:
         int: Index of the row after the last used row.
     """
     return df.shape[0] + 1
+
+
+def unc_to_mapped_drive_native(unc_path):
+    network_path = unc_path
+    generic_pattern = r"^\\\\[^\\]+\\([^\\]+)\\"
+    fixed_path = re.sub(generic_pattern, lambda m: f"{m.group(1)}:\\", network_path)
+    return fixed_path
 
 
 def timer(func):

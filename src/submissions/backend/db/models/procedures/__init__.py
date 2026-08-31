@@ -21,7 +21,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
 from datetime import date, datetime, timedelta
 from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list, timezone
-from typing import Any, Generator, Iterator, List, TYPE_CHECKING, Optional
+from typing import Any, Generator, Iterator, List, TYPE_CHECKING, Literal, Optional
 from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
@@ -31,27 +31,27 @@ if TYPE_CHECKING:
     from backend.validators.pydant import PydProcedure
 
 
-proceduretype_resulttype = Table(
-    "_proceduretype_resulttype",
-    Base.metadata,
-    Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id"), primary_key=True),
-    Column("resultstype_id", INTEGER, ForeignKey("_resultstype.id"), primary_key=True),
-    Column("parser_name", String(128), default="DefaultResultsInfoParser"),
-    Column("info_parser_name", String(128), nullable=True),
-    Column("sample_parser_name", String(128), nullable=True),
-    Column("writer_name", String(128), default="DefaultResultsInfoWriter"),
-    Column("info_writer_name", String(128), nullable=True),
-    Column("sample_writer_name", String(128), nullable=True),
-    Column("sheet_name", String(128), default="Results"),
-    Column("start_row", INTEGER, default=1),
-    Column("always_used", INTEGER, default=1),
-    Column("saved_settings", JSON, default=dict),
-    Column("parse_kwargs", JSON, default=dict),
-    Column("write_kwargs", JSON, default=dict),
-    Column("required_fields", JSON, default=list),
-    Column("sort_order", INTEGER, default=0),
-    extend_existing=True
-)
+# proceduretype_resulttype = Table(
+#     "_proceduretype_resulttype",
+#     Base.metadata,
+#     Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id"), primary_key=True),
+#     Column("resultstype_id", INTEGER, ForeignKey("_resultstype.id"), primary_key=True),
+#     Column("parser_name", String(128), default="DefaultResultsInfoParser"),
+#     Column("info_parser_name", String(128), nullable=True),
+#     Column("sample_parser_name", String(128), nullable=True),
+#     Column("writer_name", String(128), default="DefaultResultsInfoWriter"),
+#     Column("info_writer_name", String(128), nullable=True),
+#     Column("sample_writer_name", String(128), nullable=True),
+#     Column("sheet_name", String(128), default="Results"),
+#     Column("start_row", INTEGER, default=1),
+#     Column("always_used", INTEGER, default=1),
+#     Column("saved_settings", JSON, default=dict),
+#     Column("parse_kwargs", JSON, default=dict),
+#     Column("write_kwargs", JSON, default=dict),
+#     Column("required_fields", JSON, default=list),
+#     Column("sort_order", INTEGER, default=0),
+#     extend_existing=True
+# )
 
 
 submissiontype_proceduretype = Table(
@@ -87,7 +87,7 @@ class Discount(BaseClass):
     _proceduretype = relationship("ProcedureType")  #: joined parent proceduretype
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete='SET NULL',
                                                   name="fk_DIS_procedure_type_id"))  #: id of joined proceduretype
-    _clientlab = relationship("ClientLab")  #: joined client lab
+    _clientlab = relationship(ClientLab)  #: joined client lab
     clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete='SET NULL',
                                      name="fk_DIS_org_id"))  #: id of joined client
     description = Column(String(128))  #: Short description
@@ -532,7 +532,7 @@ class SubmissionType(BaseClass):
         if not isinstance(resultstype, ResultsType):
             logger.error(f"Could not find results type for {resultstype}")
             return []
-        submissiontypes = cls.__database_session__.query(cls).join(cls._proceduretype).join(ProcedureType._resultstype).filter(ResultsType.id == resultstype.id).all()
+        submissiontypes = cls.__database_session__.query(cls).join(cls._proceduretype).join(ProcedureType.proceduretyperesultstypeassociation).filter(ProcedureTypeResultsTypeAssociation.resultstype_id == resultstype.id).all()
         return submissiontypes
 
     @property
@@ -1020,7 +1020,22 @@ class ProcedureType(BaseClass):
                 continue
             if func:
                 yield func.label, func, results_type
-            
+
+    def load_resultstypeassoc_settings(self, resultstype: str | ResultsType, mode: Literal['parser', "writer"] = "parser") -> dict:
+        resultstype = resultstype.name if isinstance(resultstype, ResultsType) else resultstype
+        if not resultstype:
+            assoc = next((rt for rt in self.proceduretyperesultstypeassociation), None)
+        else:
+            assoc: ProcedureTypeResultsTypeAssociation = next((rt for rt in self.proceduretyperesultstypeassociation if rt.resultstype.name == resultstype), None)
+        if assoc is None:
+            return {}            
+        if mode == 'parser':
+            return assoc.parser_kwargs if assoc else {}
+        elif mode == 'writer':
+            return assoc.writer_kwargs if assoc else {}
+        else:
+            raise ValueError
+        
 
 class Procedure(BaseClass):
     """
@@ -1967,6 +1982,9 @@ class Procedure(BaseClass):
             else:
                 logger.error(f"Association not found for {reagentrole} and {proceduretype}")
                 
+    def load_results_settings(self, resultstype: str | ResultsType, mode: Literal['parser', "writer"] = "parser") -> dict:
+        return self.proceduretype.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
+    
 
 class Results(BaseClass):
     """
@@ -2304,6 +2322,35 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
                 logger.error(f"Couldn't set resultstype to {resultstype} for {self.__class__.__qualname__} with proceduretype {proceduretype}")
 
     @hybrid_property
+    def name(self):
+        try:
+            resultstype = self.resultstype.name
+        except AttributeError:
+            resultstype = "Unassigned ResultsType"
+        try:
+            proceduretype = self.proceduretype.name
+        except AttributeError:
+            proceduretype = "Unassigned ProcedureType"
+        return f"{proceduretype}->{resultstype}"
+
+    @name.expression
+    def name(cls):
+        proceduretype_subquery = (
+            select(ProcedureType.name)
+            .where(ProcedureType.id==cls.proceduretype_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        resultstype_subquery = (
+            select(ResultsType.name)
+            .where(ResultsType.id==cls.resultstype_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # NOTE: Can't use f strings for this.
+        return proceduretype_subquery + "->" + resultstype_subquery
+
+    @hybrid_property
     def proceduretype(self):
         return self._proceduretype
 
@@ -2370,9 +2417,6 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
         return getattr(results, f"{name.replace(' ', '')}Manager")
 
 
-
-    
-
 class ResultsType(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -2380,7 +2424,7 @@ class ResultsType(BaseClass):
     _info = Column(JSON) #: where to look for procedure information
     _samples = Column(JSON) # where to look for sample information
     _results = relationship("Results", back_populates="_resultstype", cascade="all, delete-orphan")
-    _proceduretype = association_proxy("proceduretyperesultstypeassociation", "_proceduretype",
+    _proceduretype = association_proxy("resultstypeproceduretypeassociation", "_proceduretype",
                                         creator = lambda proceduretype: ProcedureTypeResultsTypeAssociation(proceduretype=proceduretype))
     resultstypeproceduretypeassociation = relationship(
         "ProcedureTypeResultsTypeAssociation",
@@ -2557,6 +2601,16 @@ class ResultsType(BaseClass):
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         return super().to_pydantic(pyd_model_name, **kwargs)
+
+    def load_proceduretypeassoc_settings(self, proceduretype: str | ProcedureType, mode: Literal['parser', "writer"] = "parser") -> dict:
+        proceduretype = proceduretype.name if isinstance(proceduretype, ProcedureType) else proceduretype
+        assoc: ProcedureTypeResultsTypeAssociation = next((pt for pt in self.resultstypeproceduretypeassociation if pt.proceduretype.name == proceduretype), None)
+        if mode == 'parser':
+            return assoc.parser_kwargs if assoc else {}
+        elif mode == 'writer':
+            return assoc.writer_kwargs if assoc else {}
+        else:
+            raise ValueError
 
 
 from .equipment import *
