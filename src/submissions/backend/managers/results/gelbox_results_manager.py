@@ -15,6 +15,7 @@ class GelManager(DefaultImageManager):
         from backend.excel.parsers.results_parsers import GelBoxParser
         parser = GelBoxParser(procedure=self.procedure)
 
-    def procedure_to_pydantic(self)
+    def procedure_to_pydantic(self):
+        pass
             
 __all__ = ["GelManager"]
