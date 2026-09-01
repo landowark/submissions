@@ -13,14 +13,14 @@ from frontend.widgets import select_open_file
 from . import DefaultResultsManager
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from backend.db.models import Procedure
+    from backend.validators.pydant import PydProcedure
 
 
 class DiomniPCRManager(DefaultResultsManager):
 
     resultstype = "Diomni PCR"
 
-    def __init__(self, procedure: Procedure, parent, input_object: Path | str | Workbook | Worksheet | None = None):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Workbook | Worksheet | None = None):
         if input_object is None:
             input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
         super().__init__(procedure=procedure, parent=parent, input_object=input_object)

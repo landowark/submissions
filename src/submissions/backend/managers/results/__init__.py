@@ -5,7 +5,7 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from .. import DefaultManager
-from backend.db.models import Procedure
+# from backend.db.models import Procedure
 from frontend.widgets import select_open_file
 from pathlib import Path
 from frontend.widgets import ExcelSheetSelector
@@ -13,14 +13,14 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image
 from typing import Generator, List
-from backend.validators.pydant import PydResults
+from backend.validators.pydant import PydResults, PydProcedure
 
 
 class DefaultResultsManager(DefaultManager):
 
     _pyd_object = PydResults
 
-    def __init__(self, procedure: Procedure, parent, input_object: Path | str ):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str ):
         self.procedure = procedure
         if not input_object:
             input_object = select_open_file(title="Select Excel File", filetypes=[("Excel Files", "*.xlsx")])
@@ -57,7 +57,8 @@ class DefaultResultsManager(DefaultManager):
         return result
 
     def procedure_to_pydantic(self) -> PydResults:
-        return self._pyd_object(result={k: v for k, v in self.info.items()}, resultstype=self.resultstype, date_analyzed=self.info_parser.date_analyzed, procedure=self.procedure.name, is_sample=False)
+        procedure = self.procedure.name.value if hasattr(self.procedure.name, "value") else self.procedure.name
+        return self._pyd_object(result={k: v for k, v in self.info.items()}, resultstype=self.resultstype, date_analyzed=self.info_parser.date_analyzed, procedure=procedure, is_sample=False)
 
     def samples_to_pydantic(self) -> Generator[PydResults, None, None]:
         """
@@ -67,17 +68,14 @@ class DefaultResultsManager(DefaultManager):
         """
         for sample in self.samples:
             for sample_name, sample_info in sample.items():
-                try:
-                    procedure_name = self.procedure.name
-                except AttributeError:
-                    procedure_name = None
+                procedure_name = self.procedure.name.value if hasattr(self.procedure.name, "value") else self.procedure.name
                 sample = dict(sample=sample_name, procedure=procedure_name, row=sample_info.get('row'), column=sample_info.get('column'))
                 yield self._pyd_object(sample=sample_name, procedure=procedure_name, is_sample=True, **sample_info)
 
 
 class DefaultImageManager(DefaultManager):
 
-    def __init__(self, procedure: Procedure, parent, input_object: Path | str | Image):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Image):
         self.procedure = procedure
         if not input_object:
             input_object = select_open_file(title="Select Image File", filetypes=[("Image Files", "*.png *.jpg *.jpeg *.tif *.tiff")])
@@ -85,8 +83,6 @@ class DefaultImageManager(DefaultManager):
         input_object = Image.open(input_object) if isinstance(input_object, (str, Path)) else input_object
         super().__init__(parent=parent, input_object=input_object)
 
-    
-        
 
 from .diomni_pcr_results_manager import *
 from .qubit_results_manager import *

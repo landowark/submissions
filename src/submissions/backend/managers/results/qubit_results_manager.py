@@ -5,7 +5,8 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from pathlib import Path
-from backend.db.models import Procedure
+# from backend.db.models import 
+from backend.validators.pydant import PydProcedure
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
@@ -19,19 +20,20 @@ class QubitManager(DefaultResultsManager):
 
     resultstype = "Qubit"
 
-    def __init__(self, procedure: Procedure, parent, input_object: Path | str | Workbook | Worksheet | None = None):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Workbook | Worksheet | None = None):
         if input_object is None:
             input_object = select_open_file(file_extension="csv", obj=get_application_from_parent(parent))
         super().__init__(procedure=procedure, parent=parent, input_object=input_object)
         self.sample_matcher()
 
     def sample_matcher(self):
+        sqli = self.procedure.sql_instance
         dlg = ResultsSampleMatcher(
             parent=None,
             results_var_name="original_sample_conc.",
             results=self.sample_parser.parsed_info,
-            samples=self.procedure.proceduresampleassociation,
-            procedure=self.procedure,
+            samples=sqli.proceduresampleassociation,
+            procedure=sqli,
             results_type="Qubit"
         )
         if dlg.exec():

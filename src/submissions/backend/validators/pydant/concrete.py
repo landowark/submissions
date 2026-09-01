@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
     id: int | None = Field(default=None)
-    result: dict = Field(default={}, repr=False)
+    result: dict | list = Field(default_factory=dict, repr=False)
     resultstype: Annotated[str | PydResultsType, RelationshipField(uselist=False)] = Field(default="NA")
     image: None | bytes = Field(default=None, repr=False)
     procedure: Annotated[str | PydProcedure | None, RelationshipField(uselist=False)] = Field(default=None)
@@ -62,6 +62,22 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     @property
     def write_sheet_name(self) -> str:
         return self.sql_instance.write_sheet_name
+
+    def result_as_list(self, dict_level: dict | None = None) -> list:
+        if not dict_level:
+            dict_level = self.result
+        output = []
+        for k, v in dict_level.items():
+            if k == "comment":
+                continue
+            match v:
+                case dict():
+                    value = self.result_as_list(dict_level=v)
+                case _:
+                    value = v
+            output.append(dict(name=k, value=value))
+        return output
+
 
     def to_sql(self):
         from backend.db.models import Results

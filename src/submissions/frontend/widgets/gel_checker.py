@@ -57,7 +57,7 @@ class ControlsForm(QWidget):
     def __init__(self, parent, procedure: PydProcedure, resultstype: str) -> None:
 
         super().__init__(parent)
-        self.layout = QGridLayout()
+        layout = QGridLayout()
         columns = []
         rows = []
         settings = procedure.load_resultstype_settings(resultstype)
@@ -80,7 +80,7 @@ class ControlsForm(QWidget):
                                     "Artic no-template control (mastermix ONLY)"]
         for iii, item in enumerate(column_headers):
             label = QLabel(item)
-            self.layout.addWidget(label, 0, iii, 1, 1)
+            layout.addWidget(label, 0, iii, 1, 1)
             if iii > 1:
                 columns.append(item)
             elif iii == 0:
@@ -89,11 +89,11 @@ class ControlsForm(QWidget):
                     label.setToolTip(tt_text)
         for iii, item in enumerate(ntcs, start=1):
             label = QLabel(item)
-            self.layout.addWidget(label, iii, 0, 1, 1)
+            layout.addWidget(label, iii, 0, 1, 1)
             rows.append(item)
         for iii, item in enumerate(ntc_types, start=1):
             label = QLabel(item)
-            self.layout.addWidget(label, iii, 1, 1, 1)
+            layout.addWidget(label, iii, 1, 1, 1)
         for iii in range(3):
             for jjj in range(3):
                 widge = QComboBox()
@@ -101,27 +101,31 @@ class ControlsForm(QWidget):
                 widge.setCurrentIndex(0)
                 widge.setEditable(True)
                 widge.setObjectName(f"{rows[iii]} : {columns[jjj]}")
-                self.layout.addWidget(widge, iii + 1, jjj + 2, 1, 1)
-        self.layout.addWidget(QLabel("Comments:"), 0, 5, 1, 1)
+                layout.addWidget(widge, iii + 1, jjj + 2, 1, 1)
+        layout.addWidget(QLabel("Comments:"), 0, 5, 1, 1)
         self.comment_field = QTextEdit(self)
         self.comment_field.setFixedHeight(50)
-        self.layout.addWidget(self.comment_field, 1, 5, 4, 1)
-        self.setLayout(self.layout)
+        layout.addWidget(self.comment_field, 1, 5, 4, 1)
+        self.setLayout(layout)
 
-    def parse_form(self) -> Tuple[List[dict], str]:
+    def parse_form(self) -> dict:
         """
         Pulls the control statuses from the form.
 
         Returns:
             List[dict]: output of values
         """
-        output = []
+        output = {}
         for le in self.findChildren(QComboBox):
             label = [item.strip() for item in le.objectName().split(" : ")]
-            dicto = next((item for item in output if item['name'] == label[0]), dict(name=label[0], values=[]))
-            dicto['values'].append(dict(name=label[1], value=le.currentText()))
-            if label[0] not in [item['name'] for item in output]:
-                output.append(dicto)
-        return output, self.comment_field.toPlainText()
+            value = {}
+            value[label[1]] = le.currentText()
+            output[label[0]] = value
+            # dicto = next((item for item in output if item['name'] == label[0]), dict(name=label[0], values=[]))
+            # dicto['values'].append(dict(name=label[1], value=le.currentText()))
+            # if label[0] not in [item['name'] for item in output]:
+            #     output.append(dicto)
+        output['comment'] = self.comment_field.toPlainText()
+        return output
 
 __all__ = ["GelBox", "ControlsForm"]

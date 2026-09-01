@@ -10,13 +10,13 @@ from backend.validators.pydant import PydProcedure
 
 class GelBoxParser(DefaultResultsWidgetParser):
 
-    def __init__(self, procedure: PydProcedure, img: ImageFile, results_type: str | None=None, *args, **kwargs) -> None:
-        super().__init__(results_type, *args, **kwargs)
+    def __init__(self, procedure: PydProcedure, img: ImageFile, resultstype: str | None=None, *args, **kwargs) -> None:
+        super().__init__(resultstype, *args, **kwargs)
         self.procedure = procedure
         self.img = img
         from frontend.widgets import GelBox, ControlsForm
         self.gel_box = GelBox(parent=self, img=self.img)
-        self.controls_form = ControlsForm(parent=self, procedure=procedure, resultstype=results_type)
+        self.controls_form = ControlsForm(parent=self, procedure=procedure, resultstype=resultstype)
         layout = QVBoxLayout()
         layout.addWidget(self.gel_box, stretch=5)
         layout.addWidget(self.controls_form, stretch=1)

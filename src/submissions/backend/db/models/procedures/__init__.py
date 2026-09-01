@@ -1695,7 +1695,7 @@ class Procedure(BaseClass):
         from backend.managers import results
         from backend.validators.pydant import PydResults
         results_manager = getattr(results, f"{resultstype}Manager")
-        rs = results_manager(procedure=self, parent=obj)
+        rs = results_manager(procedure=self.to_pydantic(), parent=obj)
         procedure_results = rs.procedure_to_pydantic()
         samples_results: Generator[PydResults] = rs.samples_to_pydantic()
         if procedure_results:
@@ -2404,11 +2404,11 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
 
     @property
     def parser_kwargs(self) -> dict:
-        return self.parser_kwargs or {}
+        return self._parser_kwargs or {}
 
     @property
     def writer_kwargs(self) -> dict:
-        return self.writer_kwargs or {}
+        return self._writer_kwargs or {}
 
     @property
     def manager(self):

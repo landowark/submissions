@@ -330,7 +330,7 @@ def seed_types(session, reagent_roles, equipment_roles):
                                    ResultsType, SubmissionType)
 
     resultstype_specs = {
-        "Qubit Concentration": dict(
+        "Qubit": dict(
             info={"instrument": "Qubit Flex", "assay": "dsDNA HS"},
             samples={"concentration": "ng/uL", "volume": "uL"},
             info_key_order=["instrument", "assay"],
@@ -342,7 +342,7 @@ def seed_types(session, reagent_roles, equipment_roles):
             info_key_order=["instrument", "software"],
             sample_key_order=["ct", "call"],
         ),
-        "Gel Image": dict(
+        "Gel": dict(
             info={"instrument": "E-Gel Reader"},
             samples={"band": "band present"},
             info_key_order=["instrument"],
@@ -376,13 +376,13 @@ def seed_types(session, reagent_roles, equipment_roles):
             reagents=["Lysis Buffer", "Proteinase K", "Wash Buffer", "Elution Buffer",
                       "Magnetic Beads", "Molecular Grade Water"],
             equipment=["Liquid Handler", "Centrifuge", "Bead Basher"],
-            results=["Qubit Concentration"],
+            results=["Qubit"],
         ),
         "Library Prep": dict(
             rows=8, columns=12, cost=118.00,
             reagents=["Library Prep Kit", "Magnetic Beads", "Molecular Grade Water"],
             equipment=["Liquid Handler", "Thermocycler"],
-            results=["Qubit Concentration", "Gel Image"],
+            results=["Qubit", "Gel"],
         ),
         "qPCR": dict(
             rows=8, columns=12, cost=44.25,
@@ -394,7 +394,7 @@ def seed_types(session, reagent_roles, equipment_roles):
             rows=16, columns=24, cost=96.75,
             reagents=["Master Mix", "Primer Probe Mix", "Magnetic Beads"],
             equipment=["Liquid Handler", "Thermocycler"],
-            results=["Gel Image"],
+            results=["Gel"],
         ),
     }
     submissiontype_specs = {
@@ -668,12 +668,12 @@ def seed_submissions(session, rng: Random, labs, contacts, submissiontypes,
 def _fake_sample_result(rng: Random, resultstype_name: str) -> dict | None:
     """Plausible per-sample values for each results type."""
     match resultstype_name:
-        case "Qubit Concentration":
+        case "Qubit":
             return dict(concentration=round(rng.uniform(0.5, 85.0), 2), volume=50)
         case "Diomni PCR":
             ct = round(rng.uniform(14.0, 39.5), 2)
             return dict(ct=ct, call="Detected" if ct < 37 else "Not Detected")
-        case "Gel Image":
+        case "Gel":
             return dict(band=rng.choice(["Present", "Present", "Present", "Absent"]))
         case _:
             return None
