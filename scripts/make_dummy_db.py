@@ -521,7 +521,7 @@ def seed_submissions(session, rng: Random, labs, contacts, submissiontypes,
             contact=lab.contact[0],
             submissiontype=submissiontype,
             submission_category="Surveillance" if iii % 2 else "Diagnostic",
-            full_batch_size=96,
+            # full_batch_size=96,
             cost_centre=lab.cost_centre,
         )
         session.add(submission)

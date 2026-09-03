@@ -3,6 +3,8 @@ Module for manager of ClientSubmission object
 """
 from __future__ import annotations
 from logging import getLogger
+
+from openpyxl import load_workbook
 logger = getLogger(f"submissions.{__name__}")
 from typing import TYPE_CHECKING, Generator
 from pathlib import Path
@@ -24,8 +26,15 @@ class DefaultClientSubmissionManager(DefaultManager):
         from backend.validators.pydant import PydClientSubmission
         # NOTE: So the submissiontype schtick is mostly for a future incident in which I have to scrape 
         # specialized excel sheets.
+        if isinstance(input_object, str):
+            f = f"{input_object}"
+            input_object = Path(input_object)
+        if isinstance(input_object, Path):
+            f = input_object.resolve().__str__()
+            input_object = load_workbook(input_object, data_only=True)
+        input_object.file = f
         match input_object:
-            case str() | Path() | Workbook():
+            case Workbook():
                 self.namer = ClientSubmissionNamer(filepath=input_object)
             case _ if isinstance(input_object, ClientSubmission):
                 self.namer = input_object
@@ -50,6 +59,9 @@ class DefaultClientSubmissionManager(DefaultManager):
                 # NOTE: if unmatched, try to get from input_object
                 pass
         self.submissiontype = submissiontype
+        logger.debug(f"Input object: {input_object}")
+        logger.debug(f"Submissiontype set to {self.submissiontype.name}")
+        
         super().__init__(parent=parent, input_object=input_object, **kwargs)
         if isinstance(self.input_object, Workbook):
             for procedure in self.scraped_procedures:

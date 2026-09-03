@@ -597,8 +597,6 @@ class ProcedureType(BaseClass):
     _submissiontype = relationship("SubmissionType", back_populates="_proceduretype",
                                   secondary=submissiontype_proceduretype)  #: run this kittype was used for
 
-    
-
     proceduretyperesultstypeassociation = relationship(
         "ProcedureTypeResultsTypeAssociation",
         back_populates="_proceduretype",

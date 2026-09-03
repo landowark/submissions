@@ -34,8 +34,12 @@ class ProcedureCreation(DefaultWebDialog):
         self.proceduretype_dict = self.procedure.reorder_proceduretype_by_procedure()
         if isinstance(self.run.rsl_plate_number, dict):
             title = self.run.rsl_plate_number.get("value", "Unknown Run")
-        else:
+        elif isinstance(self.run.rsl_plate_number, SourcedField):
+            title = self.run.rsl_plate_number.value
+        elif isinstance(self.run.rsl_plate_number, str):
             title = self.run.rsl_plate_number
+        else:
+            raise TypeError(f"Unrecognised type for run.rsl_plate_number: {type(self.run.rsl_plate_number)}")
         self.setWindowTitle(f"New {self.proceduretype.name} for {title}")
         self.platemap = self.proceduretype_dict['platemap']
         
@@ -173,6 +177,7 @@ class ProcedureCreation(DefaultWebDialog):
     def get_reagentlot_names(self, reagentrole_name: str):
         from backend.db.models import ReagentRole
         role = ReagentRole.query(name=reagentrole_name, limit=1)
+        assoc = next((item for item in role.reagentroleproceduretypeassociation if item.proceduretype == self.procedure.proceduretype.sql_instance), None)
         if not role:
             return []
         names = []
@@ -180,6 +185,8 @@ class ProcedureCreation(DefaultWebDialog):
             for lot in reagent.reagentlot:
                 if lot.active:
                     names.append(lot.name) # reagentname - lot
+        if assoc:
+            names = assoc.bubble_last_used(reagentlot_list=names)
         return names
 
     @pyqtSlot(str, result=QVariant)

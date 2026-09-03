@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import QMainWindow, QFileDialog
 from tools import get_application_from_parent
 
 
-def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Path:
+def select_open_file(obj: QMainWindow|None = None, filetypes: str | None = None) -> Path:
     """
     File dialog to select a file to read from
 
@@ -35,11 +35,10 @@ def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Pat
                 home_dir = Path.home().resolve().__str__()
         except AttributeError:
             home_dir = Path.home().resolve().__str__()
-    if file_extension is None:
+    if filetypes is None:
         fname = Path(QFileDialog.getExistingDirectory(obj, "Open Folder", home_dir))
     else:
-        fname = Path(
-            QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter=f"{file_extension}(*.{file_extension})")[0])
+        fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter=filetypes)[0])        
         if not fname.exists():
             raise FileNotFoundError(f"File {fname.__str__()} could not be found.")
         if fname.__str__() == ".":
@@ -51,7 +50,7 @@ def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Pat
     return fname
 
 
-def select_save_file(obj: QMainWindow, default_name: str, extension: str) -> Path:
+def select_save_file(obj: QMainWindow, default_name: str, filetype: str) -> Path:
     """
     File dialog to select a file to write to
 
@@ -72,7 +71,7 @@ def select_save_file(obj: QMainWindow, default_name: str, extension: str) -> Pat
         logger.exception(f"Could not get last directory from {app.last_dir}: {e}")
         p = Path(app.last_dir) if app and app.last_dir else Path.home()
         home_dir = p.joinpath(default_name).resolve().__str__()
-    fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{extension}(*.{extension})")[0])
+    fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{filetype}(*.{filetype})")[0])
     if app:
         app.last_dir = fname.parent
     return fname

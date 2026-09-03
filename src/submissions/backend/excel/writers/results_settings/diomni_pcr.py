@@ -37,7 +37,7 @@ class DiomniPCRSettings(DefaultSettings):
         return f"#{r:02x}{g:02x}{b:02x}"
 
     def write_output(self):
-        filepath = select_save_file(obj=self.parent, default_name=self.procedure.name.get("value").replace(":", ""), extension="csv")
+        filepath = select_save_file(obj=self.parent, default_name=self.procedure.name.get("value").replace(":", ""), filetype="csv")
         toplines  = [
             ['*All Inputs are case sensitive.  For Example:  FAM is different from Fam', '', '', '', '', '', '', '', '', '', '', ''],
             ['*Do not change column header names and do not delete [Sample Setup]. Minimal columns needed are:  Well and Well Position', '', '', '', '', '', '', '', '', '', '', ''],

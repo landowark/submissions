@@ -233,22 +233,14 @@ class ReagentRole(BaseClass):
             proceduretype = proceduretype.name
         if isinstance(proceduretype, str):
             proceduretype = ProcedureType.query(name=proceduretype)
-        assocs = (
-            self.__database_session__.query(ProcedureReagentLotAssociation)
-            .join(Procedure, ProcedureReagentLotAssociation.procedure_id == Procedure.id)
-            .filter(Procedure.proceduretype_id == proceduretype.id)
-            .filter(ProcedureReagentLotAssociation.reagentrole_id == self.id)
-            .all()
-        )
-        used = {assoc.reagentlot.reagent for assoc in assocs}
-        return [reagent for reagent in self.reagent if reagent in used]
-        # assoc = next((item for item in self.reagentroleproceduretypeassociation if item.proceduretype == proceduretype), None)
-        # reagents = [reagent for reagent in self.reagent]
-        # if assoc:
-        #     last_used = assoc.last_used
-        #     if last_used:
-        #         reagents.insert(0, reagents.pop(reagents.index(last_used)))
-        # return [reagent.to_pydantic() for reagent in reagents]
+        try:
+            assoc = next((item for item in self.reagentroleproceduretypeassociation if item.proceduretype == proceduretype))
+        except StopIteration:
+            logger.error(f"Couldn't find {proceduretype.name} in {[eq.proceduretype.name for eq in self.reagentroleproceduretypeassociation]}")
+            return [reagent for reagent in self.reagent]
+        return assoc.reagentrole.reagent
+
+    
 
     
 class Reagent(BaseClass, LogMixin):
@@ -1114,6 +1106,14 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     def update_last_used(self, reagentlot: ReagentLot):
         self.last_used = reagentlot
         self.save()
+
+    def bubble_last_used(self, reagentlot_list: List[str]):
+        logger.debug(f"looking for {self.last_used_lot} in {reagentlot_list}")
+        if self.last_used_lot in reagentlot_list:
+            logger.debug(f"found {self.last_used_lot} in {reagentlot_list}")
+            reagentlot_list.remove(self.last_used_lot)
+            reagentlot_list.insert(0, self.last_used_lot)
+        return reagentlot_list
 
 
 class ProcedureReagentLotAssociation(BaseClass):

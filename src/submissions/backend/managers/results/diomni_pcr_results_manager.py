@@ -22,7 +22,7 @@ class DiomniPCRManager(DefaultResultsManager):
 
     def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Workbook | Worksheet | None = None):
         if input_object is None:
-            input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
+            input_object = select_open_file(filetypes="Excel Files (*.xlsx)", obj=get_application_from_parent(parent))
         super().__init__(procedure=procedure, parent=parent, input_object=input_object)
         
     def parse(self):

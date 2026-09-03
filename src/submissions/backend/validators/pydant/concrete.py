@@ -909,7 +909,7 @@ class PydClientSubmission(PydConcrete):
     submitted_date:    SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=datetime.now(), missing=True))
     clientlab: Annotated[SourcedField[str], RelationshipField(uselist=False)]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     sample_count: SourcedField[int] = Field(default_factory=lambda: SourcedField(value=0, missing=True))
-    full_batch_size: int | dict = Field(default=0)
+    # full_batch_size: int | dict = Field(default=0)
     submission_category: SourcedField[str] = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     comment: list | None = Field(default_factory=list, repr=False, validate_default=True)
     cost_centre: SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
@@ -1002,13 +1002,13 @@ class PydClientSubmission(PydConcrete):
                     value.value = "NA"
         return value
 
-    @field_validator("full_batch_size")
-    @classmethod
-    def dict_to_int(cls, value):
-        if isinstance(value, dict):
-            value = value['value']
-        value = int(value)
-        return value
+    # @field_validator("full_batch_size")
+    # @classmethod
+    # def dict_to_int(cls, value):
+    #     if isinstance(value, dict):
+    #         value = value['value']
+    #     value = int(value)
+    #     return value
 
     @model_validator(mode="before")
     @classmethod
@@ -1122,16 +1122,16 @@ class PydClientSubmission(PydConcrete):
         self.sql_instance.run    = self.run
         return self.sql_instance, None
     
-    @property
-    def max_sample_rank(self) -> int:
-        output: int = self.full_batch_size
-        if output > 0:
-            return output
-        else:
-            try:
-                return max([getattr(item, "submission_rank", None) or getattr(item, "rank", None) for item in self.sample])
-            except TypeError:
-                return max([getattr(item, "submission_rank", None) for item in self.sql_instance.clientsubmissionsampleassociation])
+    # @property
+    # def max_sample_rank(self) -> int:
+    #     output: int = self.full_batch_size
+    #     if output > 0:
+    #         return output
+    #     else:
+    #         try:
+    #             return max([getattr(item, "submission_rank", None) or getattr(item, "rank", None) for item in self.sample])
+    #         except TypeError:
+    #             return max([getattr(item, "submission_rank", None) for item in self.sql_instance.clientsubmissionsampleassociation])
 
     @property
     def improved_dict(self) -> dict:

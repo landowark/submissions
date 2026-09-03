@@ -5,6 +5,7 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from datetime import datetime
+from dateutil.parser import parse
 from string import ascii_lowercase
 from typing import Generator, TYPE_CHECKING, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
@@ -46,6 +47,12 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):
             output['submissiontype']['value'] = self.submissiontype.name.title()
         except KeyError:
             pass
+        if isinstance(output.get("submitted_date", {}).get("value", None), str):
+            output['submitted_date']['value'] = parse(output['submitted_date']['value'])
+        elif isinstance(output.get("submitted_date", {}).get("value", None), datetime):
+            pass
+        else:
+            raise TypeError(f"Unrecognised type for submitted_date: {type(output.get('submitted_date', {}).get('value', None))}")
         output["submitted_date"]['value'] = datetime.combine(output['submitted_date']['value'], datetime.now().time())
         output['endrow'] = self.end_row
         return output

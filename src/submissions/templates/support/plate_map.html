@@ -1,5 +1,5 @@
 
-        <div class="plate" id="plate-container" style="grid-template-rows: repeat({{ plate_rows }}, 1fr); 
+        <div class="plate" id="plate-container" data-rows="{{ plate_rows }}" data-columns="{{ plate_columns }}" style="grid-template-rows: repeat({{ plate_rows }}, 1fr); 
             aspect-ratio: {{ plate_columns }} / {{ plate_rows }};">
             {% for sample in samples %}
                 <div class="well{% if sample['control_type'] %} {{ sample['control_type'] }}{% endif %}"{% if creation %} draggable="true"{% endif %}{% if sample['sample_id'] %} id="{{ sample['sample_id'] }}"{% endif %}>

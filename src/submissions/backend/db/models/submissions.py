@@ -3,7 +3,6 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from logging import getLogger
-import sys
 logger = getLogger(f"submissions.{__name__}")
 from pydantic import BaseModel
 from getpass import getuser
@@ -43,25 +42,20 @@ class ClientSubmission(BaseClass, LogMixin):
     """
     Object for the client procedure from which all procedure objects will be created.
     """
-
     id = Column(INTEGER, primary_key=True)  #: primary key
     _submitter_plate_id = Column(String(127), unique=True)  #: The number given to the submission by the submitting lab
     _submitted_date = Column(TIMESTAMP)  #: Date submission received
     _clientlab = relationship("ClientLab", back_populates="_clientsubmission")  #: client org
-    clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete="SET NULL",
-                                              name="fk_BS_sublab_id"))  #: client lab id from _organizations
+    clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete="SET NULL", name="fk_BS_sublab_id"))  #: client lab id from _organizations
     submission_category = Column(String(64))  #: i.e. Surveillance
-    full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
+    # full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
     _comment = Column(MutableList.as_mutable(JSON))
     _run = relationship("Run", back_populates="_clientsubmission")  #: many-to-one relationship
     _contact = relationship("Contact", back_populates="_clientsubmission")  #: contact representing submitting lab.
-    contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
-                                            name="fk_BS_contact_id"))  #: contact id from _organizations
-    submissiontype_name = Column(String, ForeignKey("_submissiontype.name", ondelete="SET NULL",
-                                                    name="fk_BS_subtype_name"))  #: name of joined submission type
+    contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL", name="fk_BS_contact_id"))  #: contact id from _organizations
+    submissiontype_name = Column(String, ForeignKey("_submissiontype.name", ondelete="SET NULL", name="fk_BS_subtype_name"))  #: name of joined submission type
     _submissiontype = relationship("SubmissionType", back_populates="_clientsubmission")  #: archetype of this procedure
-    cost_centre = Column(
-        String(64))  #: Permanent storage of used cost centre in case organization field changed in the future.
+    cost_centre = Column(String(64))  #: Permanent storage of used cost centre in case organization field changed in the future.
 
     clientsubmissionsampleassociation = relationship(
         "ClientSubmissionSampleAssociation",
@@ -1284,7 +1278,7 @@ class Run(BaseClass, LogMixin):
         Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
         manager = Manager(parent=obj, input_object=self.to_pydantic())
         default_name = manager.pyd.export_filename
-        output_filepath = select_save_file(obj=obj, default_name=default_name, extension="xlsx")
+        output_filepath = select_save_file(obj=obj, default_name=default_name, filetype="xlsx")
         workbook = manager.write()
         try:
             workbook.remove_sheet("Sheet")
@@ -1309,7 +1303,7 @@ class Run(BaseClass, LogMixin):
         pyd = self.to_pydantic()
         if fname is None:
             from frontend.widgets.functions import select_save_file
-            fname = select_save_file(default_name=pyd.export_filename, extension="xlsx", obj=obj)
+            fname = select_save_file(default_name=pyd.export_filename, filetype="xlsx", obj=obj)
         if fname.name == "":
             return
         writer = pyd.to_writer()

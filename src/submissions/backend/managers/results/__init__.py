@@ -23,7 +23,7 @@ class DefaultResultsManager(DefaultManager):
     def __init__(self, procedure: PydProcedure, parent, input_object: Path | str ):
         self.procedure = procedure
         if not input_object:
-            input_object = select_open_file(title="Select Excel File", filetypes=[("Excel Files", "*.xlsx")])
+            input_object = select_open_file(title="Select Excel File", filetypes="Excel Files (*.xlsx)")
         input_object = Path(input_object) if isinstance(input_object, str) else input_object
         wb = load_workbook(input_object) if isinstance(input_object, (str, Path)) else input_object
         wb.file = input_object
@@ -75,10 +75,10 @@ class DefaultResultsManager(DefaultManager):
 
 class DefaultImageManager(DefaultManager):
 
-    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Image):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Image | None):
         self.procedure = procedure
         if not input_object:
-            input_object = select_open_file(title="Select Image File", filetypes=[("Image Files", "*.png *.jpg *.jpeg *.tif *.tiff")])
+            input_object = select_open_file(filetypes="Image Files (*.png *.jpg *.jpeg *.tif *.tiff)")
         input_object = Path(input_object) if isinstance(input_object, str) else input_object
         input_object = Image.open(input_object) if isinstance(input_object, (str, Path)) else input_object
         super().__init__(parent=parent, input_object=input_object)

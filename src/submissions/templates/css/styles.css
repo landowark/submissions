@@ -140,6 +140,13 @@ div.gallery {
   box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5);
 }
 
+.well.selected {
+  background-color: #4a90e2;
+  color: white;
+  border: 2px solid #2c5aa0;
+  box-shadow: 0 0 10px rgba(74, 144, 226, 0.8);
+}
+
 .grid-item p {
   max-width: 100%;
   border-radius: 8px;

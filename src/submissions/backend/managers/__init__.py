@@ -59,21 +59,7 @@ class DefaultManager(object):
     def set_pyd(self, _depth: int=0):
         if _depth > 2:
             raise RecursionError("set_pyd called too many times; could not resolve input_object.")
-        # if isinstance(self.input_object, str):
-        #     self.input_object = Path(self.input_object)
-        # if isinstance(self.input_object, Path):
-        #     self.input_object = self.input_object.absolute()
-        #     filepath = deepcopy(self.input_object)
-        #     if self.input_object.suffix == ".csv":
-        #         self.input_object = self.csv2xlsx(self.input_object)
-        #         if isinstance(self.input_object, tuple):
-        #             self.input_object = self.input_object[1]
-        #     elif self.input_object.suffix == ".xlsx":
-        #         self.input_object = load_workbook(self.input_object, data_only=True)
-        #     else:
-        #         raise TypeError(f"Unknown file type: {self.input_object.suffix}")
-        #     self.input_object.file = filepath
-        # NOTE: If input_object is a str or path, use parser to construct object
+        logger.debug(f"Setting pydantic object for input: {self.input_object}")
         match self.input_object:
             case Workbook() | Worksheet() | ImageFile():
                 self.pyd = self.parse()
@@ -85,7 +71,7 @@ class DefaultManager(object):
                 logger.warning(f"Unmatched input object: {type(self.input_object)}. Looking for file.")
                 if self.parent is not None:
                     # TODO: Allow for multiple filters. For now, just look for xlsx.
-                    self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(self.parent))
+                    self.input_object = select_open_file(filetypes="Excel Files (*.xlsx)", obj=get_application_from_parent(self.parent))
                     if self.input_object is not None:
                         self.set_pyd(_depth=_depth + 1)
                 else:

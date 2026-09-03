@@ -139,7 +139,7 @@ def upgrade() -> None:
     sa.Column('clientlab_id', sa.INTEGER(), nullable=True),
     sa.Column('submission_category', sa.String(length=64), nullable=True),
     sa.Column('sample_count', sa.INTEGER(), nullable=True),
-    sa.Column('full_batch_size', sa.INTEGER(), nullable=True),
+    # sa.Column('full_batch_size', sa.INTEGER(), nullable=True),
     sa.Column('comments', sa.JSON(), nullable=True),
     sa.Column('contact_id', sa.INTEGER(), nullable=True),
     sa.Column('submissiontype_name', sa.String(), nullable=True),
