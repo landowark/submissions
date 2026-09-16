@@ -40,6 +40,9 @@ class DefaultResultsSampleWriter(DefaultTABLEWriter):
     # NOTE: Required to pass self.sheet to function.
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
+        records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
+        for record in records:
+            pass
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.write_sheet, start_row=start_row)
         return workbook
 

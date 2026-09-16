@@ -3,13 +3,11 @@ All abstract pyd models and associations between abstracts.
 """
 from __future__ import annotations
 from logging import getLogger
-
-from pydantic_core import PydanticUndefinedType
 logger = getLogger(f"submissions.{__name__}")
 from numpy import array as nparray, ndenumerate
 from datetime import timedelta
 from typing import Generator, List, TYPE_CHECKING, Literal, Annotated
-from pydantic import computed_field, field_validator, Field
+from pydantic import field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField
 from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
 from tools import convert_well_to_row_column, IndexDirection, jinja_env
@@ -46,20 +44,23 @@ class PydTips(PydAbstract):
     ref: str = Field(default="NA", description="Reference number from manufacturer.")
     process: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="List of processes using these tips.", repr=False)
     cost_per_tip: float = Field(default=0.00, description="Cost of a single tip.")
+    name: str = Field(default="NA", description="Name of this tip archetype.", validate_default=True)
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def _validate_name(cls, value):
+        if not value or value == "NA":
+            return f"{cls.manufacturer} - {cls.ref}({cls.capacity}uL)"
+        return value
 
-    @computed_field
-    @property
-    def name(self) -> str:
-        return f"{self.manufacturer} - {self.ref}({self.capacity}uL)"
+    @classmethod
+    def determine_field_type(cls, field: str, is_new: bool = False) -> str | None:
+        if field == "name":
+            return "SKIPPED"
+        else:
+            return super().determine_field_type(field, is_new)
 
-    @property
-    def improved_dict(self) -> dict:
-        output = super().improved_dict
-        output['name'] = self.name
-        return output
-
-
+    
 class PydReagentRole(PydAbstract):
 
     name: str = Field(default="NA", description="Name of this reagent role.")

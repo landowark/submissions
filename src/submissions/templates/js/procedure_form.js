@@ -87,19 +87,19 @@ for (let i = 0; i < reagentRoles.length; i++) {
         new_form.appendChild(br.cloneNode());
         new_form.appendChild(submit_btn);
         new_form.appendChild(br.cloneNode());
-        new_form.onsubmit = function(event) {
+        new_form.onsubmit = async function(event) {
             event.preventDefault();
             console.log("new_" + selector.id + "_name");
             rname = document.getElementById("new_" + selector.id + "_name").value;
             lot = document.getElementById("new_" + selector.id + "_lot").value;
-            lims = document.getElementById("new_" + selector.id + "_lims").value;
             expiry = document.getElementById("new_" + selector.id + "_expiry").value;
             backend.add_new_reagent(selector.id, rname, lot, expiry);
             new_form.remove();
+            await reagentrole_startup(reagentRoles[i]);
         }
         new_reg.appendChild(new_form);
     } else {
-        console.log("Checkbox for reagent role: " +  this.id + " " + checkbox);  
+        console.log("Checkbox for reagent role: " +  this.id + " " + checkbox.checked);  
         backend.update_reagent(this.id, this.value, checkbox.checked);
         var newregform = document.getElementById(this.id + "_addition");
         try {
@@ -208,7 +208,8 @@ async function updateTipChoices(role_name, selected) {
     dd.innerHTML = ""; // Clear existing options
     var equipment = document.getElementById(role_name).value;
     var processversion = document.getElementById(role_name + "_process").value;
-    var names = await backend.get_tipslot_names(role_name, equipment, processversion);
+    var names = await backend.get_tipslot_names(processversion);
+    console.log("Updating tip choices for role:", role_name, "Equipment:", equipment, "Processversion:", processversion, "Available tips:", names);
     var chosen = (selected && selected.tipslot) ? selected.tipslot : [];
     names.forEach(function(name) {
         var opt = new Option(name, name);

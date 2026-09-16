@@ -31,11 +31,17 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     date_analyzed: datetime | None = Field(default=None, repr=False, validate_default=True)
     is_sample: bool = Field(default=False, repr=False)
 
+    model_config = ConfigDict(
+            json_schema_extra = {"excluded": ['excluded', 'id', 'misc_info', 'rank', 'enabled', 'result', 'comment',
+                                              'sampleclientsubmissionassociation', 'sampleprocedureassociation', 'resultstype',
+                                              'write_sheet_name']},
+        )
+
     @field_validator("date_analyzed", mode="before")
     @classmethod
     def parse_analyzed(cls, value):
         return parse_optional_datetime(value)
-    
+
     @computed_field
     @property
     def name(self) -> str:
@@ -710,7 +716,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             eoi = PydProcedureEquipmentAssociation(equipment=equipment.to_pydantic(), equipmentrole=equipmentrole, procedure=self)
         logger.debug(f"Querying processversion: {processversion}")
         processversion = ProcessVersion.query(name=processversion, limit=1)
-        logger.debug(f"Found processversionL {processversion}")
+        logger.debug(f"Found processversion {processversion}")
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
         # NOTE Correct pydprocessverion
@@ -804,7 +810,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
             output['run'] = output['run'].name
-        output['platemap'] = self.make_procedure_platemap()
+        if self.sql_instance.id is not None:
+            creation = False
+        else:
+            creation = True
+        output['platemap'] = self.make_procedure_platemap(creation=creation)
         try:
             output['info_results'] = {k: [item.improved_dict.get("result", {}) for item in v] for k, v in self.info_results.items()}
         except AttributeError:
@@ -872,7 +882,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         self.proceduretype = self._strip_procedure_refs(proceduretype_dict)
         return proceduretype_dict
     
-    def make_procedure_platemap(self):
+    def make_procedure_platemap(self, creation: bool = False) -> str:
         from backend.excel.parsers import ClientSubmissionSampleParser as Parser
         sample_dicts = []
         for iii, sample in enumerate(self.sample):
@@ -893,7 +903,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                     logger.error(f"Unparsable sample: {sample}")
                     continue
         assert all([isinstance(s, PydProcedureSampleAssociation) for s in sample_dicts])
-        html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=True, vw_modifier=1.15)
+        html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=creation, vw_modifier=1.15)
         return html
 
     def load_resultstype_settings(self, resultstype: str | PydResultsType, mode: Literal["parser", "writer"] = "parser") -> dict:
@@ -901,6 +911,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             return {}
         resultstype = resultstype.name if isinstance(resultstype, PydResultsType) else resultstype
         return self.sql_instance.load_results_settings(resultstype=resultstype, mode=mode)
+
+
     
 class PydClientSubmission(PydConcrete):
 

@@ -31,8 +31,20 @@ function moveOptions(sourceListId, destinationListId, data, form) {
     console.log("Moving", field, "options from", sourceListId, "to", destinationListId);
     var sourceList = document.getElementById(sourceListId);
     var destinationList = document.getElementById(destinationListId);
-    var manage_name = document.getElementById('ObjectName').innerText.replace('Manage ', '');
-    var editting = document.getElementById('name').value;
+    var manage_name = document.getElementById('ObjectName') ? document.getElementById('ObjectName').innerText.replace('Manage ', '') : '';
+    var nameEl = document.getElementById('name');
+    var editting = '';
+    if (nameEl) {
+        try {
+            editting = nameEl.value;
+        } catch (err) {
+            console.error('Error reading name element value:', err);
+            editting = '';
+        }
+    } else {
+        // Name not present in form (computed or omitted); treat as empty
+        console.debug('Name input not present in form; continuing without it.');
+    }
     Array.from(sourceList.selectedOptions).forEach(option => {
         if (sourceListId.includes("available")) {
             if (form) {

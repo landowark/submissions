@@ -27,6 +27,9 @@ from csv import DictReader as CSVDictReader
 from io import StringIO
 from requests import get as requests_get
 from decimal import Decimal
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.db.models import ResultsType
 
 
 class KrakenViewer(InfoPane):
@@ -40,7 +43,7 @@ class KrakenViewer(InfoPane):
         results_type = ResultsType.query(name="Irida Kraken", limit=1)
         if not results_type:
             raise ValueError("Could not find results type Irida Kraken")
-        self.projects = results_type.saved_settings['projects']
+        self.projects = self.load_projects(results_type)
         # NOTE: set tab2 layout
         self.project_box = QComboBox()
         # NOTE: fetch types of control
@@ -61,6 +64,13 @@ class KrakenViewer(InfoPane):
         self.metadata_box.checkStateChanged.connect(self.update_data)
         self.save_button.pressed.connect(self.save_png)
         self.export_button.pressed.connect(self.save_excel)
+
+    def load_projects(self, resultstype: ResultsType):
+        settings = {}
+        for item in resultstype.load_saved_settings().values():
+            if isinstance(item, dict) and "projects" in item:
+                settings.update(item.get("projects", {}))
+        return settings
 
     @classmethod
     def parse_value(cls, key, value):
@@ -92,7 +102,6 @@ class KrakenViewer(InfoPane):
 
     @classmethod
     def read_metadata(cls, input_dict) -> Generator[dict, None, None]:
-        
         # Extract the base meta.id from the filename 
         # (Extracts 'MCS-Mar2026P6-20260331' from the string)
         filename = input_dict.get('reads.1', '')

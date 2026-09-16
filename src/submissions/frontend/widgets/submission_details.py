@@ -62,7 +62,7 @@ class SubmissionDetails(QDialog):
         self.object_details(object_=self.object_)
 
     def object_details(self, object_):
-        html = object_.to_html()
+        html = object_.to_html(creation=False)
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object_.__class__.__name__} Details - {object_.name}")
         

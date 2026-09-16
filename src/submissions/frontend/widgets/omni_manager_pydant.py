@@ -16,6 +16,9 @@ class OmniManager(QDialog):
     Provides a screen for managing all attributes of a database object.
     """
     def __init__(self, parent: QWidget, object_type: type):
+        """
+        object_type: The Pydantic class type to manage (e.g., PydEquipment, PydReagent, etc.)
+        """
         super().__init__(parent)
         self.object_type = object_type
         self.pydant = None
@@ -43,7 +46,9 @@ class OmniManager(QDialog):
         q = self.sql_type.query()
         if q is not None:
             objects = sorted(
-                [dict(name=item.name, active=item.is_active) for item in q if item.name != "Default SubmissionType"], key=itemgetter("active"), reverse=True)
+                [dict(name=item.name, active=item.is_active) for item in q if item.name != "Default SubmissionType"], key=itemgetter("active"), 
+                reverse=True
+            )
         else:
             objects = []
         object_list = [

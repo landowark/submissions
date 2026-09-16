@@ -143,6 +143,7 @@ class DefaultProcedureManager(DefaultManager):
                 except AttributeError:
                     logger.error(f"Couldn't get {resulttype_name.replace(" ", "")}SampleWriter, using DefaultResultsSampleWriter")
                     Writer = results_writers.DefaultResultsSampleWriter
+                logger.debug(f"Using {Writer.__name__} for {resulttype_name} sample results")
                 res_sample_writer = Writer(pydant_obj=sample_results, resultstype=resulttype_name, proceduretype=self.proceduretype)
                 try:
                     new_start_row = res_info_writer.end_row

@@ -3,9 +3,6 @@ Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
 from logging import handlers, Logger, Formatter, WARNING, INFO, DEBUG, CRITICAL, ERROR, getLogger, StreamHandler
-import os
-import re
-import subprocess
 logger = getLogger(f"submissions.{__name__}")
 from html import escape as html_escape
 from itertools import chain
@@ -41,7 +38,7 @@ from pytz import timezone as tz
 from functools import wraps
 from collections.abc import Iterable
 from enum import Enum
-import builtins, sys
+import builtins, sys, re
 
 builtins.pformat = pformat
 
@@ -80,6 +77,7 @@ def _safe_repr(obj: Any, max_len: int = _MAX) -> str:
     except Exception as e:                       # a broken __repr__ won't break tracing
         return f"<unreprable {type(obj).__name__}: {e!r}>"
     return r if len(r) <= max_len else f"{r[:max_len]}...(+{len(r) - max_len})"
+
 
 def trace(func: F | None = None, *, level: int = DEBUG,
           args: bool = True, result: bool = True, timing: bool = True,
@@ -997,8 +995,8 @@ def handle_results(input_value:dict|str, html: bool=True, keep_iso: bool = False
         case None:
             output = html_escape("NA")
         case _:
-            print(f"\n\nGot unusual input_value: {input_value} of type {type(input_value)}\n\n")
-            if not input_value:
+            logger.warning(f"\n\nGot unusual input_value: {input_value} of type {type(input_value)}\n\n")
+            if input_value is None:
                 return None
             try:
                 output = jdumps(input_value, indent=4)
@@ -1031,16 +1029,16 @@ def sanitize_object_for_json(input_obj):
 
 
 def iterable_enforcer(value, pass_dict: bool = True) -> list:
-        if value is None:
-            return []
-        if isinstance(value, Iterable):
-            if isinstance(value, dict) and pass_dict:
-                pass
-            elif not isinstance(value, str):
-                return list(value)
-            else:
-                pass
-        return [value]
+    if value is None:
+        return []
+    if isinstance(value, Iterable):
+        if isinstance(value, dict) and pass_dict:
+            pass
+        elif not isinstance(value, str):
+            return list(value)
+        else:
+            pass
+    return [value]
 
 
 def is_internal_attr_key(key) -> bool:
@@ -1100,6 +1098,9 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: DictMode 
                 pass
     # Return None if no matching dictionary is found
     raise StopIteration(f"Could not find {key} value")
+
+
+
 
 
 class IndexDirection(Enum):

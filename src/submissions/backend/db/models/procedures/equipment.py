@@ -1120,6 +1120,7 @@ class ProcessVersion(BaseClass):
     
     @classmethod
     def query(cls,
+              process: str | Process | None = None,
               version: str | float | None = None,
               name: str | None = None,
               limit: int = 0,
@@ -1143,6 +1144,14 @@ class ProcessVersion(BaseClass):
         match name:
             case str():
                 query = query.filter(cls.name == name)
+            case _:
+                pass
+        match process:
+            case str():
+                process = Process.query(name=process, limit=1)
+                query = query.filter(cls.process == process)
+            case Process():
+                query = query.filter(cls.process == process)
             case _:
                 pass
         match version:

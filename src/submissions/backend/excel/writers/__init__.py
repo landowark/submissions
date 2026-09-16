@@ -139,12 +139,12 @@ class DefaultTABLEWriter(DefaultWriter):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.pydant_obj = getattr(self.pydant_obj, actual_objs_type) if actual_objs_type else self.pydant_obj
         try:
-            self.excluded = self.pydant_obj[0].class_config.excluded
+            self.excluded = self.pydant_obj[0].class_config.excluded if isinstance(self.pydant_obj, list) else self.pydant_obj.class_config.excluded
         except (IndexError, AttributeError, TypeError) as e:
             logger.exception(f"Error occurred while initializing TABLE writer: {e}")
             self.excluded = []
         try:
-            self.key_value_order = self.pydant_obj[0].class_config.key_value_order
+            self.key_value_order = self.pydant_obj[0].class_config.key_value_order if isinstance(self.pydant_obj, list) else self.pydant_obj.class_config.key_value_order
         except (IndexError, AttributeError, TypeError) as e:
             logger.exception(f"Error occurred while initializing TABLE writer: {e}")
             self.key_value_order = []
@@ -159,10 +159,11 @@ class DefaultTABLEWriter(DefaultWriter):
         return end_row
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int | None = None, *args, **kwargs) -> Workbook:
+                          start_row: int | None = None, 
+                          records: list | None = None, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
-        
-        records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
+        if records is None:
+            records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
         df = DataFrame(records)[self.sorted_header_row]
         df.replace("", npnan, inplace=True)
 

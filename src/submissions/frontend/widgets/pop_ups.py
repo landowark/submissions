@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 )
 from tools import AlertStatus
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from typing import Literal, Any
+from typing import Any
 
 
 class QuestionAsker(QDialog):

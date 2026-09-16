@@ -2,6 +2,7 @@
 Module for default results manager
 """
 from __future__ import annotations
+import csv
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from .. import DefaultManager
@@ -22,9 +23,17 @@ class DefaultResultsManager(DefaultManager):
 
     def __init__(self, procedure: PydProcedure, parent, input_object: Path | str ):
         self.procedure = procedure
-        if not input_object:
-            input_object = select_open_file(title="Select Excel File", filetypes="Excel Files (*.xlsx)")
         input_object = Path(input_object) if isinstance(input_object, str) else input_object
+        if not input_object or not input_object.exists():
+            input_object = select_open_file(title="Select Excel File", filetypes="Excel Files (*.xlsx)")
+        if input_object.suffix == ".csv":
+            input_object, _ = self.csv2xlsx(input_object)
+            # ws = wb.active
+            # with open(input_object, 'r', encoding='utf-8') as f:
+            #     reader = csv.reader(f)
+            #     for row in reader:
+            #         ws.append(row)
+            # input_object = wb
         wb = load_workbook(input_object) if isinstance(input_object, (str, Path)) else input_object
         wb.file = input_object
         super().__init__(parent=parent, input_object=wb)

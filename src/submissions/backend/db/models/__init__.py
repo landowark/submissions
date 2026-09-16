@@ -1484,6 +1484,6 @@ __all__ = ["LogMixin", "ConfigItem",
     "ReagentRole", "Reagent", "ReagentLot", "Discount", "SubmissionType", "ProcedureType", "Procedure", "ProcedureTypeReagentRoleAssociation",
     "ProcedureReagentLotAssociation", "EquipmentRole", "Equipment", "EquipmentRoleEquipmentAssociation", "Process", "ProcessVersion",
     "Tips", "TipsLot", "ProcedureEquipmentAssociation",
-    "ProcedureTypeEquipmentRoleAssociation", "Results",
+    "ProcedureTypeEquipmentRoleAssociation", "Results", "ResultsType", "ProcedureTypeResultsTypeAssociation",
     "ClientSubmission", "Run", "Sample", "ClientSubmissionSampleAssociation", "RunSampleAssociation", "ProcedureSampleAssociation",
     "ClientLab", "Contact"]

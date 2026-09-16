@@ -245,6 +245,26 @@ class RelationshipField:
     def __repr__(self) -> str:
         return f"RelationshipField(uselist={self.uselist})"
 
+class ComputedInputField:
+    """
+    Marker placed in Annotated[..., ComputedInputField()] to tag a Pydantic
+    field as computed for input.
+ 
+    Usage
+    -----
+    from typing import Annotated
+    from pydantic import Field
+ 
+    class PydReagent(PydAbstract):
+        reagentrole: Annotated[PydReagentRole | None, ComputedInputField()] = Field(default=None)
+    """
+ 
+    def __init__(self, computed: bool = True):
+        self.computed = computed
+
+    def __repr__(self) -> str:
+        return f"ComputedInputField(computed={self.computed})"
+
 
 def _get_relationship_marker(field_info: FieldInfo) -> RelationshipField | None:
     """
@@ -1063,6 +1083,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             **kwargs) -> str:
         details_name = self.details_template.name.lower().replace("_details.html", "")
         details = {details_name: self.clean_details_for_render(self.improved_dict | kwargs)}
+        logger.debug(f"Creation in kwargs: {details[details_name].get("creation", None)}")
         if isinstance(css_in, str | Path):
             css_in = [css_in]
         html_folder = Path(jinja_env.loader.__getattribute__("searchpath")[0])

@@ -31,29 +31,6 @@ if TYPE_CHECKING:
     from backend.validators.pydant import PydProcedure
 
 
-# proceduretype_resulttype = Table(
-#     "_proceduretype_resulttype",
-#     Base.metadata,
-#     Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id"), primary_key=True),
-#     Column("resultstype_id", INTEGER, ForeignKey("_resultstype.id"), primary_key=True),
-#     Column("parser_name", String(128), default="DefaultResultsInfoParser"),
-#     Column("info_parser_name", String(128), nullable=True),
-#     Column("sample_parser_name", String(128), nullable=True),
-#     Column("writer_name", String(128), default="DefaultResultsInfoWriter"),
-#     Column("info_writer_name", String(128), nullable=True),
-#     Column("sample_writer_name", String(128), nullable=True),
-#     Column("sheet_name", String(128), default="Results"),
-#     Column("start_row", INTEGER, default=1),
-#     Column("always_used", INTEGER, default=1),
-#     Column("saved_settings", JSON, default=dict),
-#     Column("parse_kwargs", JSON, default=dict),
-#     Column("write_kwargs", JSON, default=dict),
-#     Column("required_fields", JSON, default=list),
-#     Column("sort_order", INTEGER, default=0),
-#     extend_existing=True
-# )
-
-
 submissiontype_proceduretype = Table(
     "_submissiontype_proceduretype",
     Base.metadata,
@@ -1199,12 +1176,10 @@ class Procedure(BaseClass):
     def clientlab(cls):
         # 1. Import necessary components from SQLAlchemy
         from sqlalchemy import select
-        
         # 2. Extract internal target tables from the relationships to build the joins safely
         RunTable = cls._run.property.mapper.class_
         ClientSubmissionTable = RunTable._clientsubmission.property.mapper.class_
         ClientLabTable = ClientSubmissionTable._clientlab.property.mapper.class_
-
         # 3. Construct a scalar subquery joining the paths back to the parent class ID
         return (
             select(ClientLabTable.name)
@@ -1284,7 +1259,6 @@ class Procedure(BaseClass):
                     continue
             if isinstance(output, tuple):
                 output = output[0]
-            
             if isinstance(output, ProcedureReagentLotAssociation):
                 if not self.already_in_collection(output, built):
                     built.append(output)
@@ -1448,10 +1422,10 @@ class Procedure(BaseClass):
                 # If caller provided a clientsubmission object inside the dict, avoid
                 # running Run.query_or_create which may build queries with pagination
                 # applied earlier; instead construct a Run instance directly.
-                if isinstance(cs, BaseClass):
-                    output = Run(**value)
-                else:
-                    output = Run.query_or_create(**value)
+                # if isinstance(cs, BaseClass):
+                #     output = Run(**value)
+                # else:
+                output = Run.query_or_create(**value)
             case PydRun():
                 output = value.to_sql(update=False)
             case Run():
@@ -1708,19 +1682,21 @@ class Procedure(BaseClass):
             if isinstance(sample_sql, tuple):
                 sample_sql = sample_sql[0]
                 # NOTE: If the sql comes back without an association, try to find one by row/column if available.
-                if sample_sql.sampleprocedureassociation is None:
-                    if hasattr(sample, "row") and hasattr(sample, "column"):
-                        logger.info(f"Sample {sample.name} has row {sample.row} and col {sample.column} falling back to row/col association search.")
-                        pass
-                    else:
-                        logger.error(f"Sample {sample.name} has no row/col attributes for procedure {self.name}, cannot find association.")
-                        continue
-                    assoc = next((assoc for assoc in self.proceduresampleassociation if assoc.row == sample.row and assoc.column == sample.column), None)
-                    if assoc is None:
-                        logger.warning(f"No association found for sample {sample.name} at row {sample.row} and col {sample.column}")
-                        continue
-                    else:
-                        sample_sql.sampleprocedureassociation = assoc
+            if sample_sql.sampleprocedureassociation is None:
+                if hasattr(sample, "row") and hasattr(sample, "column"):
+                    logger.info(f"Sample {sample.name} has row {sample.row} and col {sample.column} falling back to row/col association search.")
+                    pass
+                else:
+                    logger.error(f"Sample {sample.name} has no row/col attributes for procedure {self.name}, cannot find association.")
+                    continue
+                assoc = next((assoc for assoc in self.proceduresampleassociation if assoc.row == sample.row and assoc.column == sample.column), None)
+                if assoc is None:
+                    logger.warning(f"No association found for sample {sample.name} at row {sample.row} and col {sample.column}")
+                    continue
+                else:
+                    sample_sql.sampleprocedureassociation = assoc
+            
+            sample_sql.is_sample = 1
             sample_sql.save()
 
     def edit(self, obj):
@@ -2220,6 +2196,8 @@ class Results(BaseClass):
             output = output[0]
         if isinstance(output, ProcedureSampleAssociation):
             self._sampleprocedureassociation = output
+            self.is_sample = 1
+            self.assoc_id = output.id
             try:
                 self.procedure = output.procedure
             except Exception as e:
@@ -2285,6 +2263,7 @@ class Results(BaseClass):
         if self.result:
             for k, v in self.result.items():
                 setattr(output, k, v)
+        output.resultstype = self.resultstype.to_pydantic() if hasattr(self.resultstype, "to_pydantic") else self.resultstype
         return output
 
 
@@ -2299,6 +2278,7 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
     _resultstype = relationship("ResultsType", back_populates="resultstypeproceduretypeassociation")
     _writer_kwargs = Column(JSON)
     _parser_kwargs = Column(JSON)
+    _saved_settings = Column(JSON)
 
     @classproperty
     def aliases(cls) -> List[str]:
@@ -2408,6 +2388,17 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
     def writer_kwargs(self) -> dict:
         return self._writer_kwargs or {}
 
+    @hybrid_property
+    def saved_settings(self) -> dict:
+        return self._saved_settings or {}
+
+    @saved_settings.setter
+    def saved_settings(self, value):
+        if isinstance(value, dict):
+            self._saved_settings = value
+        else:
+            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._saved_settings")
+
     @property
     def manager(self):
         from backend.managers import results
@@ -2419,8 +2410,6 @@ class ResultsType(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), nullable=False, unique=True)
-    _info = Column(JSON) #: where to look for procedure information
-    _samples = Column(JSON) # where to look for sample information
     _results = relationship("Results", back_populates="_resultstype", cascade="all, delete-orphan")
     _proceduretype = association_proxy("resultstypeproceduretypeassociation", "_proceduretype",
                                         creator = lambda proceduretype: ProcedureTypeResultsTypeAssociation(proceduretype=proceduretype))
@@ -2429,10 +2418,7 @@ class ResultsType(BaseClass):
         back_populates="_resultstype",
         cascade="all, delete-orphan"
     )
-    _saved_settings = Column(JSON)
-    _info_key_order = Column(JSON, default=[])
-    _sample_key_order = Column(JSON, default=[])
-
+    
     def __init__(self, *args, **kwargs):
         """
         Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
@@ -2442,11 +2428,6 @@ class ResultsType(BaseClass):
         """
         results = kwargs.pop('results', None)
         proceduretype = kwargs.pop('proceduretype', None)
-        info = kwargs.pop("info", {})
-        samples = kwargs.pop("samples", {})
-        saved_settings = kwargs.pop("saved_settings", {})
-        info_key_order = kwargs.pop("info_key_order", [])
-        sample_key_order = kwargs.pop("sample_key_order", [])
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
@@ -2462,12 +2443,7 @@ class ResultsType(BaseClass):
                 self.results = results
             except Exception:
                 logger.error(f"Couldn't set results to {results} for {self.__class__.__qualname__} with name {self.name}")
-        self.info = info
-        self.samples = samples
-        self.saved_settings = saved_settings
-        self._info_key_order = info_key_order
-        self._sample_key_order = sample_key_order
-
+        
     @hybrid_property
     def proceduretype(self):
         return self._proceduretype
@@ -2542,61 +2518,6 @@ class ResultsType(BaseClass):
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}_results")
         self._results = list_
 
-    @hybrid_property
-    def info(self) -> dict:
-        return self._info
-    
-    @info.setter
-    def info(self, value):
-        if isinstance(value, dict):
-            self._info = value
-        else:
-            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._info")
-
-    @hybrid_property
-    def samples(self) -> dict:
-        return self._samples
-    
-    @samples.setter
-    def samples(self, value):
-        if isinstance(value, dict):
-            self._samples = value
-        else:
-            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._samples")
-
-    @hybrid_property
-    def saved_settings(self):
-        return self._saved_settings or {}
-    
-    @saved_settings.setter
-    def saved_settings(self, value):
-        if isinstance(value, dict):
-            self._saved_settings = value
-        else:
-            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._saved_settings")
-
-    @hybrid_property
-    def info_key_order(self):
-        return self._info_key_order or []
-    
-    @info_key_order.setter
-    def info_key_order(self, value):
-        if isinstance(value, list):
-            self._info_key_order = value
-        else:
-            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._info_key_order")
-        
-    @hybrid_property
-    def sample_key_order(self):
-        return self._sample_key_order or []
-    
-    @sample_key_order.setter
-    def sample_key_order(self, value):
-        if isinstance(value, list):
-            self._sample_key_order = value
-        else:
-            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._sample_key_order")
-
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         return super().to_pydantic(pyd_model_name, **kwargs)
 
@@ -2609,6 +2530,19 @@ class ResultsType(BaseClass):
             return assoc.writer_kwargs if assoc else {}
         else:
             raise ValueError
+
+    def load_saved_settings(self, proceduretype: str | ProcedureType | None= None) -> dict:
+        proceduretype = proceduretype.name if isinstance(proceduretype, ProcedureType) else proceduretype
+        output = {}
+        if proceduretype is None:
+            for pt_assoc in self.resultstypeproceduretypeassociation:
+                pt_name = pt_assoc.proceduretype.name
+                output[pt_name] = pt_assoc.saved_settings
+        else:
+            pt_assoc = next((pt for pt in self.resultstypeproceduretypeassociation if pt.proceduretype.name == proceduretype), None)
+            if pt_assoc:
+                output[proceduretype] = pt_assoc.saved_settings
+        return output
 
 
 from .equipment import *

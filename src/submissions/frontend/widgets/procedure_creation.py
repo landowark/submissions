@@ -149,10 +149,13 @@ class ProcedureCreation(DefaultWebDialog):
                 pyd.sql_instance = existing_lot
             else:
                 new_lot = ReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
+                # TODO: Turn this back on.
                 new_lot.save()
                 pyd.sql_instance = new_lot
         reagentrole_idx, rr_dummy = find_first_matching_dict(key="name", value_to_match=reagentrole, list_of_dicts=self.proceduretype_dict['reagentrole'], mode=DictMode.INDEX)
         reagent_idx, _ = find_first_matching_dict(key="name", value_to_match=reagent, list_of_dicts=rr_dummy['reagent'], mode=DictMode.POP)
+        logger.debug(f"Adding new reagent lot: {pyd} to reagentrole index {reagentrole_idx}, reagent index {reagent_idx}")
+        logger.debug(f"Reagentrole dict: {self.proceduretype_dict['reagentrole'][reagentrole_idx]}")
         self.proceduretype_dict['reagentrole'][reagentrole_idx]['reagent'][reagent_idx]['reagentlot'].insert(0, pyd)
         self.set_html()
 
@@ -218,8 +221,8 @@ class ProcedureCreation(DefaultWebDialog):
             return []
         return [pv.name for process in assoc.process for pv in process.processversion if pv.active]
 
-    @pyqtSlot(str, str, str, result=list)
-    def get_tipslot_names(self, equipmentrole:str, equipment:str, processversion:str) -> list:
+    @pyqtSlot(str, result=list)
+    def get_tipslot_names(self, processversion:str) -> list:
         from backend.db.models import ProcessVersion
         pv = ProcessVersion.query(name=processversion, limit=1)
         if not pv or getattr(pv, "process", None) is None:

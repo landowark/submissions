@@ -26,6 +26,7 @@ class DefaultClientSubmissionManager(DefaultManager):
         from backend.validators.pydant import PydClientSubmission
         # NOTE: So the submissiontype schtick is mostly for a future incident in which I have to scrape 
         # specialized excel sheets.
+        f = None
         if isinstance(input_object, str):
             f = f"{input_object}"
             input_object = Path(input_object)
