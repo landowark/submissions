@@ -10,7 +10,7 @@ from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from datetime import datetime, timedelta
-from tools import check_authorization, classproperty, iterable_enforcer, setup_lookup, timezone
+from tools import check_authorization, classproperty, iterable_enforcer, setup_lookup, timezone, bubble_to_top_of_list
 from typing import List
 from backend.validators.shared import parse_expiry, coerce_int_to_bool, vet_comment
 from .. import BaseClass, LogMixin
@@ -649,7 +649,6 @@ class ReagentLot(BaseClass):
         )
         # NOTE: Can't use f strings for this.
         return regeant_subquery + " - " + cls.lot
-
     
     @classmethod
     def query(cls,
@@ -1108,12 +1107,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         self.save()
 
     def bubble_last_used(self, reagentlot_list: List[str]):
-        logger.debug(f"looking for {self.last_used_lot} in {reagentlot_list}")
-        if self.last_used_lot in reagentlot_list:
-            logger.debug(f"found {self.last_used_lot} in {reagentlot_list}")
-            reagentlot_list.remove(self.last_used_lot)
-            reagentlot_list.insert(0, self.last_used_lot)
-        return reagentlot_list
+        return bubble_to_top_of_list(reagentlot_list, self.last_used.name)
+        
 
 
 class ProcedureReagentLotAssociation(BaseClass):

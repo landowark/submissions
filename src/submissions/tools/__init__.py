@@ -1100,7 +1100,33 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: DictMode 
     raise StopIteration(f"Could not find {key} value")
 
 
+def bubble_to_top_of_list(list_: list, value_to_match, key: str | None = None):
+    """
+    Moves the first primitive or dictionary in the list where the specified key's value matches
+    the value_to_match to the top of the list.
 
+    Args:
+        list_: The list of objects to search.
+        key: The dictionary key to check the value against.
+        value_to_match: The value to match for the given key.
+
+    Returns:
+        None. The list is modified in place.
+    """
+    from backend.validators.pydant import PydBaseClass
+    from backend.db.models import BaseClass
+    if all(isinstance(item, dict) for item in list_) or all(issubclass(item.__class__, (BaseClass, PydBaseClass)) for item in list_):
+        try:
+            _, matching_dict = find_first_matching_dict(list_, key, value_to_match, mode=DictMode.POP)
+            # Insert the matching dictionary at the top of the list
+            list_.insert(0, matching_dict)
+        except StopIteration:
+            logger.warning(f"No matching dictionary found for {key}={value_to_match}. List remains unchanged.")
+    elif all(isinstance(item, (str, int, float, bool)) for item in list_):
+        if value_to_match in list_:
+            list_.remove(value_to_match)
+            list_.insert(0, value_to_match)
+    return list_
 
 
 class IndexDirection(Enum):

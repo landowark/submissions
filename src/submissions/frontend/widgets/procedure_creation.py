@@ -181,6 +181,7 @@ class ProcedureCreation(DefaultWebDialog):
         from backend.db.models import ReagentRole
         role = ReagentRole.query(name=reagentrole_name, limit=1)
         assoc = next((item for item in role.reagentroleproceduretypeassociation if item.proceduretype == self.procedure.proceduretype.sql_instance), None)
+        logger.debug(f"Found association for reagentrole {reagentrole_name} and proceduretype {self.procedure.proceduretype.name}: {assoc}")
         if not role:
             return []
         names = []
@@ -189,6 +190,7 @@ class ProcedureCreation(DefaultWebDialog):
                 if lot.active:
                     names.append(lot.name) # reagentname - lot
         if assoc:
+            logger.debug(f"Attempting to bubble last used reagent lot for association {assoc} with lots: {names}")
             names = assoc.bubble_last_used(reagentlot_list=names)
         return names
 

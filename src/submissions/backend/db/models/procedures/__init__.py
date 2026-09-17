@@ -498,7 +498,7 @@ class SubmissionType(BaseClass):
         :rtype: list[SubmissionType]
         """
         if not resultstype:
-            logger.debug("No results type provided for find_by_resultstype")
+            logger.warning("No results type provided for find_by_resultstype")
             return []
         if isinstance(resultstype, str):
             resultstype = ResultsType.query(name=resultstype, limit=1)
