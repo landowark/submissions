@@ -11,11 +11,10 @@ from typing import Annotated, Any, Dict, Generator, List, Literal, Tuple, TYPE_C
 from pydantic import AfterValidator, ConfigDict, Field, field_validator, computed_field, model_validator
 from PyQt6.QtWidgets import QWidget
 from backend.validators import RSLNamer
-from backend.validators.shared import coerce_none_to_na, coerce_int_to_bool, parse_optional_datetime
+from backend.validators.shared import coerce_none_to_na, parse_optional_datetime, booleanize, parse_expiry
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
 from tools import Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list, convert_row_column_to_well
-from ..shared import parse_expiry
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -118,6 +117,8 @@ class PydReagentLot(PydConcrete):
     missing: bool = Field(default=True, repr=False)
     active: bool = Field(default=True, description="Is this lot currently in use?", repr=False)
 
+    _validate_bool = field_validator("missing", "active", mode="before")(booleanize)
+
     def __repr__(self) -> str:
         return f"<PydReagentLot({self.constructed_name})>"
     
@@ -131,20 +132,20 @@ class PydReagentLot(PydConcrete):
         lot = self.lot or "Unassigned Lot"
         return f"{reagent} - {lot}"
 
-    @field_validator("active", mode="before")
-    @classmethod
-    def active_bool(cls, value):
-        match value:
-            case str():
-                if value.lower() in ["on", "true"," yes"]:
-                    value = True
-                elif value.lower() in ["off", "false", "no"]:
-                    value = False
-                else:
-                    raise ValueError(f"Unparsable string given to 'active' on {cls.__name__}: {value}")
-            case _:
-                pass
-        return bool(value)
+    # @field_validator("active", mode="before")
+    # @classmethod
+    # def active_bool(cls, value):
+    #     match value:
+    #         case str():
+    #             if value.lower() in ["on", "true"," yes"]:
+    #                 value = True
+    #             elif value.lower() in ["off", "false", "no"]:
+    #                 value = False
+    #             else:
+    #                 raise ValueError(f"Unparsable string given to 'active' on {cls.__name__}: {value}")
+    #         case _:
+    #             pass
+    #     return bool(value)
 
     # TODO: Move to shared along with PydTipsLot
     @field_validator("expiry", mode="before")
@@ -449,7 +450,7 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
     def parse_date_verified(cls, value):
         return parse_optional_datetime(value)
     
-    _validate_na = field_validator("active", mode="before")(coerce_int_to_bool)
+    _validate_na = field_validator("active", mode="before")(booleanize)
 
     @property
     def name(self) -> str:
@@ -488,7 +489,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         json_schema_extra = {"excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits', 'comment',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
                'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results", "info_results",
-               "active_reagentroles", "active_equipmentroles", "used_tips", "column_count", "row_count"]},
+               "active_reagentroles", "active_equipmentroles", "used_tips", "column_count", "row_count", "creation"]},
     )
 
     @field_validator("technician", mode="before")
@@ -534,7 +535,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         # convert to pydantic here).
         return value
 
-    _validate_na = field_validator("repeat", mode="before")(coerce_int_to_bool)
+    _validate_na = field_validator("repeat", mode="before")(booleanize)
 
     @field_validator("repeat_of")
     @classmethod
@@ -911,7 +912,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             return {}
         resultstype = resultstype.name if isinstance(resultstype, PydResultsType) else resultstype
         return self.sql_instance.load_results_settings(resultstype=resultstype, mode=mode)
-
 
     
 class PydClientSubmission(PydConcrete):
@@ -1378,7 +1378,7 @@ class PydTipsLot(PydConcrete):
     def tipslot_enforce_expiry(cls, value):
         return parse_expiry(value, days=3650)
     
-    _validate_bool = field_validator("active", mode="before")(coerce_int_to_bool)
+    _validate_bool = field_validator("active", mode="before")(booleanize)
 
     @property
     def name(self) -> str:

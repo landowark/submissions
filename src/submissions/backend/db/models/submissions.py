@@ -1618,6 +1618,7 @@ class Sample(BaseClass, LogMixin):
 
     @is_control.setter
     def is_control(self, value):
+        # Can't use booleanize here because we want to allow for 3 states: positive, negative, and sample.
         self._is_control = self.translate_control(value)
   
     @hybrid_property

@@ -1021,28 +1021,34 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         Updates all instrumented attributes to match the current state of the pydantic model.
         """
+        from backend.validators.shared import booleanize, Booleanize
         attribute_type = self.determine_field_type(key)
-        match attribute_type.upper():
-            case "INTEGER":
-                match value:
-                    case str():
-                        if value.lower() in ["on", "true"," yes"]:
-                            value = 1
-                    case _:
-                        value = int(value)
-            case "BOOL":
-                match value:
-                    case str():
-                        if value.lower() in ["on", "true"," yes"]:
-                            value = True
-                        elif value.lower() in ['off', 'false', 'no']:
-                            value = False
-                        else:
-                            raise ValueError(f"Unparsable string given to 'active' on {self}: {value}")
-                    case _:
-                        value = bool(value)
-            case _:
-                pass
+        # match attribute_type.upper():
+        #     case "INTEGER":
+        #         # match value:
+        #         #     case str():
+        #         #         if value.lower() in ["on", "true"," yes"]:
+        #         #             value = 1
+        #         #     case _:
+        #         #         value = int(value)
+        #         value = booleanize(value, Booleanize.INTEGER)
+        #     case "BOOL":
+        #         # match value:
+        #         #     case str():
+        #         #         if value.lower() in ["on", "true"," yes"]:
+        #         #             value = True
+        #         #         elif value.lower() in ['off', 'false', 'no']:
+        #         #             value = False
+        #         #         else:
+        #         #             raise ValueError(f"Unparsable string given to 'active' on {self}: {value}")
+        #         #     case _:
+        #         #         value = bool(value)
+        #         value = booleanize(value)
+        #     case _:
+        #         pass
+        if attribute_type.upper() in ["INTEGER", "BOOL"]:
+            mode = getattr(Booleanize, attribute_type.upper())
+            value = booleanize(value, mode)
         self.__setattr__(key, value)
         assert getattr(self, key) == value, f"Failed to set {key} to '{value}' for {self}"
 

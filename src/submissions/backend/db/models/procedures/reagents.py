@@ -12,7 +12,7 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 from datetime import datetime, timedelta
 from tools import check_authorization, classproperty, iterable_enforcer, setup_lookup, timezone, bubble_to_top_of_list
 from typing import List
-from backend.validators.shared import parse_expiry, coerce_int_to_bool, vet_comment
+from backend.validators.shared import parse_expiry, vet_comment, booleanize, Booleanize
 from .. import BaseClass, LogMixin
 from . import ProcedureType, Procedure
 
@@ -239,8 +239,6 @@ class ReagentRole(BaseClass):
             logger.error(f"Couldn't find {proceduretype.name} in {[eq.proceduretype.name for eq in self.reagentroleproceduretypeassociation]}")
             return [reagent for reagent in self.reagent]
         return assoc.reagentrole.reagent
-
-    
 
     
 class Reagent(BaseClass, LogMixin):
@@ -619,7 +617,7 @@ class ReagentLot(BaseClass):
 
     @active.setter
     def active(self, value):
-        self._active = int(coerce_int_to_bool(value))
+        self._active = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
     def scan_ids(self):
@@ -930,30 +928,25 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @last_used.setter
     def last_used(self, value):
-        self._last_used = value
+        if isinstance(value, str):
+            value = ReagentLot.query(lot=value, limit=1)
+            if isinstance(value, tuple):
+                value = value[0]
+        if isinstance(value, ReagentLot):
+            self._last_used = value
+        else:
+            raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._last_used. Must be a ReagentLot instance.")
 
     @hybrid_property
     def always_used(self):
         """Return whether this reagent role is always used in the procedure type."""
-        au = getattr(self, "_always_used", 1)
+        # au = getattr(self, "_always_used", 1)
+        au = self._always_used or 1
         return bool(au)
 
     @always_used.setter
     def always_used(self, value):
-        match value:
-            case int():
-                self._always_used = value
-            case bool():
-                self._always_used = int(value)
-            case str():
-                if value.lower() in ['true', '1', 'yes', 'on']:
-                    self._always_used = 1
-                elif value.lower() in ['false', '0', 'no', 'off']:
-                    self._always_used = 0
-                else:
-                    raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._always_used")
-            case _:
-                raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._always_used")
+        self._always_used = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
     def proceduretype(self):

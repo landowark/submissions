@@ -25,7 +25,7 @@ from typing import Any, Generator, Iterator, List, TYPE_CHECKING, Literal, Optio
 from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from backend.validators.shared import parse_optional_datetime, vet_comment
+from backend.validators.shared import parse_optional_datetime, vet_comment, booleanize, Booleanize
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
     from backend.validators.pydant import PydProcedure
@@ -2241,9 +2241,7 @@ class Results(BaseClass):
         
     @is_sample.setter
     def is_sample(self, value):
-        if value is None:
-            value = False
-        self._is_sample = int(value)
+        self._is_sample = booleanize(value, Booleanize.INTEGER)
 
     @property
     def proceduretype(self) -> ProcedureType:

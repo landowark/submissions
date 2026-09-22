@@ -9,7 +9,7 @@ from datetime import timedelta
 from typing import Generator, List, TYPE_CHECKING, Literal, Annotated
 from pydantic import field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField
-from backend.validators.shared import coerce_int_to_bool, coerce_none_to_na
+from backend.validators.shared import coerce_none_to_na, booleanize
 from tools import convert_well_to_row_column, IndexDirection, jinja_env
 if TYPE_CHECKING:
     from .concrete import PydSample, PydProcedureSampleAssociation
@@ -183,7 +183,7 @@ class PydProcedureTypeResultsTypeAssociation(PydAbstract):
     required_fields: List[str] = Field(default_factory=list, description="Fields required to validate or parse this results type.")
     sort_order: int = Field(default=0, description="Ordering hint for display or processing.")
 
-    _validate_na = field_validator("always_used", mode="before")(coerce_int_to_bool)
+    _validate_na = field_validator("always_used", mode="before")(booleanize)
 
 
 class PydProcedureType(PydAbstract):
@@ -338,7 +338,7 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
     equipmentrole: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
     always_used: bool = Field(default=True, description="If true, this equipment role is always required for the procedure type.")
 
-    _validate_na = field_validator("always_used", mode="before")(coerce_int_to_bool)
+    _validate_na = field_validator("always_used", mode="before")(booleanize)
     
     @classproperty
     def aliases(cls) -> List[str]:

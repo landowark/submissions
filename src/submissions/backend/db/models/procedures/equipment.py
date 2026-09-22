@@ -4,7 +4,6 @@ SQLAlchemy models for equipment and equipment roles, including associations with
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
-from tools import Report
 from re import Pattern, compile as rcompile, VERBOSE
 from sqlalchemy import JSON, Column, ForeignKeyConstraint, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, and_, cast, func, select, Table
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -12,8 +11,8 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
 from datetime import datetime
-from tools import check_authorization, setup_lookup, timezone, TimeFill
-from backend.validators.shared import parse_optional_datetime, coerce_int_to_bool, parse_expiry, vet_comment
+from tools import check_authorization, setup_lookup, timezone, TimeFill, Report
+from backend.validators.shared import parse_optional_datetime, booleanize, Booleanize, parse_expiry, vet_comment
 from typing import List, Any, TYPE_CHECKING
 from .. import BaseClass, Base, LogMixin
 from . import ProcedureType, Procedure
@@ -401,6 +400,16 @@ class Equipment(BaseClass, LogMixin):
     @calibration_date.setter
     def calibration_date(self, value):
         self._calibration_date = parse_optional_datetime(value, timefill=TimeFill.MIN)
+
+    @property
+    def calibrated(self) -> bool:
+        """
+        Determine if the equipment is considered calibrated based on its calibration date.
+
+        :return: True if calibrated, False otherwise.
+        :rtype: bool
+        """
+        return self.calibration_date is not None
 
     @classmethod
     @setup_lookup
@@ -1112,7 +1121,7 @@ class ProcessVersion(BaseClass):
 
     @active.setter
     def active(self, value):
-        self._active = int(coerce_int_to_bool(value))
+        self._active = booleanize(value, Booleanize.INTEGER)
 
     @property
     def details_dict(self) -> dict:
@@ -1662,7 +1671,7 @@ class TipsLot(BaseClass, LogMixin):
         :raises ValueError: If string value cannot be converted to boolean.
         :raises TypeError: If type is not supported.
         """
-        self._active = int(coerce_int_to_bool(value))
+        self._active = booleanize(value, Booleanize.INTEGER)
 
     
     @classmethod
@@ -1965,7 +1974,7 @@ class ProcedureEquipmentAssociation(BaseClass):
     _start_time = Column(TIMESTAMP)  #: start time of equipment use
     _end_time = Column(TIMESTAMP)  #: end time of equipment use
     _comment = Column(MutableList.as_mutable(JSON))
-    _calibration_date = Column(TIMESTAMP)
+    # _calibration_date = Column(TIMESTAMP)
 
     _procedure = relationship(Procedure,
                              back_populates="procedureequipmentassociation")  #: associated procedure
@@ -2372,7 +2381,7 @@ class ProcedureEquipmentAssociation(BaseClass):
         :rtype: dict
         """
         return {k: v for k, v in super().details_dict.items() if k not in ['equipmentprocedureassociation']}
-    
+
 
 class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     """
@@ -2429,20 +2438,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     
     @always_used.setter
     def always_used(self, value):
-        match value:
-            case int():
-                self._always_used = value
-            case bool():
-                self._always_used = int(value)
-            case str():
-                if value.lower() in ['true', '1', 'yes', 'on']:
-                    self._always_used = 1
-                elif value.lower() in ['false', '0', 'no', 'off']:
-                    self._always_used = 0
-                else:
-                    raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._always_used")
-            case _:
-                raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._always_used")
+        self._always_used = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
     def name(self):

@@ -5,25 +5,34 @@ from datetime import datetime, date, timedelta
 from dateutil.parser import parse as dateparse, ParserError
 from re import sub as rsub
 from tools import iterable_enforcer, timezone, TimeFill
-from typing import List
+from typing import List, Any
+from enum import Enum
 
 
 def coerce_none_to_na(value: str | None) -> str:
     return "NA" if value is None else value
 
-def coerce_int_to_bool(value) -> bool:
-    if value is None:
-        value = True
-    if isinstance(value, str):
-        if value.lower() in ["false", "0", "no", "off"]:
-            value = False
-        elif value.lower() in ["true", "1", "yes", "on"]:
-            value = True
-        else:
-            raise ValueError(f"Unparseable string {value}")
-    if isinstance(value, int):
-        value = bool(value)
-    return value
+class Booleanize(Enum):
+    INTEGER = int
+    BOOL = bool
+
+def booleanize(value: Any, mode: Booleanize = Booleanize.BOOL) -> int | bool:
+    match value:
+        case int() | bool():
+            output = value
+        case str():
+            if value.lower() in ['true', '1', 'yes', 'on']:
+                output = 1
+            elif value.lower() in ['false', '0', 'no', 'off']:
+                output = 0
+            else:
+                raise ValueError(f"Cannot convert string {value} to booleanize")
+        case None:
+            output = 0
+        case _:
+            raise TypeError(f"Unsupported type {type(value)} to booleanize")
+    return mode.value(output)
+
 
 def parse_optional_datetime(value, timefill: TimeFill | None = None) -> datetime | None:
     from . import SourcedField
