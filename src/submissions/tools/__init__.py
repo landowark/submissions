@@ -233,7 +233,6 @@ def timer(func):
         run_time = end_time - start_time
         print(f"Finished {func.__name__}() in {run_time:.4f} secs")
         return value
-
     return wrapper
 
 

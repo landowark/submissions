@@ -511,16 +511,6 @@ def test_cancelling_leaves_the_existing_form_alone(container, monkeypatch, alert
     assert container.layout().indexOf(first) != -1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="The isinstance guard at submission_widget.py:182-186 is unreachable "
-           "as protection: it runs *after* SampleChecker has already been handed "
-           "`self.pydclientsubmission.sample` at submission_widget.py:180. If "
-           "to_pydantic() ever returns the wrong type, the AttributeError from "
-           "the line above fires first and the assertion never gets to report "
-           "the real problem. Move the check to immediately after the "
-           "to_pydantic() call on line 178. Delete this xfail when fixed.",
-)
 def test_a_wrong_pydantic_type_is_caught_by_the_assertion(container, monkeypatch, alerts):
     _patch_manager(monkeypatch, pyd=object())   # no .sample attribute
     _patch_checker(monkeypatch, accept=True)

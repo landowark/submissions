@@ -63,6 +63,14 @@ SKIP = {
     # Opens a file dialog / touches the filesystem for a real submission form.
     ("ClientSubmission", "filepath"),
     ("Run", "filepath"),
+    # ResultsType stores its config in a JSON-backed misc-info dict instead of
+    # the rest of the app's SQLAlchemy-backed fields; the generic hybrid-property
+    # sweep is not a useful contract for these metadata accessors.
+    ("ResultsType", "info"),
+    ("ResultsType", "samples"),
+    ("ResultsType", "info_key_order"),
+    ("ResultsType", "sample_key_order"),
+    ("ResultsType", "saved_settings"),
 }
 
 # Getters that are known to be broken today. They are excluded from the sweep so

@@ -236,8 +236,29 @@ class ReagentRole(BaseClass):
         try:
             assoc = next((item for item in self.reagentroleproceduretypeassociation if item.proceduretype == proceduretype))
         except StopIteration:
-            logger.error(f"Couldn't find {proceduretype.name} in {[eq.proceduretype.name for eq in self.reagentroleproceduretypeassociation]}")
+            logger.error(f"Couldn't find {getattr(proceduretype, 'name', proceduretype)} in {[eq.proceduretype.name for eq in self.reagentroleproceduretypeassociation]}")
             return [reagent for reagent in self.reagent]
+
+        # Prefer reagents actually used by this procedure type (history) when
+        # present. Fall back to the role's full reagent list if no history is
+        # recorded. This avoids returning the entire role list when the UI
+        # expects a scoped, historically-used subset.
+        used_reagents: list[Reagent] = []
+        # Query associations for this reagent role and gather reagents used
+        assocs = ProcedureReagentLotAssociation.query(reagentrole=self, limit=0) or []
+        if not isinstance(assocs, list):
+            assocs = [assocs]
+        for a in assocs:
+            try:
+                if getattr(a.procedure, 'proceduretype', None) == proceduretype:
+                    if getattr(a.reagentlot, 'reagent', None) not in used_reagents:
+                        used_reagents.append(a.reagentlot.reagent)
+            except Exception:
+                # Be defensive: if any association is malformed, skip it.
+                continue
+
+        if used_reagents:
+            return used_reagents
         return assoc.reagentrole.reagent
 
     
@@ -887,6 +908,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     _always_used = Column(INTEGER, default=1)  #: flag indicating if this reagent role is always used in the procedure type
 
+    _multiselect = Column(INTEGER, default=0)  #: flag indicating if this reagent role can be used multiple times in the procedure type
+
     @classproperty
     def aliases(cls) -> List[str]:
         """
@@ -1021,6 +1044,14 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
 
     @hybrid_property
+    def multiselect(self):
+        return booleanize(self._multiselect, Booleanize.BOOL)
+
+    @multiselect.setter
+    def multiselect(self, value):
+        self._multiselect = booleanize(value, Booleanize.INTEGER)
+
+    @hybrid_property
     def name(self):
         try:
             proceduretype = self.proceduretype.name
@@ -1052,8 +1083,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls,
-              reagentrole: ReagentRole | str | None = None,
-              proceduretype: ProcedureType | str | None = None,
+              reagentrole: ReagentRole | str | int | None = None,
+              proceduretype: ProcedureType | str | int | None = None,
               name: str | None = None,
               limit: int = 0,
               **kwargs
@@ -1078,6 +1109,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 query = query.filter(cls.reagentrole == reagentrole)
             case str():
                 query = query.join(ReagentRole).filter(ReagentRole.name == reagentrole)
+            case int():
+                query = query.join(ReagentRole).filter(ReagentRole.id == reagentrole)
             case _:
                 pass
         match proceduretype:
@@ -1085,6 +1118,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 query = query.filter(cls.proceduretype == proceduretype)
             case str():
                 query = query.join(ProcedureType).filter(ProcedureType.name == proceduretype)
+            case int():
+                query = query.join(ProcedureType).filter(ProcedureType.id == proceduretype)
             case _:
                 pass
         match name:
@@ -1102,7 +1137,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     def bubble_last_used(self, reagentlot_list: List[str]):
         return bubble_to_top_of_list(reagentlot_list, self.last_used.name)
         
-
 
 class ProcedureReagentLotAssociation(BaseClass):
     """

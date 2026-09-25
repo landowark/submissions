@@ -43,14 +43,14 @@
                     {% for reagentrole in proceduretype['reagentrole'] %}
                     {% if reagentrole is mapping %}
                         {% set rname = reagentrole.get('name') %}
-                        
+                        <!-- {{ reagentrole.get['multiselect'] }} -->
                     {% else %}
                         {% set rname = reagentrole %}
                         
                     {% endif %}
                     <div class="reagentrole_container">
                         <input type="checkbox" class="procedure_checkbox" id="{{ rname }}_check" name="{{ rname }}" {% if rname in procedure['active_reagentroles'] %}checked{% endif %}><label for="{{ rname }}">{{ rname }}:</label><br>
-                        <select class="reagentrole dropdown" id="{{rname}}" name="{{rname}}" {% if rname not in procedure['active_reagentroles'] %}disabled{% endif %}>
+                        <select class="reagentrole dropdown" id="{{rname}}" name="{{rname}}" {% if reagentrole is mapping and reagentrole.get('multiselect') in [True, true, 'true', 'True', 1, '1'] %}multiple{% endif %} {% if rname not in procedure['active_reagentroles'] %}disabled{% endif %}>
                         </select>
                         <!-- <select class="reagentrole dropdown" id="{{ rname }}" name="{{ rname }}" {% if rname not in procedure['active_reagentroles'] %}disabled{% endif %}>
                                 {% if reagentrole is mapping %}

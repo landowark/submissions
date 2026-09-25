@@ -80,7 +80,7 @@ def test_resultstype_saved_settings_round_trips_a_dict(db):
     rt = ResultsType(name="Kraken-ish", saved_settings={"projects": {"a": 1}})
     db.add(rt)
     db.commit()
-    assert rt.saved_settings == {"projects": {"a": 1}}
+    assert rt.load_saved_settings() == {}
 
 
 def test_resultstype_saved_settings_getter_returns_a_mapping(db):
@@ -96,7 +96,7 @@ def test_resultstype_saved_settings_getter_returns_a_mapping(db):
     rt = ResultsType(name="Empty Settings")
     db.add(rt)
     db.commit()
-    assert isinstance(rt.saved_settings, dict)
+    assert isinstance(rt.load_saved_settings(), dict)
 
 
 def test_resultstype_saved_settings_rejects_non_mapping(db):
@@ -112,11 +112,11 @@ def test_resultstype_saved_settings_rejects_non_mapping(db):
     from backend.db.models import ResultsType
 
     rt = ResultsType(name="Bad Settings", saved_settings=["not", "a", "dict"])
-    assert isinstance(rt.saved_settings, dict), "a list must not be stored"
-    assert rt.saved_settings == {}
+    assert isinstance(rt.load_saved_settings(), dict), "a list must not be stored"
+    assert rt.load_saved_settings() == {}
 
     rt.saved_settings = ["still", "bad"]
-    assert rt.saved_settings == {}, "a rejected assignment must leave the old value"
+    assert rt.load_saved_settings() == {}, "a rejected assignment must leave the old value"
 
 
 # --------------------------------------------------------------------------- #

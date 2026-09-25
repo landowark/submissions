@@ -171,7 +171,7 @@ class SubmissionFormContainer(QWidget):
         # NOTE: set file dialog
         if isinstance(fname, bool) or fname is None:
             fname = select_open_file(self, file_extension="xlsx")
-        if not fname or not fname.exists():
+        if not fname:
             report.add_result(Alert(msg=f"File {fname.__str__()} not found.", status=AlertStatus.WARNING.value))
             return report
         # NOTE: create sheetparser using excel sheet and context from gui

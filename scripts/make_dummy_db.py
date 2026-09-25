@@ -641,11 +641,12 @@ def seed_submissions(session, rng: Random, labs, contacts, submissiontypes,
 
             # One procedure-level result record, plus one per sample.
             for resultstype in proceduretype.resultstype:
+                info = getattr(resultstype, "info", {}) or {}
                 session.add(Results(
                     procedure=procedure,
                     resultstype=resultstype,
                     date_analyzed=procedure_done,
-                    result={key: value for key, value in resultstype.info.items()},
+                    result={key: value for key, value in info.items()},
                 ))
                 for assoc in procedure.proceduresampleassociation:
                     result = _fake_sample_result(rng, resultstype.name)

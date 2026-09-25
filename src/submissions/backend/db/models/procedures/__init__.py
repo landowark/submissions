@@ -922,10 +922,58 @@ class ProcedureType(BaseClass):
                     sample_list.append(sample)
 
         pyd_proc_type = self.to_pydantic()
+        # Expand the association objects so association-level flags (e.g. multiselect)
+        # are available. Expand the ProcedureType<->ReagentRole association then
+        # merge the association fields into the reagentrole entries.
         expanded = pyd_proc_type.improved_dict_expand_fields([
-            {"reagentrole": [{"reagent": ["reagentlot"]}]},
+            {"proceduretypereagentroleassociation": [{"reagentrole": [{"reagent": ["reagentlot"]}]}]},
             {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", {"process": ["processversion", "tips"]}]}]}
         ])
+
+        # Merge association-level fields into the top-level reagentrole list
+        assoc_list = expanded.get('proceduretypereagentroleassociation', [])
+        reagentrole_list = expanded.get('reagentrole', []) or []
+        merged_reagentroles = []
+        seen_reagentroles = set()
+
+        for item in reagentrole_list:
+            if not isinstance(item, dict):
+                merged_reagentroles.append(item)
+                continue
+            name = item.get('name')
+            if name is None:
+                merged_reagentroles.append(item)
+                continue
+            if name not in seen_reagentroles:
+                seen_reagentroles.add(name)
+                merged_reagentroles.append(item)
+
+        for assoc in assoc_list:
+            rr = assoc.get('reagentrole') or {}
+            if not isinstance(rr, dict):
+                continue
+            for k, v in assoc.items():
+                if k in ('reagentrole', 'name'):
+                    continue
+                if k == 'multiselect':
+                    rr['multiselect'] = bool(v)
+                else:
+                    rr[k] = v
+            rr_name = rr.get('name')
+            if rr_name is None:
+                merged_reagentroles.append(rr)
+                continue
+            existing = next((item for item in merged_reagentroles if isinstance(item, dict) and item.get('name') == rr_name), None)
+            if existing is None:
+                merged_reagentroles.append(rr)
+                seen_reagentroles.add(rr_name)
+            else:
+                existing.update(rr)
+
+        expanded['reagentrole'] = merged_reagentroles
+        if 'proceduretypereagentroleassociation' in expanded:
+            del expanded['proceduretypereagentroleassociation']
+
         pyd_proc_type.model_extra.update(expanded)
 
         pyd = PydProcedure(
@@ -2135,7 +2183,7 @@ class Results(BaseClass):
             self._resultstype = output
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._resultstype to {type(output)}")
-    
+
     @hybrid_property
     def procedure(self):
         return self._procedure
@@ -2541,7 +2589,7 @@ class ResultsType(BaseClass):
             if pt_assoc:
                 output[proceduretype] = pt_assoc.saved_settings
         return output
-
+    
 
 from .equipment import *
 from .reagents import *

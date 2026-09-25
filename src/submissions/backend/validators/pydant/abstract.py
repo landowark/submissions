@@ -48,10 +48,13 @@ class PydTips(PydAbstract):
 
     @field_validator("name", mode="before")
     @classmethod
-    def _validate_name(cls, value):
-        if not value or value == "NA":
-            return f"{cls.manufacturer} - {cls.ref}({cls.capacity}uL)"
-        return value
+    def _validate_name(cls, value, values):
+        if value and value != "NA":
+            return value
+        manufacturer = values.data.get("manufacturer") or "Unknown"
+        ref = values.data.get("ref") or "NA"
+        capacity = values.data.get("capacity") or 0
+        return f"{manufacturer} - {ref}({capacity}uL)"
 
     @classmethod
     def determine_field_type(cls, field: str, is_new: bool = False) -> str | None:
@@ -319,6 +322,7 @@ class PydProcedureTypeReagentRoleAssociation(PydAbstract):
     reagentrole: Annotated[str, RelationshipField(uselist=False)] = Field(default="NA")
     always_used: bool = Field(default=True, description="If true, this reagent role is always required for the procedure type.")
     last_used: str = Field(default="NA")
+    multiselect: bool = Field(default=False, description="If true, multiple lots may be used in this reagent role.")
 
     @field_validator("last_used", mode="before")
     @classmethod

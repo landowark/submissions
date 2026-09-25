@@ -102,7 +102,7 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, str, str, QVariant)
     @pyqtSlot(str, str, str, QVariant, bool)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
-        logger.debug(f"incoming processversion: {processversion}")
+        # logger.debug(f"incoming processversion: {processversion}")
         self.procedure.update_equipment(equipmentrole=equipmentrole, equipment=equipment, processversion=processversion, tips=tips, checked=checked)
 
     @pyqtSlot(str, str)
@@ -128,7 +128,7 @@ class ProcedureCreation(DefaultWebDialog):
 
     @pyqtSlot(list)
     def rearrange_plate(self, sample_list: List[dict]):
-        logger.debug(f"Rearranging plate with sample_list: {pformat(sample_list)}")
+        # logger.debug(f"Rearranging plate with sample_list: {pformat(sample_list)}")
         self.procedure.update_samples(sample_list=sample_list)
 
     @pyqtSlot(str)
@@ -147,15 +147,13 @@ class ProcedureCreation(DefaultWebDialog):
             existing_lot = ReagentLot.query(reagent=reagent, lot=lot, limit=1)
             if existing_lot:
                 pyd.sql_instance = existing_lot
+                existing_lot.active = True
             else:
                 new_lot = ReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
-                # TODO: Turn this back on.
                 new_lot.save()
                 pyd.sql_instance = new_lot
         reagentrole_idx, rr_dummy = find_first_matching_dict(key="name", value_to_match=reagentrole, list_of_dicts=self.proceduretype_dict['reagentrole'], mode=DictMode.INDEX)
         reagent_idx, _ = find_first_matching_dict(key="name", value_to_match=reagent, list_of_dicts=rr_dummy['reagent'], mode=DictMode.POP)
-        logger.debug(f"Adding new reagent lot: {pyd} to reagentrole index {reagentrole_idx}, reagent index {reagent_idx}")
-        logger.debug(f"Reagentrole dict: {self.proceduretype_dict['reagentrole'][reagentrole_idx]}")
         self.proceduretype_dict['reagentrole'][reagentrole_idx]['reagent'][reagent_idx]['reagentlot'].insert(0, pyd)
         self.set_html()
 
@@ -173,24 +171,38 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, result=list)
     def get_reagent_names(self, reagentrole_name: str):
         from backend.db.models import ReagentRole
-        reagentrole = ReagentRole.query(name=reagentrole_name)
-        return [item.name for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
+        reagentrole = ReagentRole.query(name=reagentrole_name, limit=1)
+        if not reagentrole:
+            return []
+        return [getattr(item, "name", str(item)) for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
 
     @pyqtSlot(str, result=list)
     def get_reagentlot_names(self, reagentrole_name: str):
         from backend.db.models import ReagentRole
         role = ReagentRole.query(name=reagentrole_name, limit=1)
-        assoc = next((item for item in role.reagentroleproceduretypeassociation if item.proceduretype == self.procedure.proceduretype.sql_instance), None)
-        logger.debug(f"Found association for reagentrole {reagentrole_name} and proceduretype {self.procedure.proceduretype.name}: {assoc}")
         if not role:
             return []
-        names = []
+
+        # Normalise proceduretype to the SQL-backed ProcedureType when possible
+        proc_type = getattr(self.procedure.proceduretype, "sql_instance", self.procedure.proceduretype)
+        assoc = next((item for item in role.reagentroleproceduretypeassociation if item.proceduretype == proc_type), None)
+        # logger.debug(f"Found association for reagentrole {reagentrole_name} and proceduretype {getattr(self.procedure.proceduretype, 'name', self.procedure.proceduretype)}: {assoc}")
+        names: list[str] = []
         for reagent in role.get_reagents(proceduretype=self.procedure.proceduretype):
-            for lot in reagent.reagentlot:
-                if lot.active:
-                    names.append(lot.name) # reagentname - lot
-        if assoc:
-            logger.debug(f"Attempting to bubble last used reagent lot for association {assoc} with lots: {names}")
+            for lot in getattr(reagent, 'reagentlot', []):
+                # Lots may be SQL objects or, in fallback/pydantic cases, simple strings.
+                if isinstance(lot, str):
+                    # Treat string lots as active and use the string as the name.
+                    names.append(lot)
+                    continue
+                # Defensive attribute access for lot objects
+                active = getattr(lot, 'active', True)
+                lot_name = getattr(lot, 'name', None)
+                if active and lot_name is not None:
+                    names.append(lot_name)
+
+        if assoc and getattr(assoc, 'last_used', None) is not None:
+            # logger.debug(f"Attempting to bubble last used reagent lot for association {assoc} with lots: {names}")
             names = assoc.bubble_last_used(reagentlot_list=names)
         return names
 
