@@ -684,19 +684,26 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         q = ProcedureTypeReagentRoleAssociation.query(proceduretype=self.proceduretype, reagentrole=reagentrole, limit=1)
         return q._last_used
 
-    def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str | None = None, checked:bool=True):
+    def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str | None = None, checked:bool=True, multiple:bool=False):
         from backend.db.models import ReagentLot
-        try:
-            # Find the existing reagentlot association with this role, if it exists.
-            removable = next((item for item in self.reagentlot if reagentrole == item.reagentrole), None)
-        except AttributeError as e:
-            logger.exception(e)
-            removable = None
+        idx = 0
+        if not multiple:
+            try:
+                # Find the existing reagentlot association with this role, if it exists.
+                removable = next((item for item in self.reagentlot if reagentrole == item.reagentrole), None)
+            except AttributeError as e:
+                logger.exception(e)
+                removable = None
+        else:
+            try:
+                removable = next((item for item in self.reagentlot if reagentrole == item.reagentrole and lot == item.reagentlot.lot), None)
+            except AttributeError as e:
+                logger.exception(e)
+                removable = None        
         if removable:
             idx = self.reagentlot.index(removable)
             self.reagentlot.pop(idx)
-        else:
-            idx = 0
+        
         reagentlot = ReagentLot.query(reagent=name, lot=lot, limit=1)
         if not reagentlot:
             logger.warning(f"Could not find reagentlot {name} to update. Creating new reagentlot.")
@@ -705,6 +712,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
             self.reagentlot.insert(idx, insertable)
+        logger.debug(f"Reagents: {pformat(self.reagentlot)}")
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot

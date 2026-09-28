@@ -163,17 +163,21 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, list, bool)
     def update_reagent(self, reagentrole: str, name_lot_expiry: str | List[str], checked:bool=True):
         logger.debug(f"Input value: {name_lot_expiry}")
+        multiple = False
         if name_lot_expiry in ("", "--New--"):
             return
         if not isinstance(name_lot_expiry, list):
             name_lot_expiry = [name_lot_expiry]
+        if len(name_lot_expiry) > 1:
+            multiple = True
         for item in name_lot_expiry:
             try:
                 name, lot = item.split(" - ", 1)
             except ValueError as e:
                 logger.error(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
                 continue
-            self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, checked=checked)
+            logger.debug(f"Updating procedurereagentlotassociations with reagentlot {lot}, reagentrole {reagentrole}")
+            self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, checked=checked, multiple=multiple)
 
     @pyqtSlot(str, result=list)
     def get_reagent_names(self, reagentrole_name: str):
