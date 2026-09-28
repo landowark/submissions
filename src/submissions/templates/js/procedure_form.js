@@ -99,8 +99,15 @@ for (let i = 0; i < reagentRoles.length; i++) {
         }
         new_reg.appendChild(new_form);
     } else {
-        console.log("Checkbox for reagent role: " +  this.id + " " + checkbox.checked);  
-        backend.update_reagent(this.id, this.value, checkbox.checked);
+        console.log("Checkbox for reagent role: " +  this.id + " " + checkbox.checked);
+        console.log("Multiple: ", this.hasAttribute("multiple"));
+        if (this.hasAttribute("multiple")) {
+            output_value = getSelectValues(this);
+        } else {
+            output_value = this.value;
+        }
+        console.log("Output value:", output_value);
+        backend.update_reagent(this.id, output_value, checkbox.checked);
         var newregform = document.getElementById(this.id + "_addition");
         try {
             newregform.remove();

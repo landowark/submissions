@@ -835,49 +835,37 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             ])
 
         # Merge association-level fields into the top-level reagentrole list
-        assoc_list = proceduretype_dict.get('proceduretypereagentroleassociation', [])
-        reagentrole_list = proceduretype_dict.get('reagentrole', []) or []
-        merged_reagentroles = []
-        seen_reagentroles = set()
+        assoc_list = proceduretype_dict.get("proceduretypereagentroleassociation", [])
+        existing = proceduretype_dict.get("reagentrole", []) or []
 
-        for item in reagentrole_list:
-            if not isinstance(item, dict):
-                merged_reagentroles.append(item)
-                continue
-            name = item.get('name')
-            if name is None:
-                merged_reagentroles.append(item)
-                continue
-            if name not in seen_reagentroles:
-                seen_reagentroles.add(name)
-                merged_reagentroles.append(item)
+        merged = {}
+
+        for item in existing:
+            if isinstance(item, dict) and item.get("name") is not None:
+                merged[item["name"]] = dict(item)
 
         for assoc in assoc_list:
-            rr = assoc.get('reagentrole') or {}
+            rr = assoc.get("reagentrole") or {}
             if not isinstance(rr, dict):
                 continue
-            for k, v in assoc.items():
-                if k in ('reagentrole', 'name'):
-                    continue
-                if k == 'multiselect':
-                    rr['multiselect'] = bool(v)
-                else:
-                    rr[k] = v
-            rr_name = rr.get('name')
-            if rr_name is None:
-                merged_reagentroles.append(rr)
+            name = rr.get("name")
+            if name is None:
                 continue
-            existing = next((item for item in merged_reagentroles if isinstance(item, dict) and item.get('name') == rr_name), None)
-            if existing is None:
-                merged_reagentroles.append(rr)
-                seen_reagentroles.add(rr_name)
-            else:
-                existing.update(rr)
 
-        proceduretype_dict['reagentrole'] = merged_reagentroles
-        if 'proceduretypereagentroleassociation' in proceduretype_dict:
-            del proceduretype_dict['proceduretypereagentroleassociation']
-        
+            merged.setdefault(name, dict(rr))
+            for k, v in assoc.items():
+                if k in ("reagentrole", "name"):
+                    continue
+                if k == "multiselect":
+                    merged[name]["multiselect"] = bool(v)
+                else:
+                    merged[name][k] = v
+            merged[name].update(rr)
+
+        proceduretype_dict["reagentrole"] = list(merged.values())
+        if "proceduretypereagentroleassociation" in proceduretype_dict:
+            del proceduretype_dict["proceduretypereagentroleassociation"]
+                
         for reagentlot in self.reagentlot:
             proceduretype_reagentrole: dict = next((item for item in proceduretype_dict['reagentrole'] if item['name'] == reagentlot.reagentrole), None)
             if not proceduretype_reagentrole:

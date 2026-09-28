@@ -1,3 +1,7 @@
+# 202609.5
+
+- Added in enabling multiselect for reagents (i.e. the positive control).
+
 # 202608.1
 
 - Fixed issue with platemap not populating in details.
