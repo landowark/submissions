@@ -48,10 +48,12 @@ def parse_optional_datetime(value, timefill: TimeFill | None = None) -> datetime
             pass
     match value:
         case str():
+            if value == "NA":
+                value = "1970-01-01"
             string = rsub(r"(_|-)\d(R\d)?$", "", value)
             try: 
                 output = dateparse(string)
-            except ParserError: 
+            except ParserError as e: 
                 logger.exception(f"Problem parsing date: {e}")
                 try:
                     output = dateparse(string.replace("-", ""))

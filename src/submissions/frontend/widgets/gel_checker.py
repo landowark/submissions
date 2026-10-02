@@ -21,8 +21,6 @@ class GelBox(QWidget):
     def __init__(self, parent, img: ImageFile):
         super().__init__(parent)
         self.img = img
-        logger.debug(type(img))
-        
         # NOTE: setting geometry
         # self.setGeometry(50, 50, 1200, 900)
         self.UiComponents()

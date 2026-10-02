@@ -45,6 +45,7 @@ def submission_row_data(submission) -> dict:
         dict(
             rsl_plate_number=run.rsl_plate_number,
             procedure=[proc.name for proc in run.procedure],
+            approved=run.approved
         )
         for run in submission.run
     ]
@@ -91,7 +92,6 @@ class SubmissionsTree(QTreeView):
                 color: white;
             }
         """)
-
         # NOTE: Enable alternating row colors
         self.setAlternatingRowColors(True)
         self.setIndentation(20)
@@ -99,6 +99,20 @@ class SubmissionsTree(QTreeView):
         self.setSortingEnabled(True)
         self.sortByColumn(3, Qt.SortOrder.DescendingOrder)
         self.expanded.connect(self._route_expansion)
+
+    def make_run_dict(self, run):
+        from backend.db.models import Run
+        heavy_check = "\u2714"
+        if run['approved']:
+            name = f"{run['rsl_plate_number']} {heavy_check}"
+        else:
+            name = run['rsl_plate_number'] 
+        return dict(
+                        name=name,
+                        query_str=run['rsl_plate_number'],
+                        item_type=Run,
+                        raw_procedure_data=run.get('procedure', [])
+                    )
 
     def _route_expansion(self, index: QModelIndex):
         """Intercepts tree node expansion requests to build sub-items dynamically."""
@@ -114,12 +128,8 @@ class SubmissionsTree(QTreeView):
             if runs_data:
                 self.model.beginInsertRows(index, 0, len(runs_data) - 1)
                 for run in runs_data:
-                    run_node = TreeItem(dict(
-                        name=run['rsl_plate_number'],
-                        query_str=run['rsl_plate_number'],
-                        item_type=Run,
-                        raw_procedure_data=run.get('procedure', [])
-                    ), item)
+                    logger.debug(run)
+                    run_node = TreeItem(self.make_run_dict(run), item)
                     item.child_items.append(run_node)
                 self.model.endInsertRows()
             else:

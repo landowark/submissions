@@ -92,6 +92,13 @@ class PydResultsType(PydAbstract):
     results: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
     proceduretype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
 
+    @property
+    def sample_key_order(self):
+        return []
+
+    @property
+    def info_key_order(self):
+        return []
         
 class PydSubmissionType(PydAbstract):
     

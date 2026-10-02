@@ -20,15 +20,18 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
 from datetime import date, datetime, timedelta
-from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list, timezone
-from typing import Any, Generator, Iterator, List, TYPE_CHECKING, Literal, Optional
+from tools import TimeFill, check_authorization, iterable_enforcer, setup_lookup, flatten_list, timezone, ResultsMode
+from typing import Any, Dict, Generator, Iterator, List, TYPE_CHECKING, Literal, Optional, Tuple
 from .. import BaseClass, Base, ClientLab
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
+
+
 from backend.validators.shared import parse_optional_datetime, vet_comment, booleanize, Booleanize
 if TYPE_CHECKING:
-    from backend.db.models.submissions import Run
-    from backend.validators.pydant import PydProcedure
+    from backend.db.models.submissions import Run, ClientSubmission, Sample
+    from backend.validators.pydant import PydProcedure, PydResults, PydResultsType
+    from backend.managers.results import DefaultResultsManager
 
 
 submissiontype_proceduretype = Table(
@@ -96,7 +99,7 @@ class Discount(BaseClass):
                 logger.error(f"Couldn't set clientlab to {clientlab} for {self.__class__.__qualname__} with description {self.description}")
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             clientlab = self.clientlab.name
         except AttributeError:
@@ -289,7 +292,7 @@ class SubmissionType(BaseClass):
                 logger.error(f"Couldn't set clientsubmission to {clientsubmission} for {self.__class__.__qualname__} with name {self.name}")
     
     @hybrid_property
-    def file_name_template(self):
+    def file_name_template(self) -> str:
         return self._file_name_template or "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y%m%d %H%M%S') }}{% endif %}"
     
     @file_name_template.setter
@@ -297,7 +300,7 @@ class SubmissionType(BaseClass):
         self._file_name_template = value or "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}"
 
     @hybrid_property
-    def clientsubmission(self):
+    def clientsubmission(self) -> List[ClientSubmission]:
         return self._clientsubmission
 
     @clientsubmission.setter
@@ -332,7 +335,7 @@ class SubmissionType(BaseClass):
         self._clientsubmission = list_
 
     @hybrid_property
-    def proceduretype(self):
+    def proceduretype(self) -> List[ProcedureType]:
         return self._proceduretype
 
     @proceduretype.setter
@@ -366,7 +369,7 @@ class SubmissionType(BaseClass):
         self._proceduretype = list_
     
     @hybrid_property
-    def turnaround_time(self):
+    def turnaround_time(self) -> timedelta:
         return self._turnaround_time or timedelta(days=5)
         
     @turnaround_time.setter
@@ -385,7 +388,7 @@ class SubmissionType(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}.turnaround_time to {type(output)}")
 
     @hybrid_property
-    def abbreviation(self):
+    def abbreviation(self) -> str:
         return self._abbreviation
     
     @abbreviation.setter
@@ -650,7 +653,7 @@ class ProcedureType(BaseClass):
                 logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def equipmentrole(self):
+    def equipmentrole(self) -> List[EquipmentRole]:
         return self._equipmentrole
     
     @equipmentrole.setter
@@ -687,7 +690,7 @@ class ProcedureType(BaseClass):
         self.proceduretypeequipmentroleassociation = list_
             
     @hybrid_property
-    def reagentrole(self):
+    def reagentrole(self) -> List[ReagentRole]:
         return self._reagentrole    
     
     @reagentrole.setter
@@ -724,7 +727,7 @@ class ProcedureType(BaseClass):
         self.proceduretypereagentroleassociation = list_
 
     @hybrid_property
-    def resultstype(self):
+    def resultstype(self) -> List[ResultsType]:
         return self._resultstype
 
     @resultstype.setter
@@ -764,7 +767,7 @@ class ProcedureType(BaseClass):
         self.proceduretyperesultstypeassociation = list_
     
     @hybrid_property
-    def submissiontype(self):
+    def submissiontype(self) -> List[SubmissionType]:
         return self._submissiontype
 
     @submissiontype.setter
@@ -802,7 +805,7 @@ class ProcedureType(BaseClass):
         self._submissiontype = list_
         
     @hybrid_property
-    def procedure(self):
+    def procedure(self) -> List[Procedure]:
         return self._procedure
 
     @procedure.setter
@@ -834,7 +837,7 @@ class ProcedureType(BaseClass):
         self._procedure = list_
 
     @hybrid_property
-    def discount(self):
+    def discount(self) -> Discount:
         return self._discount
 
     @discount.setter
@@ -996,7 +999,7 @@ class ProcedureType(BaseClass):
         return pyd
     
     @property
-    def ranked_plate(self):
+    def ranked_plate(self) -> Dict[int, Tuple[int, int]]:
         """
         Create a ranked plate mapping from plate coordinates.
 
@@ -1044,20 +1047,16 @@ class ProcedureType(BaseClass):
             if func:
                 yield func.label, func, results_type
 
-    def load_resultstypeassoc_settings(self, resultstype: str | ResultsType, mode: Literal['parser', "writer"] = "parser") -> dict:
+    def load_resultstypeassoc_settings(self, resultstype: str | ResultsType, mode: ResultsMode = ResultsMode.PARSE) -> dict:
         resultstype = resultstype.name if isinstance(resultstype, ResultsType) else resultstype
         if not resultstype:
             assoc = next((rt for rt in self.proceduretyperesultstypeassociation), None)
         else:
             assoc: ProcedureTypeResultsTypeAssociation = next((rt for rt in self.proceduretyperesultstypeassociation if rt.resultstype.name == resultstype), None)
         if assoc is None:
-            return {}            
-        if mode == 'parser':
-            return assoc.parser_kwargs if assoc else {}
-        elif mode == 'writer':
-            return assoc.writer_kwargs if assoc else {}
-        else:
-            raise ValueError
+            return {}
+        # mode is an Enum, so we can use its value to access the corresponding attribute
+        return getattr(assoc, mode.value, {}) if assoc else {}
         
 
 class Procedure(BaseClass):
@@ -1217,7 +1216,7 @@ class Procedure(BaseClass):
         self._comment = [] if self._comment is None else self._comment
 
     @hybrid_property
-    def clientlab(self):
+    def clientlab(self) -> ClientLab:
         return self.run.clientsubmission.clientlab.name
 
     @clientlab.expression
@@ -1275,7 +1274,7 @@ class Procedure(BaseClass):
             func.coalesce(func.strftime("%Y-%m-%dT%H:%M", cls._started_date), "NA")
 
     @hybrid_property
-    def reagentlot(self):
+    def reagentlot(self) -> List[ReagentLot]:
         return self._reagentlot
     
     @reagentlot.setter
@@ -1315,7 +1314,7 @@ class Procedure(BaseClass):
         self.procedurereagentlotassociation = built    
         
     @hybrid_property
-    def equipment(self):
+    def equipment(self) -> List[Equipment]:
         return self._equipment
     
     @equipment.setter
@@ -1360,7 +1359,7 @@ class Procedure(BaseClass):
         self.procedureequipmentassociation = built
 
     @hybrid_property
-    def sample(self):
+    def sample(self) -> List[Sample]:
         return self._sample
     
     @sample.setter
@@ -1414,7 +1413,7 @@ class Procedure(BaseClass):
                 logger.error(f"Could not add {output} to {self.__class__.__qualname__}._sample")
         
     @hybrid_property
-    def started_date(self):
+    def started_date(self) -> datetime:
         return self._started_date if self._started_date else datetime.now(tz=timezone)
 
     @started_date.setter
@@ -1430,7 +1429,7 @@ class Procedure(BaseClass):
         self._completed_date = parse_optional_datetime(value)
 
     @hybrid_property
-    def proceduretype(self):
+    def proceduretype(self) -> ProcedureType:
         return self._proceduretype
 
     @proceduretype.setter
@@ -1456,7 +1455,7 @@ class Procedure(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._proceduretype to {type(output)}")
 
     @hybrid_property
-    def run(self):
+    def run(self) -> Run:
         return self._run
 
     @run.setter
@@ -1489,7 +1488,7 @@ class Procedure(BaseClass):
             logger.error(f"Unable to set {self.__class__.__qualname__}._run to {type(output)}")
     
     @hybrid_property
-    def results(self):
+    def results(self) -> List[Results]:
         return [result for result in self._results if not result.is_sample]  # filter out sample-level results, only return procedure-level results
 
     @results.setter
@@ -1523,7 +1522,7 @@ class Procedure(BaseClass):
         self._results = list_
     
     @hybrid_property
-    def repeat_of(self):
+    def repeat_of(self) -> Procedure | None:
         return self._repeat_of
 
     @repeat_of.setter
@@ -1600,7 +1599,7 @@ class Procedure(BaseClass):
         return grouped
 
     @hybrid_property
-    def comment(self):
+    def comment(self) -> List[dict]:
         if not self._comment:
             return []
         return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
@@ -1673,7 +1672,7 @@ class Procedure(BaseClass):
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
     @property
-    def run_samples(self):
+    def run_samples(self) -> Generator[Sample, None, None]:
         with self.run.__database_session__.no_autoflush:
             yield from [assoc.sample for assoc in self.run.runsampleassociation]
 
@@ -1715,8 +1714,11 @@ class Procedure(BaseClass):
         from backend.managers import results
         from backend.validators.pydant import PydResults
         results_manager = getattr(results, f"{resultstype}Manager")
+        # e.g. DiomniPCRManager
         rs = results_manager(procedure=self.to_pydantic(), parent=obj)
+        # The general results info, like the run info from an exported Diomni PCR xlsx file.
         procedure_results = rs.procedure_to_pydantic()
+        # Actual per sample results.
         samples_results: Generator[PydResults] = rs.samples_to_pydantic()
         if procedure_results:
             procedure_sql = procedure_results.to_sql()
@@ -1729,7 +1731,7 @@ class Procedure(BaseClass):
             sample_sql = sample.to_sql()
             if isinstance(sample_sql, tuple):
                 sample_sql = sample_sql[0]
-                # NOTE: If the sql comes back without an association, try to find one by row/column if available.
+            # NOTE: If the sql comes back without an association, try to find one by row/column if available.
             if sample_sql.sampleprocedureassociation is None:
                 if hasattr(sample, "row") and hasattr(sample, "column"):
                     logger.info(f"Sample {sample.name} has row {sample.row} and col {sample.column} falling back to row/col association search.")
@@ -1828,7 +1830,7 @@ class Procedure(BaseClass):
         output['equipment'] = [equipment.details_dict for equipment in self.procedureequipmentassociation]
         return output
 
-    def to_pydantic(self, **kwargs):
+    def to_pydantic(self, **kwargs) -> PydProcedure:
         """
         Convert this Procedure into its pydantic representation.
 
@@ -1846,7 +1848,7 @@ class Procedure(BaseClass):
         output.sample_results = self.sample_results
         return output
 
-    def construct_pyd_procedure_for_creation(self) -> "PydProcedure":
+    def construct_pyd_procedure_for_creation(self) -> PydProcedure:
         """Return a widget-ready PydProcedure for ProcedureCreation."""
         from backend.validators.pydant import PydProcedure, PydProcedureSampleAssociation
         sample_list = []
@@ -1899,7 +1901,7 @@ class Procedure(BaseClass):
         return pyd
 
     @property
-    def submissiontype(self):
+    def submissiontype(self) -> SubmissionType:
         return self.run.clientsubmission.submissiontype
 
     def set_cost(self):
@@ -2004,7 +2006,7 @@ class Procedure(BaseClass):
             else:
                 logger.error(f"Association not found for {reagentrole} and {proceduretype}")
                 
-    def load_results_settings(self, resultstype: str | ResultsType, mode: Literal['parser', "writer"] = "parser") -> dict:
+    def load_results_settings(self, resultstype: str | ResultsType, mode: ResultsMode = ResultsMode.PARSE) -> dict:
         return self.proceduretype.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
     
 
@@ -2104,7 +2106,7 @@ class Results(BaseClass):
     # TODO: Enable query from sample_association in addition to procedure
 
     @hybrid_property
-    def result(self):
+    def result(self) -> dict:
         return self._result
     
     @result.setter
@@ -2122,7 +2124,7 @@ class Results(BaseClass):
                 logger.error(f"Unmatched value for {self.__class__.__qualname__}._result: {type(value)}")
         
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             assoc = self.procedure.name
         except AttributeError:
@@ -2151,7 +2153,7 @@ class Results(BaseClass):
         return procedure_subquery + " - " + resultstype_subquery
 
     @hybrid_property
-    def date_analyzed(self):
+    def date_analyzed(self) -> datetime:
         return self._date_analyzed if self._date_analyzed else None
     
     @date_analyzed.setter
@@ -2159,7 +2161,7 @@ class Results(BaseClass):
         self._date_analyzed = parse_optional_datetime(value)
 
     @hybrid_property
-    def resultstype(self):
+    def resultstype(self) -> ResultsType | str:
         return self._resultstype or "Unassigned ResultsType"
 
     @resultstype.setter
@@ -2185,7 +2187,7 @@ class Results(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._resultstype to {type(output)}")
 
     @hybrid_property
-    def procedure(self):
+    def procedure(self) -> Procedure:
         return self._procedure
 
     @procedure.setter
@@ -2211,7 +2213,7 @@ class Results(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._procedure to {type(output)}")
 
     @hybrid_property
-    def sampleprocedureassociation(self):
+    def sampleprocedureassociation(self) -> ProcedureSampleAssociation | None:
         return self._sampleprocedureassociation
 
     @sampleprocedureassociation.setter
@@ -2254,7 +2256,7 @@ class Results(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._sampleprocedureassociation to {output} of type {type(output)}")
     
     @property
-    def sample_id(self):
+    def sample_id(self) -> str | None:
         if self.assoc_id:
             try:
                 return self.sampleprocedureassociation.sample.sample_id
@@ -2281,7 +2283,8 @@ class Results(BaseClass):
         self._img = value
 
     @hybrid_property
-    def is_sample(self):
+    def is_sample(self) -> bool:
+        # A little too complex for booleanize, so just handle it here. If _is_sample is set, use that. Otherwise, if assoc_id is set, assume it's a sample.
         if self._is_sample is not None:
             return bool(self._is_sample)
         else:
@@ -2299,7 +2302,7 @@ class Results(BaseClass):
     def write_sheet_name(self) -> str:
         return f"{self.proceduretype.name[:10]} {self.resultstype.name[:10]}"
 
-    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
+    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> PydResults:
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
         # id is needed here due to duplication problems when procedure is edited.
         output.id = self.id
@@ -2346,7 +2349,7 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
                 logger.error(f"Couldn't set resultstype to {resultstype} for {self.__class__.__qualname__} with proceduretype {proceduretype}")
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             resultstype = self.resultstype.name
         except AttributeError:
@@ -2375,7 +2378,7 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
         return proceduretype_subquery + "->" + resultstype_subquery
 
     @hybrid_property
-    def proceduretype(self):
+    def proceduretype(self) -> ProcedureType:
         return self._proceduretype
 
     @proceduretype.setter
@@ -2401,7 +2404,7 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._proceduretype to {type(output)}")
 
     @hybrid_property
-    def resultstype(self):
+    def resultstype(self) -> ResultsType:
         return self._resultstype
 
     @resultstype.setter
@@ -2446,7 +2449,7 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
             raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._saved_settings")
 
     @property
-    def manager(self):
+    def manager(self) -> DefaultResultsManager:
         from backend.managers import results
         name = self.resultstype.name
         return getattr(results, f"{name.replace(' ', '')}Manager")
@@ -2491,7 +2494,7 @@ class ResultsType(BaseClass):
                 logger.error(f"Couldn't set results to {results} for {self.__class__.__qualname__} with name {self.name}")
         
     @hybrid_property
-    def proceduretype(self):
+    def proceduretype(self) -> List[ProcedureType]:
         return self._proceduretype
 
     @proceduretype.setter
@@ -2531,7 +2534,7 @@ class ResultsType(BaseClass):
         self.proceduretyperesultstypeassociation = list_
 
     @hybrid_property
-    def results(self):
+    def results(self) -> list[Results]:
         return self._results
 
     @results.setter
@@ -2564,7 +2567,7 @@ class ResultsType(BaseClass):
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}_results")
         self._results = list_
 
-    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
+    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> PydResultsType:
         return super().to_pydantic(pyd_model_name, **kwargs)
 
     def load_proceduretypeassoc_settings(self, proceduretype: str | ProcedureType, mode: Literal['parser', "writer"] = "parser") -> dict:

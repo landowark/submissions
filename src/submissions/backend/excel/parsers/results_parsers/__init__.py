@@ -22,11 +22,20 @@ class DefaultResultsInfoParser(DefaultKEYVALUEParser):
 
     @property
     def parsed_info(self) -> Generator[Tuple[str, Any], None, None]:
+        from backend.validators.pydant import SourcedField
         for key, value in super().parsed_info:
-            try:
-                value = value['value']
-            except KeyError:
-                pass
+            match value:
+                case dict():
+                    try:
+                        value = value['value']
+                    except KeyError:
+                        pass
+                case SourcedField():
+                    value = value.value
+                case str() | int() | float() | bool():
+                    value = value
+                case _:
+                    logger.warning(f"Unexpected value type: {type(value)} for key: {key}. Value: {value}")
             yield key, value
         
 

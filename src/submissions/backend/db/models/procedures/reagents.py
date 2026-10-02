@@ -257,9 +257,12 @@ class ReagentRole(BaseClass):
                 # Be defensive: if any association is malformed, skip it.
                 continue
 
-        if used_reagents:
-            return used_reagents
-        return assoc.reagentrole.reagent
+        # if used_reagents:
+        #     return used_reagents
+        for reagent in assoc.reagentrole.reagent:
+            if reagent not in used_reagents:
+                used_reagents.append(reagent)
+        return used_reagents
 
     
 class Reagent(BaseClass, LogMixin):

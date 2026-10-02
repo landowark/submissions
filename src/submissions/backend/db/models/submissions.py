@@ -3,6 +3,7 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from logging import getLogger
+from pprint import pprint
 logger = getLogger(f"submissions.{__name__}")
 from pydantic import BaseModel
 from getpass import getuser
@@ -894,6 +895,10 @@ class Run(BaseClass, LogMixin):
     def signed_by(self, value):
         self._signed_by = value
 
+    @property
+    def approved(self):
+        return True if self._signed_by else False
+
     @classmethod
     def get_submission_type(cls, submissiontype: str | SubmissionType | None = None) -> SubmissionType | None:
         """
@@ -1198,16 +1203,19 @@ class Run(BaseClass, LogMixin):
         assert procedure.run is not None
         # As of here, samples are fine.
         # Passed check
+        print(obj)
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
-            sql = dlg.return_sql(new=True)
-            try:
-                assert len(sql.sample) > 0
-                sql.update_last_useds()
-                sql.save()
-            except AssertionError as e:
-                logger.error(sql.sample)
-                return
+            if obj:
+                sql = dlg.return_sql(new=True)
+                try:
+                    assert len(sql.sample) == len(dlg.procedure.sample)
+                    sql.update_last_useds()
+                    sql.save()
+                except AssertionError as e:
+                    raise ValueError(f"SQL object sample length\n{pformat(sql.sample)} did not equal input sample length\n{dlg.procedure.sample}")
+            else:
+                pprint(dlg.debug_output())
         # Refresh only the parent submission's row instead of the entire tree.
         # Here self is the Run, so the changed submission is self.clientsubmission.
         if hasattr(obj, "upsert_submission"):

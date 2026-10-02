@@ -28,10 +28,21 @@ class DiomniPCRManager(DefaultResultsManager):
     def parse(self):
         self.info = {}
         samples = []
+        # Sheets are selected from sheetnames in the workbookby user with a gui window.
         for sheet in self.get_sheets_for_parsing(workbook=self.input_object):
             self.info_parser = DiomniPCRInfoParser(worksheet=sheet, procedure=self.procedure)
+            """ 
+            Info parser performs DefaultResultsInfoParser.parsed_info and returns a generator of tuples. The generator is converted to a dictionary and stored in self.info.
+            In short, DefaultKEYVALUEParser takes a range of rows and takes the first column as keys and the second column as values. It returns a generator of tuples. 
+            The generator is converted to a dictionary and stored in self.info.
+            """
             self.info.update({k:v for k, v in self.info_parser.parsed_info})
             self.sample_parser = DiomniPCRSampleParser(worksheet=sheet, procedure=self.procedure, start_row=self.info_parser.end_row, date_analyzed=self.info_parser.date_analyzed)
+            """
+            Sample parser performs DiomniPCRSampleParser._generate_parsed_info and returns a generator of dictionaries. The generator is converted to a list and stored in samples.
+            In short, DefaultTABLEParser takes a range of rows and takes the first row as keys and the subsequent rows as values. It returns a generator of dictionaries.
+            The generator is converted to a list and stored in samples.
+            """
             samples.extend([item for item in self.sample_parser.parsed_info])
         sample_names = list(set([list(item.keys())[0] for item in samples]))
         self.samples = []

@@ -60,9 +60,6 @@ class DefaultClientSubmissionManager(DefaultManager):
                 # NOTE: if unmatched, try to get from input_object
                 pass
         self.submissiontype = submissiontype
-        logger.debug(f"Input object: {input_object}")
-        logger.debug(f"Submissiontype set to {self.submissiontype.name}")
-        
         super().__init__(parent=parent, input_object=input_object, **kwargs)
         if isinstance(self.input_object, Workbook):
             for procedure in self.scraped_procedures:

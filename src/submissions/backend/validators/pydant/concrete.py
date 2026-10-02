@@ -83,7 +83,6 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
             output.append(dict(name=k, value=value))
         return output
 
-
     def to_sql(self):
         from backend.db.models import Results
         lookup = dict(resultstype=self.resultstype, result=self.result)
@@ -99,7 +98,7 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
         if not sql.date_analyzed:
             sql.date_analyzed = self.date_analyzed
         sql.procedure = self.procedure
-        if self.sample:
+        if self.sample is not None:
             sql.is_sample = True
             sql.sampleprocedureassociation = self.sample
             if sql.sampleprocedureassociation is None:
@@ -712,7 +711,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
             self.reagentlot.insert(idx, insertable)
-        logger.debug(f"Reagents: {pformat(self.reagentlot)}")
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
@@ -723,9 +721,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             eoi.equipment = equipment.to_pydantic()
         else:
             eoi = PydProcedureEquipmentAssociation(equipment=equipment.to_pydantic(), equipmentrole=equipmentrole, procedure=self)
-        # logger.debug(f"Querying processversion: {processversion}")
         processversion = ProcessVersion.query(name=processversion, limit=1)
-        # logger.debug(f"Found processversion {processversion}")
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
         # NOTE Correct pydprocessverion

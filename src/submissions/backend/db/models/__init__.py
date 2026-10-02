@@ -867,7 +867,6 @@ class BaseClass(Base):
         if not class_has_attr:
             if is_internal_attr_key(key):
                 return super().__setattr__(key, value)   # let SQLAlchemy have its cache attr
-            # logger.debug(f"Attribute {key} not found in {self.__class__.__name__}")
             # ensure value is json serializable (or coerce it)
             try:
                 safe_value = self.sanitize_obj_for_json(obj_=value)
@@ -961,6 +960,8 @@ class BaseClass(Base):
         :rtype: str
         """
         from backend.validators.shared import parse_optional_datetime
+        if input_date.year <= 1970:
+            return "NA"
         output_date = parse_optional_datetime(value=input_date, timefill=timefill).isoformat(timespec="seconds")
         if strip:
             output_date = rsub(r"-\d{2}:\d{2}", "", output_date).replace("T", " ")

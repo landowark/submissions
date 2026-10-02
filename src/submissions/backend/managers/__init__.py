@@ -59,7 +59,6 @@ class DefaultManager(object):
     def set_pyd(self, _depth: int=0):
         if _depth > 2:
             raise RecursionError("set_pyd called too many times; could not resolve input_object.")
-        logger.debug(f"Setting pydantic object for input: {self.input_object}")
         match self.input_object:
             case Workbook() | Worksheet() | ImageFile():
                 self.pyd = self.parse()

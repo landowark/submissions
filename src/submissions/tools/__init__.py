@@ -1138,6 +1138,11 @@ class TimeFill(Enum):
     MAX = datetime.max.time
 
 
+class ResultsMode(Enum):
+    PARSE = "parser_kwargs"
+    WRITE = "writer_kwargs"
+
+
 def ensure_list(v: Any) -> List:
     if isinstance(v, (Generator, filter, map)):
         return list(v)

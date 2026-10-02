@@ -102,7 +102,6 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, str, str, QVariant)
     @pyqtSlot(str, str, str, QVariant, bool)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
-        # logger.debug(f"incoming processversion: {processversion}")
         self.procedure.update_equipment(equipmentrole=equipmentrole, equipment=equipment, processversion=processversion, tips=tips, checked=checked)
 
     @pyqtSlot(str, str)
@@ -128,7 +127,6 @@ class ProcedureCreation(DefaultWebDialog):
 
     @pyqtSlot(list)
     def rearrange_plate(self, sample_list: List[dict]):
-        # logger.debug(f"Rearranging plate with sample_list: {pformat(sample_list)}")
         self.procedure.update_samples(sample_list=sample_list)
 
     @pyqtSlot(str)
@@ -162,7 +160,6 @@ class ProcedureCreation(DefaultWebDialog):
     @pyqtSlot(str, list)
     @pyqtSlot(str, list, bool)
     def update_reagent(self, reagentrole: str, name_lot_expiry: str | List[str], checked:bool=True):
-        logger.debug(f"Input value: {name_lot_expiry}")
         multiple = False
         if name_lot_expiry in ("", "--New--"):
             return
@@ -174,9 +171,8 @@ class ProcedureCreation(DefaultWebDialog):
             try:
                 name, lot = item.split(" - ", 1)
             except ValueError as e:
-                logger.error(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
+                logger.exception(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
                 continue
-            logger.debug(f"Updating procedurereagentlotassociations with reagentlot {lot}, reagentrole {reagentrole}")
             self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, checked=checked, multiple=multiple)
 
     @pyqtSlot(str, result=list)
@@ -193,11 +189,9 @@ class ProcedureCreation(DefaultWebDialog):
         role = ReagentRole.query(name=reagentrole_name, limit=1)
         if not role:
             return []
-
         # Normalise proceduretype to the SQL-backed ProcedureType when possible
         proc_type = getattr(self.procedure.proceduretype, "sql_instance", self.procedure.proceduretype)
         assoc = next((item for item in role.reagentroleproceduretypeassociation if item.proceduretype == proc_type), None)
-        # logger.debug(f"Found association for reagentrole {reagentrole_name} and proceduretype {getattr(self.procedure.proceduretype, 'name', self.procedure.proceduretype)}: {assoc}")
         names: list[str] = []
         for reagent in role.get_reagents(proceduretype=self.procedure.proceduretype):
             for lot in getattr(reagent, 'reagentlot', []):
@@ -211,9 +205,7 @@ class ProcedureCreation(DefaultWebDialog):
                 lot_name = getattr(lot, 'name', None)
                 if active and lot_name is not None:
                     names.append(lot_name)
-
         if assoc and getattr(assoc, 'last_used', None) is not None:
-            # logger.debug(f"Attempting to bubble last used reagent lot for association {assoc} with lots: {names}")
             names = assoc.bubble_last_used(reagentlot_list=names)
         return names
 
@@ -303,5 +295,8 @@ class ProcedureCreation(DefaultWebDialog):
         finally:
             QApplication.restoreOverrideCursor()
         return output
+
+    def debug_output(self):
+        return self.procedure.sample
 
 __all__ = ["ProcedureCreation"]

@@ -5,10 +5,11 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from openpyxl import worksheet
+from openpyxl.worksheet.worksheet import Worksheet
 from copy import copy
 
 
-def copy_xl_sheet(source_sheet, target_sheet):
+def copy_xl_sheet(source_sheet: Worksheet, target_sheet: Worksheet):
     """
     Copy a sheet's values with style, format, layout, etc. from one Excel sheet to another
 
