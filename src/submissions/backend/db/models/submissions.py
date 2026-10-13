@@ -32,11 +32,11 @@ from tools import (
 )
 from backend.validators.shared import parse_optional_datetime, vet_comment
 from datetime import datetime, date
-from typing import Any, Generator, List, TYPE_CHECKING, Literal, Set
+from typing import Any, Dict, Generator, List, TYPE_CHECKING, Literal, Set
 from pathlib import Path
 if TYPE_CHECKING:
     from submissions.backend.db.models.procedures import ProcedureType, Procedure, Results
-    from backend.validators.pydant import PydSample
+    from backend.validators.pydant import PydSample, PydClientSubmission, PydProcedureSampleAssociation
 
 
 class ClientSubmission(BaseClass, LogMixin):
@@ -125,7 +125,7 @@ class ClientSubmission(BaseClass, LogMixin):
         self._comment = [] if self._comment is None else self._comment
 
     @hybrid_property
-    def submitter_plate_id(self):
+    def submitter_plate_id(self) -> str:
         return self._submitter_plate_id or "Not Set"
     
     @submitter_plate_id.setter
@@ -135,7 +135,7 @@ class ClientSubmission(BaseClass, LogMixin):
         self._submitter_plate_id = value
 
     @hybrid_property
-    def submissiontype(self):
+    def submissiontype(self) -> SubmissionType:
         return self._submissiontype
 
     @submissiontype.setter
@@ -163,7 +163,7 @@ class ClientSubmission(BaseClass, LogMixin):
             logger.error(f"Could not set _submissiontype to {type(output)}")
 
     @hybrid_property
-    def contact(self):
+    def contact(self) -> List[Contact]:
         return self._contact
 
     @contact.setter
@@ -191,7 +191,7 @@ class ClientSubmission(BaseClass, LogMixin):
             logger.error(f"Could not set _contact to {type(output)}")
 
     @hybrid_property
-    def run(self):
+    def run(self) -> List[Run]:
         return self._run
     
     @run.setter
@@ -222,7 +222,7 @@ class ClientSubmission(BaseClass, LogMixin):
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._run")
 
     @hybrid_property
-    def clientlab(self):
+    def clientlab(self) -> ClientLab:
         return self._clientlab
 
     @clientlab.setter
@@ -250,7 +250,7 @@ class ClientSubmission(BaseClass, LogMixin):
             logger.error(f"Could not set _clientlab to {type(output)}")
 
     @hybrid_property
-    def sample(self):
+    def sample(self) -> List[Sample]:
         return self._sample
     
     @sample.setter
@@ -305,7 +305,7 @@ class ClientSubmission(BaseClass, LogMixin):
         self.clientsubmissionsampleassociation = samples
 
     @hybrid_property
-    def submitted_date(self):
+    def submitted_date(self) -> datetime:
       return self._submitted_date
 
     @submitted_date.setter
@@ -313,7 +313,7 @@ class ClientSubmission(BaseClass, LogMixin):
         self._submitted_date = parse_optional_datetime(value)
 
     @hybrid_property
-    def completed_date(self):
+    def completed_date(self) -> datetime | None:
         if self.run:
             dates = [run.completed_date for run in self.run if run.completed_date]
             if not dates:
@@ -322,11 +322,11 @@ class ClientSubmission(BaseClass, LogMixin):
         return None
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         return self.submitter_plate_id
 
     @hybrid_property
-    def comment(self):
+    def comment(self) -> list[dict[str, Any]]:
         if not self._comment:
             return []
         if not isinstance(self._comment, list):
@@ -367,7 +367,7 @@ class ClientSubmission(BaseClass, LogMixin):
               page: int = 1,
               page_size: None | int = 250,
               **kwargs
-              ) -> ClientSubmission | List[ClientSubmission]:
+              ):
         """
         Lookup procedure based on a number of parameters. Overrides parent.
 
@@ -553,7 +553,7 @@ class ClientSubmission(BaseClass, LogMixin):
             self.comment = comment
             self.save()
 
-    def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
+    def to_pydantic(self, filepath: Path | str | None = None, **kwargs) -> PydClientSubmission:
         output = super().to_pydantic(filepath=filepath, **kwargs)
         return output
     
@@ -578,7 +578,7 @@ class ClientSubmission(BaseClass, LogMixin):
         return self.turnaround_time < self.submissiontype.turnaround_time.days if self.turnaround_time is not None and self.submissiontype.turnaround_time is not None else False
 
     @classmethod
-    def get_lab_submissions_by_day(cls, clientlab: ClientLab | None = None, search_date: date | None = None):
+    def get_lab_submissions_by_day(cls, clientlab: ClientLab | None = None, search_date: date | None = None) -> int:
         """
         Gets number of submissions a client has made on a given day.
         """
@@ -718,7 +718,7 @@ class Run(BaseClass, LogMixin):
         self._comment = [] if self._comment is None else self._comment
 
     @hybrid_property
-    def rsl_plate_number(self):
+    def rsl_plate_number(self) -> str:
         return self._rsl_plate_number or "Not Set"
     
     @rsl_plate_number.setter
@@ -734,7 +734,7 @@ class Run(BaseClass, LogMixin):
             self._rsl_plate_number = namer.construct_new_plate_name(data=self.__dict__)
 
     @hybrid_property
-    def procedure(self):
+    def procedure(self) -> List[Procedure]:
         return self._procedure
 
     @procedure.setter
@@ -767,7 +767,7 @@ class Run(BaseClass, LogMixin):
         self._procedure = list_
 
     @hybrid_property
-    def clientsubmission(self):
+    def clientsubmission(self) -> ClientSubmission:
         return self._clientsubmission
 
     @clientsubmission.setter
@@ -793,7 +793,7 @@ class Run(BaseClass, LogMixin):
             logger.error(f"Could not set {self.__class__.__qualname__}._clientsubmission to {type(output)}")
 
     @hybrid_property
-    def sample(self):
+    def sample(self) -> List[Sample]:
         return self._sample
     
     @sample.setter
@@ -831,15 +831,15 @@ class Run(BaseClass, LogMixin):
         self.runsampleassociation = list_
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         return self.rsl_plate_number
 
     @hybrid_property
-    def plate_number(self):
+    def plate_number(self) -> str:
         return self.rsl_plate_number
 
     @hybrid_property
-    def started_date(self):
+    def started_date(self) -> datetime:
         if self._started_date:
             return self._started_date
         else:
@@ -861,7 +861,7 @@ class Run(BaseClass, LogMixin):
         self._started_date = parse_optional_datetime(value)
 
     @hybrid_property
-    def completed_date(self):
+    def completed_date(self) -> datetime | None:
         if not self._signed_by:
             return None
         if self._completed_date:
@@ -874,7 +874,7 @@ class Run(BaseClass, LogMixin):
         self._completed_date = parse_optional_datetime(value)
 
     @hybrid_property
-    def comment(self):
+    def comment(self) -> List[Dict[str, Any]]:
         if not self._comment:
             return []
         return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
@@ -884,11 +884,11 @@ class Run(BaseClass, LogMixin):
         self._comment = vet_comment(value, current=self._comment)
 
     @hybrid_property
-    def run_cost(self):
+    def run_cost(self) -> float:
         return self._run_cost
 
     @hybrid_property
-    def signed_by(self):
+    def signed_by(self) -> str | None:
         return self._signed_by
 
     @signed_by.setter
@@ -896,7 +896,7 @@ class Run(BaseClass, LogMixin):
         self._signed_by = value
 
     @property
-    def approved(self):
+    def approved(self) -> bool:
         return True if self._signed_by else False
 
     @classmethod
@@ -929,7 +929,7 @@ class Run(BaseClass, LogMixin):
         return len(list(self.active_samples))
 
     @property
-    def submission_samples(self):
+    def submission_samples(self) -> Generator[ClientSubmissionSampleAssociation, None, None]:
         yield from self.clientsubmission.sample
 
     @property
@@ -958,7 +958,7 @@ class Run(BaseClass, LogMixin):
         output['permission'] = is_power_user()
         return output
     
-    def details_dict_expand_fields(self, fields: List[str] | List[dict]):
+    def details_dict_expand_fields(self, fields: List[str] | List[dict]) -> dict:
         output = super().details_dict_expand_fields(fields)
         submission_samples = [sample.details_dict for sample in self.clientsubmission.sample]
         for sample in output['sample']:
@@ -976,7 +976,7 @@ class Run(BaseClass, LogMixin):
     @classmethod
     def archive_submissions(cls, start_date: date | datetime | str | int | None = None,
                             end_date: date | datetime | str | int | None = None,
-                            submissiontype: List[str] | None = None):
+                            submissiontype: List[str] | None = None) -> DataFrame:
         if submissiontype:
             if isinstance(submissiontype, str):
                 submissiontype = [submissiontype]
@@ -1113,7 +1113,7 @@ class Run(BaseClass, LogMixin):
               page: int = 1,
               page_size: None | int = 250,
               **kwargs
-              ) -> Run | List[Run]:
+              ):
         """
         Lookup procedure based on a number of parameters. Overrides parent.
 
@@ -1295,7 +1295,7 @@ class Run(BaseClass, LogMixin):
         workbook.save(filename=output_filepath)
 
     @property
-    def filename(self):
+    def filename(self) -> str:
         dict_ = self.details_dict_expand_fields([{'clientsubmission':['clientlab']}])
         return self.clientsubmission.submissiontype.template.render(**dict_)
 
@@ -1346,7 +1346,7 @@ class Run(BaseClass, LogMixin):
         return int(delta)
 
     @property
-    def allowed_procedures(self):
+    def allowed_procedures(self) -> List[ProcedureType]:
         return self.clientsubmission.submissiontype.proceduretype
 
     def get_submission_rank_of_sample(self, sample: Sample | str):
@@ -1359,7 +1359,7 @@ class Run(BaseClass, LogMixin):
         else:
             return 0
 
-    def constuct_sample_dicts_for_proceduretype(self, proceduretype: ProcedureType, procedure: Procedure):
+    def constuct_sample_dicts_for_proceduretype(self, proceduretype: ProcedureType, procedure: Procedure) -> List[PydProcedureSampleAssociation]:
         from backend.validators import PydProcedureSampleAssociation, PydSample
         plate_dict = proceduretype.ranked_plate
         ranked_samples = []
@@ -1410,7 +1410,6 @@ class Run(BaseClass, LogMixin):
             Run: A dummy Run instance.
         """
         from backend.validators import PydRun, RSLNamer
-
         data = clientsubmission.details_dict
         rsl_plate_number = RSLNamer.construct_new_plate_name(data=data)
         dummy_run = PydRun(sample=[], clientsubmission=clientsubmission.to_pydantic(), rsl_plate_number=rsl_plate_number)
@@ -1587,7 +1586,7 @@ class Sample(BaseClass, LogMixin):
         self.sampleprocedureassociation = list_
 
     @hybrid_property
-    def is_control(self):
+    def is_control(self) -> int:
         return self._is_control
 
     @staticmethod
@@ -1643,6 +1642,19 @@ class Sample(BaseClass, LogMixin):
     def comment(self, value):
         self._comment = vet_comment(value, current=self._comment)
 
+    def abbreviation_name(self, obj=None):
+        if len(self.clientsubmission) == 1:
+            return f"RSL-{self.clientsubmission[0].abbreviation}-{self.sample_id}"
+        else:
+            match obj:
+                case ClientSubmission():
+                    return f"RSL-{obj.abbreviation}-{self.sample_id}"
+                case Run():
+                    return f"RSL-{obj.clientsubmission.abbreviation}-{self.sample_id}"
+                case _:
+                    logger.warning(f"Haven't figured out how to get a single client submission for {self.__class__.__qualname__} with name {self.name}.")
+                    return f"RSL-XX-{self.sample_id}"
+
     @classmethod
     @declared_attr
     def searchables(cls):
@@ -1670,7 +1682,7 @@ class Sample(BaseClass, LogMixin):
               sample_id: str | None = None,
               limit: int = 0,
               **kwargs
-              ) -> Sample | List[Sample]:
+              ):
         """
         Lookup sample in the database by a number of parameters.
 
@@ -1684,7 +1696,7 @@ class Sample(BaseClass, LogMixin):
         query = cls.__database_session__.query(cls)
         match sample_id:
             case str():
-                query = query.filter(cls.sample_id == sample_id)
+                query = query.filter(cls.sample_id.endswith(sample_id))
                 limit = 1
             case _:
                 pass
@@ -1911,6 +1923,10 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output['sample'] = self.sample.sample_id
         return output
 
+    @hybrid_property
+    def abbreviation_name(self):
+        return f"RSL-{self.clientsubmission.abbreviation}-{self.sample.sample_id}"
+
     @classmethod
     @setup_lookup
     def query(cls,
@@ -1923,7 +1939,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
               chronologic: bool = False,
               reverse: bool = False,
               **kwargs
-              ) -> ClientSubmissionSampleAssociation | List[ClientSubmissionSampleAssociation]:
+              ):
         """
         Lookup junction of Submission and Sample in the database
 
@@ -2168,6 +2184,10 @@ class RunSampleAssociation(BaseClass):
     def comment(self, value):
         self._comment = vet_comment(value, current=self._comment)
 
+    @hybrid_property
+    def abbreviation_name(self):
+        return f"RSL-{self.run.clientsubmission.abbreviation}-{self.sample.sample_id}"
+
     def to_pydantic(self) -> PydSample:
         """
         Creates a pydantic model for this sample.
@@ -2238,7 +2258,7 @@ class RunSampleAssociation(BaseClass):
               chronologic: bool = False,
               reverse: bool = False,
               **kwargs
-              ) -> ClientSubmissionSampleAssociation | List[ClientSubmissionSampleAssociation]:
+              ):
         """
         Lookup junction of Submission and Sample in the database
 
@@ -2462,6 +2482,10 @@ class ProcedureSampleAssociation(BaseClass):
             comment = dlg.parse_form()
             self.comment = comment
             self.save(original=False)
+
+    @hybrid_property
+    def abbreviation_name(self):
+        return f"RSL-{self.procedure.run.clientsubmission.abbreviation}-{self.sample.sample_id}"
 
     def __init__(self, new_id: int | None = None,  *args, **kwargs):
         """

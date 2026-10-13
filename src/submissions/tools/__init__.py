@@ -1149,6 +1149,23 @@ def ensure_list(v: Any) -> List:
     return v
 
 
+def sort_by_attr_or_key(items, field_path, reverse=False):
+    def resolve(item, path):
+        current = item
+        for part in path.split("."):
+            if isinstance(current, dict):
+                if part not in current:
+                    return None
+                current = current[part]
+            else:
+                current = getattr(current, part, None)
+                if current is None:
+                    return None
+        return current
+
+    return sorted(items, key=lambda item: resolve(item, field_path), reverse=reverse)
+
+
 class classproperty(property):
     """
     Allows for properties on classes as well as objects.
@@ -1175,9 +1192,11 @@ class DotDict(dict):
             return DotDict(value) if isinstance(value, dict) else value
         except KeyError:
             raise AttributeError(f"No attribute named '{name}'")
+    
     def __setattr__(self, name: str, value: Any) -> None:
         # Allows setting values via dot notation: d.key = value
         self[name] = value
+    
     def __delattr__(self, name: str) -> None:
         # Allows deleting values via dot notation: del d.key
         try:

@@ -118,7 +118,7 @@ class EquipmentRole(BaseClass):
                 logger.error(f"Couldn't set equipment to {equipment} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def equipment(self) -> List[Equipment]:
+    def equipment(self):
         return self._equipment
     
     @equipment.setter
@@ -155,7 +155,7 @@ class EquipmentRole(BaseClass):
         self.equipmentroleequipmentassociation = list_
 
     @hybrid_property
-    def proceduretype(self) -> List[ProcedureType]:
+    def proceduretype(self):
         return self._proceduretype  
 
     @proceduretype.setter
@@ -198,7 +198,7 @@ class EquipmentRole(BaseClass):
               id: int | None = None,
               limit: int = 0,
               **kwargs
-              ) -> EquipmentRole | List[EquipmentRole]:
+              ):
         """
         Lookup equipment roles.
 
@@ -315,7 +315,7 @@ class Equipment(BaseClass, LogMixin):
             logger.error(f"Couldn't set nickname to {nickname} for {self.__class__.__qualname__} with name {self.name}")
             
     @hybrid_property
-    def equipmentrole(self) -> List[EquipmentRole]:
+    def equipmentrole(self):
         return self._equipmentrole
     
     @equipmentrole.setter
@@ -350,7 +350,7 @@ class Equipment(BaseClass, LogMixin):
         self.equipmentequipmentroleassociation = list_
 
     @hybrid_property
-    def procedure(self) -> List[Procedure]:
+    def procedure(self):
         return self._procedure
 
     @procedure.setter
@@ -394,7 +394,7 @@ class Equipment(BaseClass, LogMixin):
             self._nickname = value
 
     @hybrid_property
-    def calibration_date(self):
+    def calibration_date(self) -> datetime:
         return self._calibration_date or datetime(year=2000, month=1, day=1, hour=0, minute=0, second=0, tzinfo=timezone)
     
     @calibration_date.setter
@@ -409,7 +409,7 @@ class Equipment(BaseClass, LogMixin):
         :return: True if calibrated, False otherwise.
         :rtype: bool
         """
-        return self.calibration_date is not None
+        return self.calibration_date != datetime(year=2000, month=1, day=1, hour=0, minute=0, second=0, tzinfo=timezone)
 
     @classmethod
     @setup_lookup
@@ -420,7 +420,7 @@ class Equipment(BaseClass, LogMixin):
               asset_number: str | None = None,
               limit: int = 0,
               **kwargs
-              ) -> Equipment | List[Equipment]:
+              ):
         """
         Lookup equipment by id, name, nickname, or asset number.
 
@@ -541,7 +541,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                 logger.error(f"Couldn't set equipment to {equipment} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             equipment = self.equipment.name
         except AttributeError:
@@ -686,7 +686,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
               equipmentrole: str | EquipmentRole | None = None,
               process: str | Process | None = None,
               limit: int = 0,
-              **kwargs) -> EquipmentRoleEquipmentAssociation | List[EquipmentRoleEquipmentAssociation]:
+              **kwargs):
         """
         Lookup equipment role associations by equipment, role, or process.
 
@@ -921,7 +921,7 @@ class Process(BaseClass):
               proceduretype: str | ProcedureType | None = None,
               equipmentrole: str | EquipmentRole | None = None,
               limit: int = 0,
-              **kwargs) -> Process | List[Process]:
+              **kwargs):
         """
         Lookup processes by name, ID, procedure type, or equipment role.
 
@@ -1044,7 +1044,7 @@ class ProcessVersion(BaseClass):
                 logger.error(f"Couldn't set date_verified to {date_verified} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def date_verified(self):
+    def date_verified(self) -> datetime | None:
         return self._date_verified if self._date_verified else None
     
     @date_verified.setter
@@ -1116,7 +1116,7 @@ class ProcessVersion(BaseClass):
         self.version = float(version.strip())
 
     @hybrid_property
-    def active(self):
+    def active(self) -> bool:
         return bool(self._active)
 
     @active.setter
@@ -1134,7 +1134,7 @@ class ProcessVersion(BaseClass):
               name: str | None = None,
               limit: int = 0,
               active: bool | int | None = None,
-              **kwargs) -> ProcessVersion | List[ProcessVersion]:
+              **kwargs):
         """
         Lookup process versions by version, name, or active status.
 
@@ -1236,7 +1236,7 @@ class Tips(BaseClass):
             logger.error(f"Couldn't set cost_per_tip to {cost_per_tip} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def cost_per_tip(self):
+    def cost_per_tip(self) -> float:
         """
         Get the cost per individual tip.
 
@@ -1369,7 +1369,7 @@ class Tips(BaseClass):
         self._tipslot = list_
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         return f"{self.manufacturer} - {self.ref}({self.capacity}uL)"
 
     @name.expression
@@ -1384,7 +1384,7 @@ class Tips(BaseClass):
               capacity: str | None = None,
               ref: str | None = None,
               limit: int = 0,
-              **kwargs) -> Tips | List[Tips]:
+              **kwargs):
         """
         Lookup tip types by name, manufacturer, capacity, or reference.
 
@@ -1649,7 +1649,7 @@ class TipsLot(BaseClass, LogMixin):
         return tipsman_subquery + " - " + tipsref_subquery + " - " + cast(cls.lot, String)
 
     @hybrid_property
-    def active(self):
+    def active(self) -> bool:
         """
         Get the active status flag for this tip lot.
 
@@ -1681,7 +1681,7 @@ class TipsLot(BaseClass, LogMixin):
               ref: str | None = None,
               lot: str | None = None,
               limit: int = 0,
-              **kwargs) -> Tips | List[Tips]:
+              **kwargs):
         """
         Lookup tips by name, manufacturer, reference, or lot.
 
@@ -2267,7 +2267,7 @@ class ProcedureEquipmentAssociation(BaseClass):
             self._processversion = None
     
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         """
         Get the display name for this equipment-procedure association.
 
@@ -2308,7 +2308,7 @@ class ProcedureEquipmentAssociation(BaseClass):
         return procedure_subquery + "->" + equipment_subquery
 
     @hybrid_property
-    def comment(self):
+    def comment(self) -> list[str] | None:
         return self._comment
     
     @comment.setter
@@ -2333,8 +2333,7 @@ class ProcedureEquipmentAssociation(BaseClass):
               equipment: int | Equipment | None = None,
               procedure: int | Procedure | None = None,
               equipmentrole: str | None = None,
-              limit: int = 0, **kwargs) \
-            -> Any | List[Any]:
+              limit: int = 0, **kwargs):
         """
         Lookup procedure-equipment association records.
 
@@ -2433,7 +2432,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
                 logger.error(f"Couldn't set equipmentrole to {equipmentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def always_used(self):
+    def always_used(self) -> bool:
         return bool(self._always_used)
     
     @always_used.setter
@@ -2441,7 +2440,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
         self._always_used = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             equipmentrole = self.equipmentrole.name
         except AttributeError:
@@ -2522,7 +2521,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._equipmentrole to {type(output)}")
             
     @classproperty
-    def aliases(cls):
+    def aliases(cls) -> List[str]:
         """
         Gets other names the SQL object of this class might go by.
 
@@ -2547,7 +2546,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
               proceduretype: str | ProcedureType | None = None,
               equipmentrole: str | EquipmentRole | None = None,
               limit: int = 0,
-              **kwargs) -> ProcedureTypeEquipmentRoleAssociation | List[ProcedureTypeEquipmentRoleAssociation]:
+              **kwargs):
         """
         Lookup procedure type / equipment role associations.
 

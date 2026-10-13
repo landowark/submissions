@@ -82,7 +82,7 @@ class ReagentRole(BaseClass):
                 logger.error(f"Couldn't set reagent to {reagent} for {self.__class__.__qualname__} with name {self.name}")
         
     @hybrid_property
-    def proceduretype(self) -> List[ProcedureType]:
+    def proceduretype(self):
         return self._proceduretype
     
     @proceduretype.setter
@@ -116,7 +116,7 @@ class ReagentRole(BaseClass):
         self.reagentroleproceduretypeassociation = list_
 
     @hybrid_property
-    def reagent(self) -> List[Reagent]:
+    def reagent(self):
         return self._reagent
     
     @reagent.setter
@@ -158,7 +158,7 @@ class ReagentRole(BaseClass):
               id: int | None = None,
               limit: int = 0,
               **kwargs
-              ) -> ReagentRole | List[ReagentRole]:
+              ):
         """
         Lookup reagent types in the database.
 
@@ -256,9 +256,6 @@ class ReagentRole(BaseClass):
             except Exception:
                 # Be defensive: if any association is malformed, skip it.
                 continue
-
-        # if used_reagents:
-        #     return used_reagents
         for reagent in assoc.reagentrole.reagent:
             if reagent not in used_reagents:
                 used_reagents.append(reagent)
@@ -374,7 +371,7 @@ class Reagent(BaseClass, LogMixin):
         self.reagentreagentroleassociation = list_
 
     @hybrid_property
-    def eol_ext(self):
+    def eol_ext(self) -> timedelta:
         return self._eol_ext
 
     @eol_ext.setter
@@ -432,7 +429,7 @@ class Reagent(BaseClass, LogMixin):
               name: str | None = None,
               limit: int = 0,
               **kwargs
-              ) -> Reagent | List[Reagent]:
+              ):
         """
         Lookup a list of reagents from the database.
 
@@ -565,7 +562,7 @@ class ReagentLot(BaseClass):
                 logger.error(f"Couldn't set lims_id to {lims_id} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def procedure(self) -> List[Procedure]:
+    def procedure(self):
         return self._procedure
     
     @procedure.setter
@@ -654,7 +651,7 @@ class ReagentLot(BaseClass):
         self._scan_ids = existing + value
     
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             reagent = self.reagent.name
         except AttributeError:
@@ -679,7 +676,7 @@ class ReagentLot(BaseClass):
               scan_id: str | None = None,
               reagent: str | Reagent | None = None,
               limit: int = 0,
-              **kwargs) -> ReagentLot | List[ReagentLot]:
+              **kwargs):
         """
         Lookup reagent lots by lot number, reagent name, or display name.
 
@@ -731,7 +728,6 @@ class ReagentLot(BaseClass):
     def save(self) -> Report | None:
         if not self._reagent:
             raise ValueError(f"This ReagentLot has no parent reagent. Cannot save.")
-            return
         super().save()
 
 
@@ -783,7 +779,7 @@ class ReagentRoleReagentAssociation(BaseClass):
                 logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             reagent = self.reagent.name
         except AttributeError:
@@ -964,7 +960,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._last_used. Must be a ReagentLot instance.")
 
     @hybrid_property
-    def always_used(self):
+    def always_used(self) -> bool:
         """Return whether this reagent role is always used in the procedure type."""
         # au = getattr(self, "_always_used", 1)
         au = self._always_used or 1
@@ -1047,15 +1043,15 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
 
     @hybrid_property
-    def multiselect(self):
-        return booleanize(self._multiselect, Booleanize.BOOL)
+    def multiselect(self) -> bool:
+        return bool(self._multiselect or 0)
 
     @multiselect.setter
     def multiselect(self, value):
         self._multiselect = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             proceduretype = self.proceduretype.name
         except AttributeError:
@@ -1091,7 +1087,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
               name: str | None = None,
               limit: int = 0,
               **kwargs
-              ) -> ProcedureTypeReagentRoleAssociation | List[ProcedureTypeReagentRoleAssociation]:
+              ):
         """
         Lookup procedure type / reagent role associations.
 
@@ -1137,7 +1133,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         self.last_used = reagentlot
         self.save()
 
-    def bubble_last_used(self, reagentlot_list: List[str]):
+    def bubble_last_used(self, reagentlot_list: List[str]) -> List[str]:
         return bubble_to_top_of_list(reagentlot_list, self.last_used.name)
         
 
@@ -1207,7 +1203,7 @@ class ProcedureReagentLotAssociation(BaseClass):
                 logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
     
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
         try:
             procedure = self.procedure.name
         except AttributeError:
@@ -1320,7 +1316,7 @@ class ProcedureReagentLotAssociation(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
 
     @hybrid_property
-    def comment(self):
+    def comment(self) -> str | None:
         return self._comment
     
     @comment.setter
@@ -1334,7 +1330,7 @@ class ProcedureReagentLotAssociation(BaseClass):
               procedure: Procedure | str | int | None = None,
               reagentlot: ReagentLot | str | None = None,
               reagentrole: str | ReagentRole | None = None,
-              limit: int = 0) -> ProcedureReagentLotAssociation | List[ProcedureReagentLotAssociation]:
+              limit: int = 0):
         """
         Lookup procedure/reagent lot associations.
 

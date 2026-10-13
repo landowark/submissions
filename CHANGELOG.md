@@ -1,3 +1,7 @@
+# 202610.3
+
+- Changed naming schema of newly created controls to reflect the RSL plate number only, rather than the procedure name.
+
 # 202609.5
 
 - Added in enabling multiselect for reagents (i.e. the positive control).

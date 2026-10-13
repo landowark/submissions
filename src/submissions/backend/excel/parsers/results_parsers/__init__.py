@@ -40,6 +40,7 @@ class DefaultResultsInfoParser(DefaultKEYVALUEParser):
         
 
 class DefaultResultsSampleParser(DefaultTABLEParser):
+    
     pyd_name = "PydResults"
 
     def __init__(self, worksheet: Worksheet, results_type: str | None, *args, **kwargs):

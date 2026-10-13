@@ -13,7 +13,7 @@ class DefaultSettings(object):
     
     def __init__(self, parent, resultstype: ResultsType, procedure: PydProcedure) -> None:
         self.parent = parent
-        self.settings = resultstype.saved_settings
+        self.settings = resultstype.load_saved_settings()
         self.procedure = procedure
         self.proceduretype = self.procedure.proceduretype
         assert isinstance(self.proceduretype, PydProcedureType)

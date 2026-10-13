@@ -46,21 +46,22 @@ class DiomniPCRSettings(DefaultSettings):
             ['Well', 'Well Position', 'Sample Name', 'Biogroup Name', 'Biogroup Color', 'Target Name', 'Task', 'Reporter', 'Quencher', 'Quantity', 'Target Color', 'Comments']
         ]
         samples = []
-        for sample in self.procedure.sample:
-            if not sample.sample_id:
+        for assoc in self.procedure.sample:
+            if not assoc.sample:
                 continue
+            
             for setting in self.settings:
                 output = [
-                    self.proceduretype.get_well_index(row=sample.row, column=sample.column, direction=IndexDirection.COL),
-                    convert_row_column_to_well(sample.row, sample.column),
-                    sample.sample_id,
+                    self.proceduretype.get_well_index(row=assoc.row, column=assoc.column, direction=IndexDirection.COL),
+                    convert_row_column_to_well(assoc.row, assoc.column),
+                    assoc.sample,
                     "",
                     "",
                     setting.get("Target Name", ""),
-                    "STANDARD" if sample.is_control > 0 else "UNKNOWN",
+                    "STANDARD" if assoc.is_control == 1 else "UNKNOWN",
                     setting.get("Reporter", "").upper(),
                     "None",
-                    "1" if sample.is_control == 1 else "",
+                    "1" if assoc.is_control == 1 else "",
                     setting.get("Target Color", ""),
                     ""
                 ]

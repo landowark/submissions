@@ -575,7 +575,7 @@ class BaseClass(Base):
         return instance, new
 
     @classmethod
-    def _filter_relationship(cls, query, column, value, model, lookup="name"):
+    def _filter_relationship(cls, query, column, value, model, lookup="name") -> Query:
         if value is None:
             return query
         if isinstance(value, int) and not isinstance(value, bool):   # id lookup
@@ -589,7 +589,7 @@ class BaseClass(Base):
         return query
 
     @classmethod
-    def _filter_scalar(cls, query, column, value, *, match=None):
+    def _filter_scalar(cls, query, column, value, *, match=None) -> Query:
         # `match` lets callers keep non-equality comparisons (e.g. startswith).
         if value is None:
             return query
@@ -750,7 +750,7 @@ class BaseClass(Base):
                         return query.limit(limit).all()
 
     @classmethod
-    def get_primary_keys(cls):
+    def get_primary_keys(cls) -> List[str]:
         """Returns a list of primary key names from an SQLAlchemy object."""
         mapper = sql_inspect(cls)
         return [key.name for key in mapper.primary_key]
@@ -1128,7 +1128,7 @@ class BaseClass(Base):
         :rtype: dict
         """
         relevant = list(self.construct_relevant_fields())
-        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
+        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id", "filename"])
         for k, v in relevant:
             if k in output['excluded']:
                 continue

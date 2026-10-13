@@ -14,7 +14,7 @@ from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, parse_optional_datetime, booleanize, parse_expiry
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list, convert_row_column_to_well
+from tools import Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list, convert_row_column_to_well, sort_by_attr_or_key
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -167,7 +167,9 @@ class PydReagentLot(PydConcrete):
 
     def to_sql(self, update: bool = True):
         output = super().to_sql(update)
+        logger.debug(f"Initial SQL.active = {output.active}, PYD.active = {int(self.active)} for {self.constructed_name}")
         if update:
+            logger.debug(f"Setting {type(output)}.active = {self.active} for {self.constructed_name}.")
             output.active = self.active
         assert output.active == int(self.active), f"SQL.active = {output.active}, PYD.active = {int(self.active)}"
         return output
@@ -297,6 +299,11 @@ class PydSample(PydConcrete):
     @property
     def name(self) -> str:
         return self.sample_id
+
+    @computed_field
+    @property
+    def sample_type(self) -> str:
+        return self.translate_control(self.is_control, to_str=True)
     
     @property
     def improved_dict(self) -> dict:
@@ -387,6 +394,19 @@ class PydSample(PydConcrete):
     @classmethod
     def translate_control(cls, value: int, to_str:bool = False) -> str:
         return cls._sql_class.translate_control(value, to_str=to_str)
+
+    @property
+    def abbreviation_name(self, obj=None):
+        """
+        Returns a string abbreviation for this object, if applicable.
+        """
+        if issubclass(type(obj), PydConcrete):
+            obj = obj._sql_instance
+        try:
+            return self._sql_instance.abbreviation_name(obj)
+        except AttributeError:
+            logger.error(f"Object {self} has no abbreviation_name property.")
+            return None
 
 
 class PydEquipment(PydConcrete):
@@ -823,6 +843,10 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         try:
             output['info_results'] = {k: [item.improved_dict.get("result", {}) for item in v] for k, v in self.info_results.items()}
         except AttributeError:
+            pass
+        try:
+            output['reagent'] = sort_by_attr_or_key(output['reagent'], "reagentrole")
+        except KeyError as e:
             pass
         return output
 
@@ -1509,6 +1533,10 @@ class PydProcedureSampleAssociation(PydConcrete):
         from backend.db import Sample
         return Sample.translate_control(value, to_str=to_str)
 
+    @property
+    def abbreviation_name(self):
+        return self.sql_instance.abbreviation_name
+
 
 class PydProcedureEquipmentAssociation(PydConcrete):
 
@@ -1638,6 +1666,7 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
     sample: Annotated[str | dict | PydSample, RelationshipField(uselist=False)] = Field(default="NA")
     enabled: bool = Field(default=True)
     comment: list | None = Field(default_factory=list, repr=False)
+    is_control: int = Field(default=0, repr=False)
 
     model_config = ConfigDict(
         json_schema_extra = {
@@ -1654,6 +1683,11 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
     def translate_control(value: int, to_str:bool = True) -> str:
         from backend.db import Sample
         return Sample.translate_control(value, to_str=to_str)
+
+    @property
+    def abbreviation_name(self):
+        return self.sql_instance.abbreviation_name
+
 
 __all__ = ["PydResults", "PydReagentLot", "PydDiscount", "PydSample", "PydEquipment", "PydContact", "PydClientLab", 
            "PydProcessVersion", "PydProcedure", "PydClientSubmission", "PydRun", "PydTipsLot", "PydProcedureSampleAssociation",

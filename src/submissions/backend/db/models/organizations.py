@@ -17,7 +17,9 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass, Base
 from tools import check_authorization, setup_lookup
-from typing import List
+from typing import List, TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.db.models import ClientSubmission, Discount
 
 
 # NOTE: table containing clientlab/contact relationship
@@ -102,7 +104,7 @@ class ClientLab(BaseClass):
     ##### Properties #####
     
     @hybrid_property
-    def clientsubmission(self):
+    def clientsubmission(self) -> List[ClientSubmission]:
         """
         Get the list of client submissions associated with this client lab.
 
@@ -149,7 +151,7 @@ class ClientLab(BaseClass):
                 logger.error(f"Could not add {type(output)} to _clientsubmission")
 
     @hybrid_property
-    def contact(self):
+    def contact(self) -> List[Contact]:
         """
         Get the list of contacts associated with this client lab.
 
@@ -318,7 +320,7 @@ class Contact(BaseClass):
     ##### Properties #####
     
     @hybrid_property
-    def clientlab(self):
+    def clientlab(self) -> List[ClientLab]:
         """
         Get the list of client labs associated with this contact.
 
@@ -369,7 +371,7 @@ class Contact(BaseClass):
         self._clientlab = list_
 
     @hybrid_property
-    def clientsubmission(self):
+    def clientsubmission(self) -> List[ClientSubmission]:
         """
         Get the list of client submissions associated with this contact.
 
