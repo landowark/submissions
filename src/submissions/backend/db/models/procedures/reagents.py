@@ -238,7 +238,6 @@ class ReagentRole(BaseClass):
         except StopIteration:
             logger.error(f"Couldn't find {getattr(proceduretype, 'name', proceduretype)} in {[eq.proceduretype.name for eq in self.reagentroleproceduretypeassociation]}")
             return [reagent for reagent in self.reagent]
-
         # Prefer reagents actually used by this procedure type (history) when
         # present. Fall back to the role's full reagent list if no history is
         # recorded. This avoids returning the entire role list when the UI

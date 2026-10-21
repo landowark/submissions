@@ -107,7 +107,7 @@ class PydSubmissionType(PydAbstract):
     defaults: dict = Field(default_factory=dict, repr=False)
     file_name_template: str = Field(default="", repr=False, validate_default=True)
     turnaround_time: int = Field(default=3, description="Days allowed for processing.", repr=False)
-    abbreviation: str = Field(default="XX", description="Shorthand to be used in naming convention (RSL-XX-YYYYMMMDD-1).")
+    abbreviation: str = Field(default="CC", description="Shorthand to be used in naming convention (RSL-CC-YYYYMMMDD-1).")
     clientsubmission: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
     proceduretype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="ProcedureTypes this type uses.", repr=False)
 
@@ -137,7 +137,7 @@ class PydSubmissionType(PydAbstract):
     @classmethod
     def validate_abbreviation(cls, value):
         if not value:
-            value = "XX"
+            value = "CC"
         return value
 
     @field_validator("defaults", mode="before")

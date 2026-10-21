@@ -143,7 +143,6 @@ class BaseClass(Base):
         """
         return f"<{self.__class__.__name__}({getattr(self, 'name', 'Name Unavailable')})>"
         
-
     def _wrap_misc_info(self):
         """
         Wrap or initialize the _misc_info attribute as a SafeMiscInfo instance.

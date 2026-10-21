@@ -3,7 +3,7 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from backend.excel.parsers.results_parsers import DefaultResultsWidgetParser
 from PIL.ImageFile import ImageFile
-from PyQt6.QtWidgets import QDialogButtonBox, QGridLayout, QVBoxLayout
+from PyQt6.QtWidgets import QDialogButtonBox, QVBoxLayout
 from tools import unc_to_mapped_drive_native
 
 from backend.validators.pydant import PydProcedure

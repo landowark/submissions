@@ -27,7 +27,7 @@ from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityErr
 from sqlalchemy.ext.mutable import MutableList
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (
-    TimeFill, check_authorization, convert_row_column_to_well, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
+    TimeFill, check_authorization, convert_row_column_to_well, flatten_list, replace_or_prepend_prefix, setup_lookup, jinja_template_loading, create_holidays_for_year,
     is_power_user, Report, get_application_from_parent, iterable_enforcer
 )
 from backend.validators.shared import parse_optional_datetime, vet_comment
@@ -350,7 +350,7 @@ class ClientSubmission(BaseClass, LogMixin):
 
     @property
     def abbreviation(self) -> str:
-        return self.submissiontype.abbreviation or "XX"
+        return self.submissiontype.abbreviation or "CC"
 
     # TODO: get chronologic working
     @classmethod
@@ -500,10 +500,13 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def add_run(self, obj):
         from frontend.widgets.sample_checker import SampleChecker
+        from backend.validators.pydant import SourcedField
         samples = [assoc.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
         run = Run.construct_dummy_run(clientsubmission=self)
+        logger.debug(f"Run: {run.rsl_plate_number}")
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, run=run)
         if checker.exec():
+            run.rsl_plate_number = SourcedField(value=checker.rsl_plate_number)
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             try:
                 # Rank the selected pydantic samples, then convert them back to SQL Sample
@@ -1644,16 +1647,17 @@ class Sample(BaseClass, LogMixin):
 
     def abbreviation_name(self, obj=None):
         if len(self.clientsubmission) == 1:
-            return f"RSL-{self.clientsubmission[0].abbreviation}-{self.sample_id}"
+            out = f"RSL-{self.clientsubmission[0].abbreviation}-" 
         else:
             match obj:
                 case ClientSubmission():
-                    return f"RSL-{obj.abbreviation}-{self.sample_id}"
+                    out = f"RSL-{obj.abbreviation}-"
                 case Run():
-                    return f"RSL-{obj.clientsubmission.abbreviation}-{self.sample_id}"
+                    out = f"RSL-{obj.clientsubmission.abbreviation}-"
                 case _:
                     logger.warning(f"Haven't figured out how to get a single client submission for {self.__class__.__qualname__} with name {self.name}.")
-                    return f"RSL-XX-{self.sample_id}"
+                    out = f"RSL-CC-"
+        return replace_or_prepend_prefix(self.sample_id, old_prefix=r"^RSL-[A-Z]+-", new_prefix=out)
 
     @classmethod
     @declared_attr
@@ -1925,7 +1929,8 @@ class ClientSubmissionSampleAssociation(BaseClass):
 
     @hybrid_property
     def abbreviation_name(self):
-        return f"RSL-{self.clientsubmission.abbreviation}-{self.sample.sample_id}"
+        return replace_or_prepend_prefix(self.sample.sample_id, old_prefix=r"^RSL-[A-Z]+-", new_prefix=f"RSL-{self.clientsubmission.abbreviation}-")
+        # return f"RSL-{self.clientsubmission.abbreviation}-{self.sample.sample_id}"
 
     @classmethod
     @setup_lookup
@@ -2186,7 +2191,8 @@ class RunSampleAssociation(BaseClass):
 
     @hybrid_property
     def abbreviation_name(self):
-        return f"RSL-{self.run.clientsubmission.abbreviation}-{self.sample.sample_id}"
+        return replace_or_prepend_prefix(self.sample.sample_id, old_prefix=r"^RSL-[A-Z]+-", new_prefix=f"RSL-{self.run.clientsubmission.abbreviation}-")
+        # return f"RSL-{self.run.clientsubmission.abbreviation}-{self.sample.sample_id}"
 
     def to_pydantic(self) -> PydSample:
         """

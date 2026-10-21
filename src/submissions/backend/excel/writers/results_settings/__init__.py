@@ -11,21 +11,23 @@ from tools import render_details_template
 
 class DefaultSettings(object):
     
-    def __init__(self, parent, resultstype: ResultsType, procedure: PydProcedure) -> None:
-        self.parent = parent
+    def __init__(self, obj, resultstype: ResultsType, procedure: PydProcedure) -> None:
+        self.parent = obj
         self.settings = resultstype.load_saved_settings()
         self.procedure = procedure
         self.proceduretype = self.procedure.proceduretype
         assert isinstance(self.proceduretype, PydProcedureType)
         template_name = f"{resultstype.name.replace(" ", "").lower()}_settings"
         
-        self.dlg = DefaultSettingsDialog(parent=parent, settings=self.settings, template_name=template_name)
+        self.dlg = DefaultSettingsDialog(parent=obj, settings=self.settings, template_name=template_name)
         self.dlg.setModal(True) # Keeps it "modal" to the user
         self.dlg.finished.connect(self.handle_dialog_finished)
     
         # Use show() to keep the event loop and debugger active
         self.dlg.setModal(True)
-        self.dlg.open()
+        self.dlg.exec()
+        # if self.dlg.exec():
+        #     self.write_output()
 
     def handle_dialog_finished(self, result):
         # Check if the result was QDialog.Accepted (usually 1)

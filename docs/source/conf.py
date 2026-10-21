@@ -9,6 +9,10 @@
 import sys
 from pathlib import Path
 sys.path.append(Path(__file__).parents[2].joinpath('src').absolute().__str__())
+# Ensure top-level package shortcuts (backend, frontend, tools) are importable
+# by adding src/submissions to sys.path so modules that import e.g. `from frontend`
+# can be resolved during autodoc runs.
+sys.path.insert(0, Path(__file__).parents[2].joinpath('src', 'submissions').absolute().__str__())
 from submissions import __version__, __copyright__, __author__
 
 project = 'RSL Submissions'
@@ -45,3 +49,20 @@ html_static_path = ['_static']
 
 
 # autodoc_mock_imports = ["backend.db.models.procedure"]
+
+
+# Workaround: SQLAlchemy's `declared_attr` descriptors are not callables and
+# cause autodoc to fail when it tries to inspect signatures. Suppress signature
+# extraction for those objects to avoid repeated warnings.
+def _suppress_declared_attr_signature(app, what, name, obj, options, signature, return_annotation):
+    try:
+        import sqlalchemy.orm.decl_api as _declapi
+        if isinstance(obj, _declapi.declared_attr):
+            return (None, None)
+    except Exception:
+        # If SQLAlchemy isn't available or import fails, do nothing.
+        return None
+
+
+def setup(app):
+    app.connect("autodoc-process-signature", _suppress_declared_attr_signature)

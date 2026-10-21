@@ -10,14 +10,14 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
-from datetime import datetime
+from datetime import date, datetime
 from tools import check_authorization, setup_lookup, timezone, TimeFill, Report
 from backend.validators.shared import parse_optional_datetime, booleanize, Booleanize, parse_expiry, vet_comment
 from typing import List, Any, TYPE_CHECKING
 from .. import BaseClass, Base, LogMixin
 from . import ProcedureType, Procedure
 if TYPE_CHECKING:
-    from backend.validators.pydant import PydProcedureEquipmentAssociation
+    from backend.validators.pydant import PydProcedureEquipmentAssociation, PydEquipment, PydProcess, SourcedField
 
 
 # Define the association table instance first
@@ -119,10 +119,22 @@ class EquipmentRole(BaseClass):
 
     @hybrid_property
     def equipment(self):
+        """
+        Gets the list of equipment that can fill this role.
+
+        :return: self._equipment
+        :rtype: List[EquipmentRole]
+        """
         return self._equipment
     
     @equipment.setter
-    def equipment(self, value: List[Equipment | str | dict]):
+    def equipment(self, value: List[str | dict | Equipment | EquipmentRoleEquipmentAssociation]):
+        """
+        Sets the equipment that can fill this role by parsing a list of input objects.
+
+        :param value: List of input objects.
+        :type value: List[Equipment | str | dict]
+        """
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -156,10 +168,22 @@ class EquipmentRole(BaseClass):
 
     @hybrid_property
     def proceduretype(self):
+        """
+        Get the list of procedure types associated with this EquipmentRole.
+
+        :return: self._proceduretype
+        :rtype: List[ProcedureType]
+        """
         return self._proceduretype  
 
     @proceduretype.setter
-    def proceduretype(self, value: List[ProcedureType | str | dict]):
+    def proceduretype(self, value: List[str | dict | ProcedureType | ProcedureTypeEquipmentRoleAssociation]):
+        """
+        Set the procedure types associated with this EquipmentRole by parsing a list of input objects.
+
+        :param value: List of input objects.
+        :type value: List[str | dict | ProcedureType | ProcedureTypeEquipmentRoleAssociation]
+        """
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -316,10 +340,22 @@ class Equipment(BaseClass, LogMixin):
             
     @hybrid_property
     def equipmentrole(self):
+        """
+        Gets the list of equipment roles this equipment fills.
+
+        :return: self._equipmentrole
+        :rtype: List[EquipmentRole]
+        """
         return self._equipmentrole
     
     @equipmentrole.setter
-    def equipmentrole(self, value: List[dict | str | EquipmentRole]):
+    def equipmentrole(self, value: List[dict | str | EquipmentRole | EquipmentRoleEquipmentAssociation]):
+        """
+        Set what roles this equipment can fill by parsing a list of input objects.
+
+        :param value: The list of input objects.
+        :type value: List[dict | str | EquipmentRole | EquipmentRoleEquipmentAssociation]
+        """
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -351,10 +387,16 @@ class Equipment(BaseClass, LogMixin):
 
     @hybrid_property
     def procedure(self):
+        """
+        Gets the list of procedures this equipment is used in.
+
+        :return: self._procedure.
+        :rtype: List[Procedure]
+        """
         return self._procedure
 
     @procedure.setter
-    def procedure(self, value: List[Procedure | str | dict]):
+    def procedure(self, value: List[str | dict | Procedure | ProcedureEquipmentAssociation]):
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -384,10 +426,22 @@ class Equipment(BaseClass, LogMixin):
 
     @hybrid_property
     def nickname(self) -> str:
+        """
+        Gets the nickname assigned to this equipment, or the regular name if no nickname.
+
+        :return: self._nickname or self.name
+        :rtype: str
+        """
         return self._nickname or self.name
                             
     @nickname.setter
-    def nickname(self, value: str|None):
+    def nickname(self, value: str | None):
+        """
+        Set the nickname for this equipment.
+
+        :param value: The desired name. (Will skip empty string, "NA" or "N/A")
+        :type value: str | None
+        """
         if value is None or value.lower() in ["", "na", "n/a"]:
             self._nickname = self.name
         else:
@@ -395,10 +449,22 @@ class Equipment(BaseClass, LogMixin):
 
     @hybrid_property
     def calibration_date(self) -> datetime:
+        """
+        Get the last calibration date of this equipment. Defaults to 2000-01-01
+
+        :return: self._calibration_date or datetime(year=2000, month=1, day=1, hour=0, minute=0, second=0, tzinfo=timezone)
+        :rtype: datetime
+        """
         return self._calibration_date or datetime(year=2000, month=1, day=1, hour=0, minute=0, second=0, tzinfo=timezone)
     
     @calibration_date.setter
-    def calibration_date(self, value):
+    def calibration_date(self, value: dict | SourcedField | str | datetime | date | int | None):
+        """
+        Sets the last calibration date of this equipment. Uses validators.shared.parse_optional_datetime
+
+        :param value: input date
+        :type value: dict | SourcedField | str | datetime | date | int | None
+        """
         self._calibration_date = parse_optional_datetime(value, timefill=TimeFill.MIN)
 
     @property
@@ -406,7 +472,7 @@ class Equipment(BaseClass, LogMixin):
         """
         Determine if the equipment is considered calibrated based on its calibration date.
 
-        :return: True if calibrated, False otherwise.
+        :return: True if calibration date is not the default date, False otherwise.
         :rtype: bool
         """
         return self.calibration_date != datetime(year=2000, month=1, day=1, hour=0, minute=0, second=0, tzinfo=timezone)
@@ -542,6 +608,12 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the constructed name of this object.
+
+        :return: f"{self.equipmentrole.name}->{self.equipment.name}"
+        :rtype: str
+        """
         try:
             equipment = self.equipment.name
         except AttributeError:
@@ -554,6 +626,18 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the EquipmentRoleEquipmentAssociation name.
+
+        This expression concatenates the related equipmentrole name,
+        equipment name, and the discount amount for database-side
+        query filtering and ordering.
+
+        :param cls: EquipmentRoleEquipmentAssociation model class.
+        :type cls: type[EquipmentRoleEquipmentAssociation]
+        :return: SQL expression yielding the formatted object name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         equipmentrole_subquery = (
             select(EquipmentRole.name)
             .where(EquipmentRole.id==cls.equipmentrole_id)
@@ -571,10 +655,22 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     
     @hybrid_property
     def equipment(self):
+        """
+        Gets the equipment associated with this relationship.
+
+        :return: self._equipment
+        :rtype: Equipment
+        """
         return self._equipment
 
     @equipment.setter
-    def equipment(self, value):
+    def equipment(self, value: str | dict | PydEquipment | Equipment):
+        """
+        Set the equipment associated with this relationship.
+
+        :param value: The input equipment.
+        :type value: str | dict | PydEquipment | Equipment
+        """
         from backend.validators.pydant import PydEquipment
         match value:
             case str():
@@ -610,11 +706,8 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         """
         Set equipment roles for this equipment from flexible input types.
 
-        Accepts string names, dictionaries, Pydantic models, or EquipmentRole instances.
-
         :param value: Equipment role data or instance to assign.
-        :type value: str | dict | PydEquipmentRole | EquipmentRole | list
-        :return: None
+        :type value: str | dict | PydEquipmentRole | EquipmentRole
         """
         from backend.validators.pydant import PydEquipmentRole
         match value:
@@ -638,10 +731,22 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         
     @hybrid_property
     def process(self):
+        """
+        Get the processes used in this association.
+
+        :return: self._process
+        :rtype: List[Process]
+        """
         return self._process
 
     @process.setter
-    def process(self, value):
+    def process(self, value: List[str | dict | PydProcess | Process]):
+        """
+        Sets the processes used in this association by parsing a list of input objects.
+
+        :param value: List of input objects.
+        :type value: List[str | dict | PydProcess | Process]
+        """
         from backend.validators.pydant import PydProcess
         if not isinstance(value, list):
             value = [value]
@@ -790,10 +895,22 @@ class Process(BaseClass):
 
     @hybrid_property
     def equipmentroleequipmentassociation(self):
+        """
+        Get the list of EquipmentRole -> Equipment relationships this process is used in.
+
+        :return: self._equipmentroleequipmentassociation
+        :rtype: List[EquipmentRoleEquipmentAssociation]
+        """
         return self._equipmentroleequipmentassociation
 
     @equipmentroleequipmentassociation.setter
-    def equipmentroleequipmentassociation(self, value):
+    def equipmentroleequipmentassociation(self, value: dict | EquipmentRoleEquipmentAssociation):
+        """
+        Set the EquipmentRole -> Equipment relationships this process is used in by parsing a list of input objects.
+
+        :param value: List of input objects.
+        :type value: dict | EquipmentRoleEquipmentAssociation
+        """
         if value is None:
             value = []
         if not isinstance(value, list):
@@ -828,15 +945,12 @@ class Process(BaseClass):
         return self._processversion
 
     @processversion.setter
-    def processversion(self, value):
+    def processversion(self, value: List[str | dict | PydProcessVersion | ProcessVersion]):
         """
         Set process versions for this process from flexible input types.
 
-        Accepts string names, dicts, Pydantic models, or ProcessVersion instances.
-
         :param value: Process version data or instance to assign.
-        :type value: str | dict | PydProcessVersion | ProcessVersion | list | None
-        :return: None
+        :type value: List[str | dict | PydProcessVersion | ProcessVersion]
         """
         from backend.validators.pydant import PydProcessVersion
         if value is None:
@@ -871,7 +985,7 @@ class Process(BaseClass):
         Return the list of tip types used in this process.
 
         :return: list of Tips objects for this process.
-        :rtype: list[Tips]
+        :rtype: List[Tips]
         """
         return self._tips
 
@@ -880,11 +994,8 @@ class Process(BaseClass):
         """
         Set tip types for this process from flexible input types.
 
-        Accepts string names, dicts, Pydantic models, or Tips instances.
-
         :param value: Tips data or instance to assign.
-        :type value: str | dict | PydTips | Tips | list | None
-        :return: None
+        :type value: List[str | dict | PydTips | Tips]
         """
         from backend.validators.pydant import PydTips
         if value is None:
@@ -1045,10 +1156,22 @@ class ProcessVersion(BaseClass):
 
     @hybrid_property
     def date_verified(self) -> datetime | None:
+        """
+        Get the date this process version was verified. Defaults to None
+
+        :return: self._date_verified if self._date_verified else None
+        :rtype: datetime | None
+        """
         return self._date_verified if self._date_verified else None
     
     @date_verified.setter
-    def date_verified(self, value):
+    def date_verified(self, value: dict | SourcedField | str | datetime | date | int | None):
+        """
+        Sets the date this process version was verified. Uses validators.shared.parse_optional_datetime
+
+        :param value: input object.
+        :type value: dict | SourcedField | str | datetime | date | int | None
+        """
         self._date_verified = parse_optional_datetime(value, timefill=TimeFill.MIN)
 
     @hybrid_property
@@ -1056,13 +1179,13 @@ class ProcessVersion(BaseClass):
         """
         Return the parent process for this version.
 
-        :return: Process object associated with this version.
+        :return: self._process
         :rtype: Process
         """
         return self._process
 
     @process.setter
-    def process(self, value):
+    def process(self, value: str | dict | PydProcess | Process | None):
         """
         Set the parent process for this version from flexible input types.
 
@@ -1094,12 +1217,30 @@ class ProcessVersion(BaseClass):
     
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the constructed name of this process version.
+
+        :return: f"{self.process.name} - v{str(self.version)}"
+        :rtype: str
+        """
         if self.process is None:
             return f"Unassigned - v{str(self.version)}"
         return f"{self.process.name} - v{str(self.version)}"
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the process version name.
+
+        This expression concatenates the related processname, 
+        and the version float for database-side
+        query filtering and ordering.
+
+        :param cls: ProcessVersion model class.
+        :type cls: type[ProcessVersion]
+        :return: SQL expression yielding the formatted process version name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         process_subquery = (
             select(Process.name)
             .where(Process.id==cls.process_id)
@@ -1111,20 +1252,44 @@ class ProcessVersion(BaseClass):
 
     @name.setter
     def name(self, value):
+        """
+        Sets the process and version for this object by splitting a string.
+
+        :param value: The incoming name in "{self.process.name} - v{str(self.version)}" format.
+        :type value: str
+        """
         process, version = value.split(" - v")
         self.process = process.strip()
         self.version = float(version.strip())
 
     @hybrid_property
     def active(self) -> bool:
+        """
+        Gets the active flag integer as a boolean.
+
+        :return: active as a boolean.
+        :rtype: bool
+        """
         return bool(self._active)
 
     @active.setter
-    def active(self, value):
+    def active(self, value: int | bool | str | None):
+        """
+        Sets the active flag of this object as an integer. Uses validators.shared.booleanize
+
+        :param value: The value to be tranformed into an integer.
+        :type value: int | bool | str | None
+        """
         self._active = booleanize(value, Booleanize.INTEGER)
 
     @property
     def details_dict(self) -> dict:
+        """
+        Gets details dict. Overrides super to exclude procedureequipmentassociation.
+
+        :return: {k: v for k, v in super().details_dict.items() if k not in ['procedureequipmentassociation']}
+        :rtype: dict 
+        """
         return {k: v for k, v in super().details_dict.items() if k not in ['procedureequipmentassociation']}
     
     @classmethod
@@ -1175,7 +1340,6 @@ class ProcessVersion(BaseClass):
     def save(self) -> Report | None:
         if not self.process:
             raise ValueError(f"This version has no parent process. Cannot save.")
-            return
         super().save()
 
     
@@ -1245,16 +1409,19 @@ class Tips(BaseClass):
         :return: Cost per tip in currency units.
         :rtype: float
         """
-        return self._cost_per_tip if self._cost_per_tip else 0.00
+        output = self._cost_per_tip if self._cost_per_tip else 0.00
+        if output < 0:
+            output = 0.00
+        return output
     
     @cost_per_tip.setter
-    def cost_per_tip(self, value):
+    def cost_per_tip(self, value: int | float | str | None):
         """
         Set the cost per individual tip from flexible input types.
 
         Accepts int, float, or string representations of numeric cost values.
 
-        :param value: Cost per tip, negative values converted to 0.00.
+        :param value: Cost per tip, negative values or None converted to 0.00.
         :type value: int | float | str | None
         :return: None
         """
@@ -1279,20 +1446,20 @@ class Tips(BaseClass):
         """
         Get the processes associated with these tips.
 
-        :return: list of Process objects using these tips.
-        :rtype: list[Process]
+        :return: self._process
+        :rtype: List[Process]
         """
         return self._process
 
     @process.setter
-    def process(self, value):
+    def process(self, value: List[str | dict | PydProcess | Process]):
         """
         Set processes for these tips from flexible input types.
 
         Accepts string names, dicts, Pydantic models, or Process instances.
 
         :param value: Process data or instance to assign.
-        :type value: str | dict | PydProcess | Process | list | None
+        :type value: List[str | dict | PydProcess | Process]
         :return: None
         """
         from backend.validators.pydant import PydProcess
@@ -1327,20 +1494,20 @@ class Tips(BaseClass):
         """
         Get the tip lots available for this tip type.
 
-        :return: list of TipsLot objects representing specific lots of these tips.
-        :rtype: list[TipsLot]
+        :return: self._tipslot
+        :rtype: List[TipsLot]
         """
         return self._tipslot
 
     @tipslot.setter
-    def tipslot(self, value):
+    def tipslot(self, value: List[str | dict | PydTipsLot | TipsLot]):
         """
         Set tip lots for this tip type from flexible input types.
 
         Accepts string names, dicts, Pydantic models, or TipsLot instances.
 
         :param value: TipsLot data or instance to assign.
-        :type value: str | dict | PydTipsLot | TipsLot | list
+        :type value: List[str | dict | PydTipsLot | TipsLot]
         :return: None
         """
         from backend.validators.pydant import PydTipsLot
@@ -1370,10 +1537,28 @@ class Tips(BaseClass):
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the constructed name for this object.
+
+        :return: {self.manufacturer} - {self.ref}({self.capacity}uL)
+        :rtype: str
+        """
         return f"{self.manufacturer} - {self.ref}({self.capacity}uL)"
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the tips name.
+
+        This expression concatenates the related manufacturer name,
+        ref number, and the capacity for database-side
+        query filtering and ordering.
+
+        :param cls: Tips model class.
+        :type cls: type[Tips]
+        :return: SQL expression yielding the formatted tips name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         return func.concat(cls.manufacturer, ' - ', cls.ref, "(", cast(cls.capacity, String), "uL)")
 
     @classmethod
@@ -1504,21 +1689,19 @@ class TipsLot(BaseClass, LogMixin):
                 logger.error(f"Couldn't set active to {active} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
-    def expiry(self) -> str:
+    def expiry(self) -> datetime | None:
         """
-        Get the expiry date for this tip lot.
+        Get the expiry date for this tip lot. Defaults to 2099-12-31
 
-        :return: expiry timestamp, or None if not set.
+        :return: self._expiry if self._expiry else datetime(year=2099, month=12, day=31, hour=23, minute=59, second=59, tzinfo=timezone)
         :rtype: datetime | None
         """
         return self._expiry if self._expiry else datetime(year=2099, month=12, day=31, hour=23, minute=59, second=59, tzinfo=timezone)
 
     @expiry.setter
-    def expiry(self, value):
+    def expiry(self, value: datetime | date | int | str):
         """
-        Set the expiry date for this tip lot from various input formats.
-
-        Accepts datetime, date, timestamp integer, or date string.
+        Set the expiry date for this tip lot from various input formats. Uses validators.shared.parse_expiry
 
         :param value: Expiry date value in various formats.
         :type value: datetime | date | int | str
@@ -1572,20 +1755,20 @@ class TipsLot(BaseClass, LogMixin):
         """
         Get the procedure-equipment-tipslot associations for this tip lot.
 
-        :return: list of ProcedureEquipmentTipslotAssociation objects.
-        :rtype: list[ProcedureEquipmentTipslotAssociation]
+        :return: self._procedureequipmenttipslotassociation
+        :rtype: List[ProcedureEquipmentTipslotAssociation]
         """
         return self._procedureequipmenttipslotassociation
 
     @procedureequipmenttipslotassociation.setter
-    def procedureequipmenttipslotassociation(self, value):
+    def procedureequipmenttipslotassociation(self, value: List[dict | ProcedureEquipmentTipslotAssociation | ProcedureEquipmentAssociation]):
         """
         Set procedure-equipment-tipslot associations for this tip lot.
 
         Accepts dict or ProcedureEquipmentTipslotAssociation instances.
 
         :param value: Association data or instance to assign.
-        :type value: dict | ProcedureEquipmentTipslotAssociation | ProcedureEquipmentAssociation | list | None
+        :type value: List[dict | ProcedureEquipmentTipslotAssociation | ProcedureEquipmentAssociation]
         :return: None
         """
         if value is None:
@@ -1617,6 +1800,12 @@ class TipsLot(BaseClass, LogMixin):
 
     @property
     def capacity(self) -> str:
+        """
+        Gets the capacity of the parent tips as a string.
+
+        :return: "{self.tips.capacity}uL" if self.tips and self.tips.capacity else "Unknown capacity"
+        :rtype: str 
+        """
         return f"{self.tips.capacity}uL" if self.tips and self.tips.capacity else "Unknown capacity"
 
     @hybrid_property
@@ -1659,14 +1848,12 @@ class TipsLot(BaseClass, LogMixin):
         return bool(self._active)
 
     @active.setter
-    def active(self, value):
+    def active(self, value: int | bool | str | None):
         """
-        Set the active status flag for this tip lot from flexible input types.
-
-        Accepts int, bool, or string representations of boolean values.
+        Set the active status flag for this tip lot. Uses validators.shared.booleanize
 
         :param value: Active status value.
-        :type value: int | bool | str
+        :type value: int | bool | str | None
         :return: None
         :raises ValueError: If string value cannot be converted to boolean.
         :raises TypeError: If type is not supported.

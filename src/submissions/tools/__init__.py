@@ -13,7 +13,7 @@ from platform import system
 from stat import S_IWGRP
 from os import stat as osstat, chmod, umask
 from yaml import dump as ydump
-from re import sub as rsub, match as rmatch, IGNORECASE
+from re import Pattern, sub as rsub, match as rmatch, IGNORECASE
 from time import perf_counter
 from importlib import import_module
 from collections import OrderedDict
@@ -258,6 +258,11 @@ def clean_string(text):
     # Replaces any non-letter and non-number character with an empty string
     return rsub(r'[^a-zA-Z0-9]', '', text)
 
+
+# `replace_or_prepend_prefix` implemented later in this file; the
+# later definition treats the incoming `old_prefix` as a raw regex
+# string, compiles it anchored to the start, and uses it for matching.
+
 # Logging formatters
 
 class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
@@ -381,7 +386,6 @@ def jinja_template_loading() -> Environment:
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     env.filters['get_type'] = get_type
-    env.filters['sanitize'] = sanitize_object_for_json
     env.filters['handle_key'] = handle_keys
     env.filters['handle_results'] = handle_results
     return env
@@ -973,20 +977,26 @@ def handle_keys(key:str) -> str:
     return key
 
 
-def handle_results(input_value:dict|str, html: bool=True, keep_iso: bool = False) -> str|None:
-    if isinstance(input_value, dict):
-        input_value = input_value.get("value", input_value)
-    match input_value:
+def handle_results(value: dict | bool | str | datetime | date | None, html: bool=True, keep_iso: bool = False) -> str | None:
+    """
+    For formating various output types into a more html friendly format.
+
+    :param input_value: The input object.
+    :type input_value: dict | bool | str | datetime | date | None
+    """
+    if isinstance(value, dict):
+        value = value.get("value", value)
+    match value:
         case bool():
-            output = str(input_value).title()
+            output = str(value).title()
         case str() | int() | float():
-            output = str(input_value)
+            output = str(value)
             if html:
                 output = html_escape(output)
         case datetime() | date():
-            if isinstance(input_value, date) and not isinstance(input_value, datetime):
-                input_value = datetime.combine(input_value, datetime.min.time())
-            output = input_value.isoformat(timespec='minutes')
+            if isinstance(value, date) and not isinstance(value, datetime):
+                value = datetime.combine(value, datetime.min.time())
+            output = value.replace(tzinfo=None).isoformat(timespec='minutes')
             if not html:
                 output = output.split("T")[0]
             elif not keep_iso:
@@ -994,37 +1004,18 @@ def handle_results(input_value:dict|str, html: bool=True, keep_iso: bool = False
         case None:
             output = html_escape("NA")
         case _:
-            logger.warning(f"\n\nGot unusual input_value: {input_value} of type {type(input_value)}\n\n")
-            if input_value is None:
+            logger.warning(f"\n\nGot unusual input_value: {value} of type {type(value)}\n\n")
+            if value is None:
                 return None
             try:
-                output = jdumps(input_value, indent=4)
+                output = jdumps(value, indent=4)
             except (TypeError, ValueError):
-                logger.error(f"Could not convert {input_value} to json for display. Displaying as string instead.")
-                output = str(input_value)
+                logger.error(f"Could not convert {value} to json for display. Displaying as string instead.")
+                output = str(value)
             if html:
                 output = f"<pre>{html_escape(output)}</pre>"
     output = rsub(r'[{}]|&quot;|,', '', output)
-    
     return output
-
-
-def sanitize_object_for_json(input_obj):
-
-    from backend.db.models import BaseClass
-    match input_obj:
-        case bool():
-            return jdumps(input_obj)
-        case datetime() | date():
-            return input_obj.isoformat()
-        case list():
-            return [sanitize_object_for_json(item) for item in input_obj]
-        case dict():
-            return {k: sanitize_object_for_json(v) for k, v in input_obj.items()}
-        case _ if issubclass(input_obj.__class__, BaseClass):
-            return sanitize_object_for_json(input_obj.name)
-        case _:
-            return input_obj
 
 
 def iterable_enforcer(value, pass_dict: bool = True) -> list:
@@ -1147,6 +1138,37 @@ def ensure_list(v: Any) -> List:
     if isinstance(v, (Generator, filter, map)):
         return list(v)
     return v
+
+
+def replace_or_prepend_prefix(s: str, old_prefix: str, new_prefix: str, flags: int = 0) -> str:
+    """
+    Treat `old_prefix` as a raw regex string, compile it anchored to the start of the
+    input, and if it matches replace the matched prefix with `new_prefix`.
+    If `old_prefix` is empty or doesn't match, simply prepend `new_prefix`.
+
+    Args:
+        s: original string
+        old_prefix: raw regex string (will be compiled as r'^{old_prefix}')
+        new_prefix: replacement or prefix to prepend
+        flags: optional `re` flags (e.g. `re.IGNORECASE`)
+
+    Returns:
+        Modified string with prefix replaced or prepended.
+    """
+    if not isinstance(s, str):
+        return s
+    if not old_prefix:
+        return new_prefix + s
+    try:
+        pattern = re.compile(rf'^{old_prefix}', flags)
+    except re.error:
+        # If compilation fails, fall back to literal prefix matching
+        esc = re.escape(old_prefix)
+        pattern = re.compile(rf'^{esc}')
+    m = pattern.match(s)
+    if m:
+        return new_prefix + s[m.end():]
+    return new_prefix + s
 
 
 def sort_by_attr_or_key(items, field_path, reverse=False):

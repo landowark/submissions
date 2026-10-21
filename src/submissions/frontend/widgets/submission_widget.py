@@ -83,8 +83,8 @@ class MyQDoubleSpinBox(QDoubleSpinBox):
             return QDateEdit.wheelEvent(self, *args, **kwargs)
         else:
             return self.scrollWidget.wheelEvent(*args, **kwargs)
+
         
-714
 class SubmissionFormContainer(QWidget):
     # NOTE: A signal carrying a path
     import_drag = pyqtSignal(Path)

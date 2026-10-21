@@ -971,6 +971,10 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         resultstype = resultstype.name if isinstance(resultstype, PydResultsType) else resultstype
         return self.sql_instance.load_results_settings(resultstype=resultstype, mode=mode)
 
+    @property
+    def used_reagentlots(self) -> List[str]:
+        return [item.name for item in self.sql_instance.reagentlot]
+
     
 class PydClientSubmission(PydConcrete):
 

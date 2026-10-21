@@ -12,8 +12,8 @@ from jinja2 import Template
 from json import loads as jloads, JSONDecodeError
 from numpy import array as nparray, ndenumerate, sum as npsum
 from re import compile as rcompile, Pattern, IGNORECASE, VERBOSE, error as rerror
-from zipfile import ZipFile
-# from pydantic import BaseModel
+from pathlib import Path
+from zipfile import ZipFile, ZIP_DEFLATED
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, cast, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
@@ -27,8 +27,13 @@ from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityErr
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from backend.validators.shared import parse_optional_datetime, vet_comment, booleanize, Booleanize
 if TYPE_CHECKING:
-    from backend.db.models.submissions import Run
-    from backend.validators.pydant import PydProcedure, PydResults, PydResultsType
+    from backend.db.models.submissions import Run, ClientSubmission, Sample, ProcedureSampleAssociation
+    from backend.validators.pydant import (
+        PydProcedure, PydResults, PydResultsType, PydClientLab, PydProcedureType, PydClientSubmission,
+        PydEquipmentRole, PydReagentRole, PydProcedureTypeEquipmentRoleAssociation, PydProcedureReagentLotAssociation, 
+        PydEquipment, PydProcedureEquipmentAssociation, PydSample, PydProcedureSampleAssociation, PydRun
+    )
+    from backend.validators import SourcedField
     from backend.managers.results import DefaultResultsManager
 
 
@@ -98,6 +103,13 @@ class Discount(BaseClass):
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Get the discount name composed from the associated client lab,
+        procedure type, and amount.
+
+        :return: Discount name in the format "<clientlab>-<proceduretype>-<amount>"
+        :rtype: str
+        """
         try:
             clientlab = self.clientlab.name
         except AttributeError:
@@ -107,9 +119,45 @@ class Discount(BaseClass):
         except AttributeError:
             proceduretype = "Unassigned ProcedureType"
         return f"{clientlab}-{proceduretype}-{str(self.amount)}"
-    
+
+    @name.setter
+    def name(self, value):
+        """
+        Set the discount name by parsing a composite string.
+
+        The value must be in the format "<clientlab>-<proceduretype>-<amount>"
+        and is applied to the related client lab, procedure type, and amount.
+
+        :param value: Discount name to parse.
+        :type value: str
+        :raises ValueError: If the name value is not in the expected format.
+        """
+        if not isinstance(value, str):
+            raise TypeError("Discount name must be a string.")
+        try:
+            clientlab_name, proceduretype_name, amount_value = value.rsplit("-", 2)
+        except ValueError as exc:
+            raise ValueError(
+                "Discount name must be in the format '<clientlab>-<proceduretype>-<amount>'."
+            ) from exc
+        self.clientlab = clientlab_name.strip()
+        self.proceduretype = proceduretype_name.strip()
+        self.amount = float(amount_value.strip())
+
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the discount name.
+
+        This expression concatenates the related client lab name,
+        procedure type name, and the discount amount for database-side
+        query filtering and ordering.
+
+        :param cls: Discount model class.
+        :type cls: type[Discount]
+        :return: SQL expression yielding the formatted discount name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         clientlab_subquery = (
             select(ClientLab.name)
             .where(ClientLab.id==cls.clientlab_id)
@@ -135,7 +183,14 @@ class Discount(BaseClass):
         return self._clientlab
 
     @clientlab.setter
-    def clientlab(self, value):
+    def clientlab(self, value: str | dict | ClientLab | PydClientLab):
+        """
+        Set the clientlab name by parsing an input value.
+
+        :param value: Client name to parse.
+        :type value: str | dict | ClientLab | PydClientLab
+        :raises ValueError: If the name value is not in the expected format.
+        """
         from backend.validators.pydant import PydClientLab
         match value:
             case str():
@@ -158,10 +213,22 @@ class Discount(BaseClass):
     
     @hybrid_property
     def proceduretype(self):
+        """
+        Get the ProcedureType object associated with this discount.       
+        :return: ProcedureType object associated with this discount.
+        :rtype: ProcedureType
+        """
         return self._proceduretype
 
     @proceduretype.setter
-    def proceduretype(self, value):
+    def proceduretype(self, value: str | dict | ProcedureType | PydProcedureType):
+        """
+        Set the proceduretype by parsing an input value.
+
+        :param value: Client name to parse.
+        :type value: str | dict | ProcedureType | PydProcedureType
+        :raises ValueError: If the name value is not in the expected format.
+        """
         from backend.validators.pydant import PydProcedureType
         match value:
             case str():
@@ -296,10 +363,20 @@ class SubmissionType(BaseClass):
     
     @hybrid_property
     def file_name_template(self) -> str:
+        """
+        Get the Jinja2 template for naming files of this submission type.
+        :return: Jinja2 template string for file naming.
+        :rtype: str
+        """
         return self._file_name_template or "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y%m%d %H%M%S') }}{% endif %}"
     
     @file_name_template.setter
-    def file_name_template(self, value):
+    def file_name_template(self, value: str):
+        """
+        Set the Jinja2 template for naming files of this submission type.
+        :param value: Jinja2 template string for file naming.
+        :type value: str
+        """
         self._file_name_template = value or "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}"
 
     @hybrid_property
@@ -307,12 +384,19 @@ class SubmissionType(BaseClass):
         """
         Get the list of ClientSubmission objects associated with this submission type.       
         :return: List of ClientSubmission objects associated with this submission type.
-        :rtype: list[ClientSubmission]
+        :rtype: List[ClientSubmission]
         """
         return self._clientsubmission
 
     @clientsubmission.setter
-    def clientsubmission(self, value):
+    def clientsubmission(self, value: List[str | dict | ClientSubmission | PydClientSubmission]):
+        """
+        Set the clientsubmission by parsing an input value.
+
+        :param value: list of Clientsubmissions to parse.
+        :type value: List[str | dict | ClientSubmission | PydClientSubmission]
+        :raises ValueError: If the name value is not in the expected format.
+        """
         from backend.validators.pydant import PydClientSubmission
         from backend.db.models.submissions import ClientSubmission
         if value is None:
@@ -344,10 +428,22 @@ class SubmissionType(BaseClass):
 
     @hybrid_property
     def proceduretype(self):
+        """
+        Get the list of ProcedureType objects associated with this submission type.       
+        :return: List of ProcedureType objects associated with this submission type.
+        :rtype: List[ProcedureType]
+        """
         return self._proceduretype
 
     @proceduretype.setter
     def proceduretype(self, value):
+        """
+        Set the proceduretype by parsing an input value.
+
+        :param value: list of ProcedureTypes to parse.
+        :type value: List[str | dict | ProcedureType | PydProcedureType]
+        :raises ValueError: If the name value is not in the expected format.
+        """
         from backend.validators.pydant import PydProcedureType
         if value is None:
             return
@@ -378,10 +474,22 @@ class SubmissionType(BaseClass):
     
     @hybrid_property
     def turnaround_time(self) -> timedelta:
+        """
+        Get the target turnaround time for this submission type. Defaults to 5 days if not set.
+
+        :return: Target turnaround time as a timedelta object.
+        :rtype: timedelta
+        """
         return self._turnaround_time or timedelta(days=5)
         
     @turnaround_time.setter
-    def turnaround_time(self, value):
+    def turnaround_time(self, value: str | int | timedelta):
+        """
+        Set the target turnaround time for this submission type.
+
+        :param value: Turnaround time as a string, integer (days), or timedelta. Converted to timedelta.
+        :type value: str | int | timedelta
+        """
         match value:
             case int() | str():
                 output = timedelta(days=int(value))
@@ -397,10 +505,22 @@ class SubmissionType(BaseClass):
 
     @hybrid_property
     def abbreviation(self) -> str:
+        """
+        Get the abbreviation for this submission type. Defaults to the first 4 characters of the name if not set.
+
+        :return: Abbreviation string for this submission type.
+        :rtype: str
+        """
         return self._abbreviation
     
     @abbreviation.setter
-    def abbreviation(self, value):
+    def abbreviation(self, value: str):
+        """
+        Set the abbreviation for this submission type. Keeps only the first 4 characters of the provided value.
+
+        :param value: Abbreviation string for this submission type.
+        :type value: str
+        """
         if not isinstance(value, str):
             value = str(value)
         self._abbreviation = value[0:4]
@@ -438,7 +558,6 @@ class SubmissionType(BaseClass):
                 limit = 1
             case _:
                 pass
-        
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @check_authorization
@@ -496,17 +615,23 @@ class SubmissionType(BaseClass):
     
     @property
     def template(self) -> Template:
+        """
+        Get a Jinja2 Template object for the file name template of this submission type.
+
+        :return: Jinja2 Template object for file naming.
+        :rtype: Template
+        """
         return Template(str(self.file_name_template))
 
     @classmethod
-    def find_by_resultstype(cls, resultstype: ResultsType | str):
+    def find_by_resultstype(cls, resultstype: ResultsType | str) -> List[SubmissionType]:
         """
         Find submission types associated with a given results type.
 
         :param resultstype: ResultsType or name of results type to find associated submission types for.
         :type resultstype: ResultsType | str
         :return: List of SubmissionType objects associated with the given results type.
-        :rtype: list[SubmissionType]
+        :rtype: List[SubmissionType]
         """
         if not resultstype:
             logger.warning("No results type provided for find_by_resultstype")
@@ -525,18 +650,42 @@ class SubmissionType(BaseClass):
 
     @property
     def info_sheets(self) -> Generator[dict, None, None]:
+        """
+        Gets the list of info sheets for this submission type, including the default "Client Info" sheet.
+
+        :return: Generator of dictionaries representing info sheets.
+        :rtype: Generator[dict, None, None]
+        """
         yield from [dict(sheet="Client Info", start_row=1)] + self._info_sheets
     
     @property
     def sample_sheets(self) -> Generator[dict, None, None]:
+        """
+        Gets the list of sample sheets for this submission type, including the default "Client Info" sheet.
+
+        :return: Generator of dictionaries representing sample sheets.
+        :rtype: Generator[dict, None, None]
+        """
         yield from [dict(sheet="Client Info", start_row=1)] + self._sample_sheets
     
     @property
     def quality_sheets(self) -> Generator[dict, None, None]:
+        """
+        Gets the list of procedure sheets for this submission type.
+
+        :return: Generator of dictionaries representing procedure sheets.
+        :rtype: Generator[dict, None, None]
+        """
         yield from [dict(sheet=f"{proceduretype.name[:20]} Quality", start_row=1) for proceduretype in self.proceduretype]
 
     @property
     def results_sheets(self) -> Generator[dict, None, None]:
+        """
+        Gets the list of results sheets for this submission type.
+
+        :return: Generator of dictionaries representing results sheets.
+        :rtype: Generator[dict, None, None]
+        """
         for proceduretype in self.proceduretype:
             for resultstype in proceduretype.resultstype:
                 yield dict(sheet=f"{proceduretype.name[:10]} {resultstype.name[:10]}", start_row=1)
@@ -662,10 +811,22 @@ class ProcedureType(BaseClass):
 
     @hybrid_property
     def equipmentrole(self):
+        """
+        Get the list of EquipmentRole objects associated with this procedure type.
+
+        :return: List of EquipmentRole objects associated with this procedure type.
+        :rtype: List[EquipmentRole]
+        """
         return self._equipmentrole
     
     @equipmentrole.setter
-    def equipmentrole(self, value):
+    def equipmentrole(self, value: List[str | dict | EquipmentRole | PydEquipmentRole | ProcedureTypeEquipmentRoleAssociation]):
+        """
+        Set the equipmentrole by parsing a list of input values.
+
+        :param value: List of equipment roles to parse.
+        :type value: List[str | dict | EquipmentRole | PydEquipmentRole | ProcedureTypeEquipmentRoleAssociation]
+        """
         from backend.validators.pydant import PydEquipmentRole
         if not isinstance(value, list):
             value = [value]
@@ -699,10 +860,22 @@ class ProcedureType(BaseClass):
             
     @hybrid_property
     def reagentrole(self):
+        """
+        Get the list of ReagentRole objects associated with this procedure type.
+
+        :return: list of ReagentRole objects associated with this procedure type.
+        :rtype: List[ReagentRole]
+        """
         return self._reagentrole    
     
     @reagentrole.setter
     def reagentrole(self, value):
+        """
+        Set the reagentroles by parsing a list of input values.
+
+        :param value: List of reagent roles to parse.
+        :type value: List[str | dict | ReagentRole | PydReagentRole | ProcedureTypeReagentRoleAssociation]
+        """
         from backend.validators.pydant import PydReagentRole
         if not isinstance(value, list):
             value = [value]
@@ -736,10 +909,22 @@ class ProcedureType(BaseClass):
 
     @hybrid_property
     def resultstype(self):
+        """
+        Get the list of ResultsType objects associated with this procedure type.
+
+        :return: list of ResultsType objects associated with this procedure type.
+        :rtype: List[ResultsType]
+        """
         return self._resultstype
 
     @resultstype.setter
-    def resultstype(self, value):
+    def resultstype(self, value: List[str | dict | ResultsType | PydResultsType | ProcedureTypeResultsTypeAssociation]):
+        """
+        Set the resultstype by parsing a list of input values:
+
+        :param value: List of results types to parse.
+        :type value: List[str | dict | ResultsType | PydResultsType | ProcedureTypeResultsTypeAssociation]
+        """
         from backend.validators.pydant import PydResultsType
         if value is None:
             value = []
@@ -776,10 +961,22 @@ class ProcedureType(BaseClass):
     
     @hybrid_property
     def submissiontype(self):
+        """
+        Get the list of SubmissionType objects associated with this procedure type.
+
+        :return: list of SubmissionType objects associated with this procedure type.
+        :rtype: List[SubmissionType]
+        """
         return self._submissiontype
 
     @submissiontype.setter
     def submissiontype(self, value):
+        """
+        Set the submissiontype by parsing a list of input values.
+
+        :param value: List of submission types to parse.
+        :type value: List[str | dict | SubmissionType | PydSubmissionType]
+        """
         from backend.validators.pydant import PydSubmissionType
         if value is None:
             value = []
@@ -814,10 +1011,22 @@ class ProcedureType(BaseClass):
         
     @hybrid_property
     def procedure(self):
+        """
+        Get the Procedure objects of this procedure type.
+
+        :return: List of Procedure objects that are of this procedure type.
+        :rtype: List[Procedure]
+        """
         return self._procedure
 
     @procedure.setter
     def procedure(self, value):
+        """
+        Set the procedures by parsing a list of input values.
+
+        :param value: List of procedures to parse.
+        :type value: List[str | dict | Procedure | PydProcedure]
+        """
         from backend.validators.pydant import PydProcedure
         if not isinstance(value, list):
             value = [value]
@@ -846,10 +1055,22 @@ class ProcedureType(BaseClass):
 
     @hybrid_property
     def discount(self):
+        """
+        Get discounts associated with this procedure type and client labs.
+
+        :return: List of discounts applied to this procedure type. Client lab agnositic.
+        :rtype: List[Discount]
+        """
         return self._discount
 
     @discount.setter
-    def discount(self, value):
+    def discount(self, value: List[dict | Discount]):
+        """
+        Set discounts for this procedure type by parsing a list of input values.
+
+        :param value: List of input discount objects.
+        :type value: List[dict | Discount]
+        """
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -908,12 +1129,16 @@ class ProcedureType(BaseClass):
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
     def construct_dummy_procedure(self, run: Optional[Run] = None) -> PydProcedure:
+        """
+        Creates a blank procedure of this procedure type associated with an optional run.
+
+        :param run: Optional parent Run for the dummy procedure.
+        :type run: Run
+        """
         from backend.validators.pydant import PydProcedure, PydProcedureSampleAssociation
         from backend.db.models import RunSampleAssociation, Procedure
-
         pydrun = run.to_pydantic() if run is not None else None
         sample_list = []
-
         if run is not None:
             for iii, assoc in enumerate(run.runsampleassociation, start=1):
                 assoc: RunSampleAssociation
@@ -931,7 +1156,6 @@ class ProcedureType(BaseClass):
                         else "sample"
                     )
                     sample_list.append(sample)
-
         pyd_proc_type = self.to_pydantic()
         # Expand the association objects so association-level flags (e.g. multiselect)
         # are available. Expand the ProcedureType<->ReagentRole association then
@@ -940,7 +1164,6 @@ class ProcedureType(BaseClass):
             {"proceduretypereagentroleassociation": [{"reagentrole": [{"reagent": ["reagentlot"]}]}]},
             {"equipmentrole": [{"equipmentroleequipmentassociation": ["equipment", {"process": ["processversion", "tips"]}]}]}
         ])
-
         # Merge association-level fields into the top-level reagentrole list
         assoc_list = expanded.get('proceduretypereagentroleassociation', [])
         reagentrole_list = expanded.get('reagentrole', []) or []
@@ -1020,6 +1243,12 @@ class ProcedureType(BaseClass):
 
     @property
     def total_wells(self) -> int:
+        """
+        Gets the total number of wells in this procedure type's plate. Rows * Columns
+
+        :return: Total number of wells
+        :rtype: int 
+        """
         return self.plate_rows * self.plate_columns
 
     @property
@@ -1028,12 +1257,12 @@ class ProcedureType(BaseClass):
         Return metadata dictionaries for all result methods allowed by this procedure type.
 
         :return: List of result method details dictionaries.
-        :rtype: list[dict]
+        :rtype: List[dict]
         """
         return [item.details_dict for item in self.resultstype]
     
     @property
-    def preprocessing_methods(self) -> Iterator[tuple[str, callable, ResultsType]]:
+    def preprocessing_methods(self) -> List[dict]:
         """
         Yield preprocessing controls for each allowed result method.
 
@@ -1041,6 +1270,7 @@ class ProcedureType(BaseClass):
         :rtype: Iterator[tuple[str, callable, ResultsType]]
         """
         from backend.excel.writers import results_settings
+        output = []
         for method in self.allowed_result_methods:
             settings_name = f"{method['name'].replace(' ', '')}Settings"
             results_type = next((item for item in self.resultstype if item.name == method['name']), None)
@@ -1053,9 +1283,20 @@ class ProcedureType(BaseClass):
             if not func:
                 continue
             if func:
-                yield func.label, func, results_type
+                output.append(dict(name=func.label, function=func, results_type=results_type))
+        return output
 
     def load_resultstypeassoc_settings(self, resultstype: str | ResultsType, mode: ResultsMode = ResultsMode.PARSE) -> dict:
+        """
+        Gets the results settings for this procedure type and the given results type.
+
+        :param resultstype: The ResultsType of interest.
+        :type resultstype: str | ResultsType
+        :param mode: The mode to retrieve settings for. Parse or Write.
+        :type mode: ResultsMode.PARSE | ResultsMode.WRITE
+        :return: a dictionary of settings keys and values.
+        :rtype: dict
+        """
         resultstype = resultstype.name if isinstance(resultstype, ResultsType) else resultstype
         if not resultstype:
             assoc = next((rt for rt in self.proceduretyperesultstypeassociation), None)
@@ -1224,11 +1465,26 @@ class Procedure(BaseClass):
         self._comment = [] if self._comment is None else self._comment
 
     @hybrid_property
-    def clientlab(self):
+    def clientlab(self) -> str:
+        """
+        Retrives the client lab name of the original ClientSubmission
+
+        :return: Client lab name.
+        :rtype: str
+        """
         return self.run.clientsubmission.clientlab.name
 
     @clientlab.expression
     def clientlab(cls):
+        """
+        Query the client lab name for the procedure via its related client submission.
+
+        This SQL expression walks the procedure -> run -> client submission -> client lab
+        relationship to return the name of the lab associated with the parent procedure.
+
+        :return: SQLAlchemy scalar subquery yielding the client lab name.
+        :rtype: sqlalchemy.sql.elements.ColumnElement
+        """
         # 1. Import necessary components from SQLAlchemy
         from sqlalchemy import select
         # 2. Extract internal target tables from the relationships to build the joins safely
@@ -1246,6 +1502,12 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the name of this procedure: "Run.name - ProcedureType.name - started_date"
+
+        :return: "Run.name - ProcedureType.name - started_date"
+        :rtype: str
+        """
         try:
             run = self.run.name
         except AttributeError:
@@ -1262,6 +1524,17 @@ class Procedure(BaseClass):
     
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the procedure name.
+
+        This expression concatenates the related run name,
+        procedure type name query filtering and ordering.
+
+        :param cls: Procedure model class.
+        :type cls: type[Procedure]
+        :return: SQL expression yielding the formatted procedure name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         from backend.db.models import Run
         # Create an alias to avoid the recursive property lookup
         run_subquery = (
@@ -1274,7 +1547,7 @@ class Procedure(BaseClass):
             .where(ProcedureType.id==cls.proceduretype_id)
             .scalar_subquery()
         )
-        # Use func.concat or comma-separated args in func.concat to force the || operator
+        # Use func.coalesce or comma-separated args in func.concat to force the || operator
         return func.coalesce(run_subquery, "Unknown Run") + \
             " - " + \
             func.coalesce(proceduretype_subquery, "Unknown ProcedureType") + \
@@ -1283,10 +1556,22 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def reagentlot(self):
-        return self._reagentlot
+        """
+        Gets a list of reagent lots used in this procedure.
+
+        :return: The list of reagent lots used for this procedure.
+        :rtype: List[ReagentLot]
+        """
+        return self._reagentlot or []
     
     @reagentlot.setter
-    def reagentlot(self, value):
+    def reagentlot(self, value: List[str | PydProcedureReagentLotAssociation | dict | ReagentLot | ProcedureReagentLotAssociation]):
+        """
+        Set the list of reagentlots for this procedure by parsing a list of inp ut objects.
+
+        :param value: The input list of reagent lot objects.
+        :type value: List[str | PydProcedureReagentLotAssociation | dict | ReagentLot | ProcedureReagentLotAssociation]
+        """
         from backend.validators.pydant import PydProcedureReagentLotAssociation
         if not isinstance(value, list):
             value = [value]
@@ -1323,10 +1608,22 @@ class Procedure(BaseClass):
         
     @hybrid_property
     def equipment(self):
-        return self._equipment
+        """
+        Gets the list of equipment used in this procedure.
+
+        :return: List of used equipment.
+        :rtype: List[Equipment]
+        """
+        return self._equipment or []
     
     @equipment.setter
-    def equipment(self, value):
+    def equipment(self, value: List[str | Equipment | PydEquipment | dict | ProcedureEquipmentAssociation | PydProcedureEquipmentAssociation]):
+        """
+        Sets the equipment used in this procedure by parsing a list of input objects.
+
+        :param value: The input list of objects.
+        :type value: List[str | Equipment | PydEquipment | dict | ProcedureEquipmentAssociation | PydProcedureEquipmentAssociation]
+        """
         from backend.validators.pydant import PydEquipment, PydProcedureEquipmentAssociation
         if not isinstance(value, list):
             value = [value]
@@ -1368,10 +1665,22 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def sample(self):
+        """
+        Gets a list of samples used in this procedure.
+
+        :return: List of samples.
+        :rtype: List[Sample]
+        """
         return self._sample
     
     @sample.setter
-    def sample(self, value):
+    def sample(self, value: List[str | PydProcedureSampleAssociation | Sample | PydSample | dict | ProcedureSampleAssociation]):
+        """
+        Sets the list of samples used in this procedure by parsing a list of input objects.
+
+        :param value: Input list of objects.
+        :type value: List[str | PydProcedureSampleAssociation | Sample | PydSample | dict | ProcedureSampleAssociation]
+        """
         from ..submissions import ProcedureSampleAssociation, Sample
         from backend.validators.pydant import PydSample, PydProcedureSampleAssociation
         value = iterable_enforcer(value)
@@ -1422,26 +1731,62 @@ class Procedure(BaseClass):
         
     @hybrid_property
     def started_date(self) -> datetime:
+        """
+        Gets the date this procedure was started. Defaults to now.
+
+        :return: Started date.
+        :rtype: datetime
+        """
         return self._started_date if self._started_date else datetime.now(tz=timezone)
 
     @started_date.setter
-    def started_date(self, value):
+    def started_date(self, value: dict | SourcedField | str | datetime | date | int | None):
+        """
+        Sets the started date, using validators.shared.parse_optional_datetime to parse.
+
+        :param value: Input datetime.
+        :type value: dict | SourcedField | str | datetime | date | int | None
+        """
         self._started_date = parse_optional_datetime(value)
 
     @hybrid_property
-    def completed_date(self):
+    def completed_date(self) -> datetime | None:
+        """
+        Gets the date this procedure was completed. Defaults to None.
+
+        :return: Completed date.
+        :rtype: datetime | None
+        """
         return self._completed_date if self._completed_date else None
 
     @completed_date.setter
     def completed_date(self, value):
+        """
+        Sets the completed date, using validators.shared.parse_optional_datetime to parse.
+
+        :param value: Input datetime.
+        :type value: dict | SourcedField | str | datetime | date | int | None
+        """
         self._completed_date = parse_optional_datetime(value)
 
     @hybrid_property
     def proceduretype(self):
+        """
+        Gets the procedure type of this procedure
+
+        :return: the procedure type
+        :rtype: ProcedureType
+        """
         return self._proceduretype
 
     @proceduretype.setter
-    def proceduretype(self, value):
+    def proceduretype(self, value: str | dict | PydProcedureType | ProcedureType):
+        """
+        Sets the procedure type of this procedure by parsing an input value
+
+        :param value: The input procedure type.
+        :type value: str | dict | PydProcedureType | ProcedureType
+        """
         from backend.validators.pydant import PydProcedureType
         match value:
             case str():
@@ -1464,10 +1809,22 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def run(self):
+        """
+        Get the run this procedure belongs to.
+
+        :return: This procedure's run.
+        :rtype: Run
+        """
         return self._run
 
     @run.setter
-    def run(self, value):
+    def run(self, value: str | dict | PydRun | Run):
+        """
+        Set the parent run for this procedure by parsing an input object.
+
+        :param value: The run input object.
+        :type value: str | dict | PydRun | Run
+        """
         from backend.validators.pydant import PydRun
         from ..submissions import Run
         match value:
@@ -1477,9 +1834,6 @@ class Procedure(BaseClass):
                 # If caller provided a clientsubmission object inside the dict, avoid
                 # running Run.query_or_create which may build queries with pagination
                 # applied earlier; instead construct a Run instance directly.
-                # if isinstance(cs, BaseClass):
-                #     output = Run(**value)
-                # else:
                 output = Run.query_or_create(**value)
             case PydRun():
                 output = value.to_sql(update=False)
@@ -1497,10 +1851,22 @@ class Procedure(BaseClass):
     
     @hybrid_property
     def results(self):
+        """
+        Gets the (non-sample) results for this procedure.
+
+        :return: List of results objects without sample associations for this procedure.
+        :rtype: List[Results]
+        """
         return [result for result in self._results if not result.is_sample]  # filter out sample-level results, only return procedure-level results
 
     @results.setter
-    def results(self, value):
+    def results(self, value: List[str | dict | PydResults | Results]):
+        """
+        Set results for this procedure by parsing a list of input objects.
+
+        :param value: The list of input objects.
+        :type value: List[str | dict | PydResults | Results]
+        """
         from backend.validators.pydant import PydResults
         if value is None:
             value = []
@@ -1531,10 +1897,22 @@ class Procedure(BaseClass):
     
     @hybrid_property
     def repeat_of(self):
+        """
+        Gets the original procedure this procedure is a repeat of (if any).
+
+        :return: The original procedure.
+        :rtype: Procedure
+        """
         return self._repeat_of
 
     @repeat_of.setter
-    def repeat_of(self, value):
+    def repeat_of(self, value: str | dict | PydProcedure | Procedure):
+        """
+        Set the original procedure this procedure is a repeat of by parsing an input value.
+
+        :param value: The original procedure.
+        :type value: Procedure
+        """
         from backend.validators.pydant import PydProcedure
         match value:
             case str():
@@ -1558,24 +1936,48 @@ class Procedure(BaseClass):
     
     @hybrid_property
     def repeat(self) -> bool:
+        """
+        Get whether or not this procedure is a repeat.
+
+        :return: True or False, this is a repeat.
+        :rtype: bool
+        """
         return self._repeat_of is not None
 
     @hybrid_property
     def cost(self) -> float:
+        """
+        Gets the calculated cost for this procedure.
+
+        :return: The cost of this procedure.
+        :rtype: float
+        """
         return self._cost
 
     @property
-    def info_results(self) -> dict[str, dict]:
+    def info_results(self) -> Dict[str, dict]:
+        """
+        Gets the (non-sample) procedure level results for this procedure.
+
+        :return: The results as a dictionary
+        :rtype: Dict[str, dict]
+        """
         resultstypes = list(set([result.resultstype.name for result in self._results]))
         grouped_results: dict[str, Any] = {
-            rt: [result.to_pydantic() for result in self._results 
-                 if (not result.is_sample) and (result.assoc_id is None) and (result.resultstype.name == rt)] 
+            rt: [result.to_pydantic() for result in self._results
+                 if (not result.is_sample) and (result.assoc_id is None) and (result.resultstype.name == rt)]
                  for rt in resultstypes
             }
         return {k:v for k, v in grouped_results.items() if v}
 
     @property
-    def sample_results(self) -> dict[str, list]:
+    def sample_results(self) -> Dict[str, list]:
+        """
+        Gets the sample level results for this procedure.
+
+        :return: The results as a dictionary.
+        :rtype: Dict[str, list]
+        """
         grouped_results: dict[str, list] = {}
         for result in flatten_list([[result for result in item.results] for item in self.proceduresampleassociation]):
             if not result.is_sample:
@@ -1588,11 +1990,11 @@ class Procedure(BaseClass):
         return grouped_results
 
     @property
-    def grouped_results(self) -> dict[str, dict[str, list]]:
+    def grouped_results(self) -> Dict[str, dict[str, list]]:
         """Group procedure-level and sample-level results by resultstype.
 
-        Returns a dict keyed by resultstype, with nested "procedure" and "sample"
-        result lists.
+        :return: dict keyed by resultstype, with nested "procedure" and "sample" result lists.
+        :rtype: Dict[str, dict[str, list]]
         """
         grouped: dict[str, dict[str, list]] = {}
         procedure_groups = self.info_results
@@ -1608,12 +2010,24 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def comment(self) -> List[dict]:
+        """
+        Gets all comments for this procedure:
+
+        :return: A list of dictionaries with comment details and content.
+        :return: List[dict]
+        """
         if not self._comment:
             return []
         return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
     
     @comment.setter
-    def comment(self, value):
+    def comment(self, value: dict | List[dict]):
+        """
+        Set comments by parsing an input value. Uses validators.shared.vet_comment to validate comment.
+
+        :param value: Input comment or list of comments.
+        :type value: dict | List[dict]
+        """
         self._comment = vet_comment(value, current=self._comment)
 
     @classmethod
@@ -1626,20 +2040,20 @@ class Procedure(BaseClass):
               limit: int = 0,
               **kwargs):
         """
-    #     Lookup procedures by id, name, or date range.
-    #     :param id: Procedure id. Defaults to None.
-    #     :type id: int | None
-    #     :param name: Procedure name or prefix. Defaults to None.
-    #     :type name: str | None
-    #     :param start_date: Start date for procedure start time. Defaults to None.
-    #     :type start_date: date | datetime | str | int | None
-    #     :param end_date: End date for procedure start time. Defaults to None.
-    #     :type end_date: date | datetime | str | int | None
-    #     :param limit: Maximum number of results to return (0 = all). Defaults to 0.
-    #     :type limit: int
-    #     :return: Procedure or list of Procedure objects matching filter.
-    #     :rtype: Procedure | List[Procedure]
-    #     """
+        Lookup procedures by id, name, or date range.
+        :param id: Procedure id. Defaults to None.
+        :type id: int | None
+        :param name: Procedure name or prefix. Defaults to None.
+        :type name: str | None
+        :param start_date: Start date for procedure start time. Defaults to None.
+        :type start_date: date | datetime | str | int | None
+        :param end_date: End date for procedure start time. Defaults to None.
+        :type end_date: date | datetime | str | int | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: Procedure or list of Procedure objects matching filter.
+        :rtype: Procedure | List[Procedure]
+        """
         query: Query = cls.__database_session__.query(cls)
         if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")
@@ -1676,16 +2090,30 @@ class Procedure(BaseClass):
         :return: mapping of context menu labels to callable methods.
         :rtype: dict[str, callable]
         """
-        names = ["Add Results", "Edit", "Add Comment", "Show Details", "Delete"]
+        names = ["Preprocessing", "Add Results", "Edit", "Add Comment", "Show Details", "Delete"]
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
+    
+
     @property
-    def run_samples(self):
+    def run_samples(self) -> Generator:
+        """
+        Gets the samples associated with the parent run.
+
+        :return: A generator yielding all run samples.
+        :rtype: Generator
+        """
         with self.run.__database_session__.no_autoflush:
             yield from [assoc.sample for assoc in self.run.runsampleassociation]
 
     @property
     def active_samples(self) -> Generator[dict, None, None]:
+        """
+        Gets the samples marked as active in this procedure.
+
+        :return: A generator yielding all active samples.
+        :rtype: Generator[dict, None, None]
+        """
         for sample in self.proceduresampleassociation:
             if sample.sample.sample_id in [s.sample_id for s in self.run_samples]:
                 # Create a shallow copy to safely modify the dictionary before yielding
@@ -1695,6 +2123,12 @@ class Procedure(BaseClass):
 
     @property
     def inactive_samples(self) -> Generator[dict, None, None]:
+        """
+        Gets the samples marked as inactive in this procedure.
+
+        :return: A generator yielding all inactive samples.
+        :rtype: Generator[dict, None, None]
+        """
         a_s_names =  [s.get('sample', "") for s in self.active_samples]
         for sample in self.run_samples:
             if sample.sample_id in a_s_names:
@@ -1705,7 +2139,16 @@ class Procedure(BaseClass):
 
     @property
     def sample_count(self) -> int:
+        """
+        Gets the calculated number of samples in this procedure.
+
+        :return: Length of the list of active samples.
+        :rtype: int
+        """
         return len(list(self.active_samples))
+
+    def preprocessing(self, obj):
+        return self.proceduretype.preprocessing_methods
 
     def add_results(self, obj, resultstype_name: str):
         """
@@ -1798,6 +2241,11 @@ class Procedure(BaseClass):
 
     @check_authorization
     def delete(self, obj):
+        """
+        Delete this procedure from the database.
+
+        :param obj: The submission table.
+        """
         from frontend.widgets.pop_ups import QuestionAsker
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
         if msg.exec():
@@ -1857,7 +2305,12 @@ class Procedure(BaseClass):
         return output
 
     def construct_pyd_procedure_for_creation(self) -> PydProcedure:
-        """Return a widget-ready PydProcedure for ProcedureCreation."""
+        """
+        Return a widget-ready PydProcedure for ProcedureCreation.
+        
+        :return: A new PydProcedure with samples.
+        :rtype: PydProcedure
+        """
         from backend.validators.pydant import PydProcedure, PydProcedureSampleAssociation
         sample_list = []
         for assoc in self.proceduresampleassociation:
@@ -1910,6 +2363,12 @@ class Procedure(BaseClass):
 
     @property
     def submissiontype(self):
+        """
+        Get the submission type of the parent of this procedure.
+
+        :return: Parent submissiontype
+        :rtype: SubmissionType
+        """
         return self.run.clientsubmission.submissiontype
 
     def set_cost(self):
@@ -2015,6 +2474,16 @@ class Procedure(BaseClass):
                 logger.error(f"Association not found for {reagentrole} and {proceduretype}")
                 
     def load_results_settings(self, resultstype: str | ResultsType, mode: ResultsMode = ResultsMode.PARSE) -> dict:
+        """
+        Gets the results settings for this procedure type and the given results type.
+        
+        :param resultstype: The ResultsType of interest.
+        :type resultstype: str | ResultsType
+        :param mode: The mode to retrieve settings for. Parse or Write.
+        :type mode: ResultsMode.PARSE | ResultsMode.WRITE
+        :return: a dictionary of settings keys and values.
+        :rtype: dict
+        """
         return self.proceduretype.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
     
 
@@ -2044,13 +2513,13 @@ class Results(BaseClass):
     :vartype _resultstype: ResultsType
     """
     id = Column(INTEGER, primary_key=True)  #: primary key
-    _result = Column(JSON)  #:
-    _date_analyzed = Column(TIMESTAMP)
+    _result = Column(JSON)  #: Actual results
+    _date_analyzed = Column(TIMESTAMP) #: Date the results were created. (Parsed from results sheet)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete='SET NULL',
                                               name="fk_RES_procedure_id"))
     _procedure = relationship("Procedure", back_populates="_results")
     assoc_id = Column(INTEGER, ForeignKey("_proceduresampleassociation.id", ondelete='SET NULL',
-                                          name="fk_RES_ASSOC_id"))
+                                          name="fk_RES_ASSOC_id")) #: ID of the proceduresampleassociation
     _sampleprocedureassociation = relationship("ProcedureSampleAssociation", back_populates="_results")
     _img = Column(String(128))
     _is_sample = Column(INTEGER, default=0)
@@ -2115,10 +2584,22 @@ class Results(BaseClass):
 
     @hybrid_property
     def result(self) -> dict:
+        """
+        Get the result contents of this Results object.
+
+        :return: self._result
+        :rtype: dict
+        """
         return self._result
     
     @result.setter
-    def result(self, value):
+    def result(self, value: str | dict):
+        """
+        Set the result contents of this object.
+
+        :param value: The results from a parser, input string, etc.
+        :type value: str | dict
+        """
         if isinstance(value, str):
             logger.error(f"Got string {value}")
             try:
@@ -2133,6 +2614,12 @@ class Results(BaseClass):
         
     @hybrid_property
     def name(self) -> str:
+        """
+        Get the name of this results object.
+
+        :return: procedure.name - resultstype.name
+        :rtype: str
+        """
         try:
             assoc = self.procedure.name
         except AttributeError:
@@ -2145,6 +2632,17 @@ class Results(BaseClass):
     
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the results name.
+
+        This expression concatenates the related procedure name,
+        results type name query filtering and ordering.
+
+        :param cls: Results model class.
+        :type cls: type[Results]
+        :return: SQL expression yielding the formatted results name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -2161,19 +2659,43 @@ class Results(BaseClass):
         return procedure_subquery + " - " + resultstype_subquery
 
     @hybrid_property
-    def date_analyzed(self) -> datetime:
+    def date_analyzed(self) -> datetime | None:
+        """
+        Get the date these results were analyzed. Defaults to None
+
+        :return: Datetime these results were analyzed.
+        :rtype: datetime | None
+        """
         return self._date_analyzed if self._date_analyzed else None
     
     @date_analyzed.setter
-    def date_analyzed(self, value):
+    def date_analyzed(self, value: dict | SourcedField | str | datetime | date | int | None):
+        """
+        Set the date these results were analyzed. Uses validators.shared.parse_optional_datetime.
+
+        :param value: Datetime these results were analyzed.
+        :type value: dict | SourcedField | str | datetime | date | int | None
+        """
         self._date_analyzed = parse_optional_datetime(value)
 
     @hybrid_property
     def resultstype(self):
+        """
+        Get the results type of these results. Defaults to "Unassigned ResultsType".
+
+        :return: Results type as an object, or default string.
+        :rtype: ResultsType | str
+        """
         return self._resultstype or "Unassigned ResultsType"
 
     @resultstype.setter
-    def resultstype(self, value):
+    def resultstype(self, value: str | dict | PydResultsType | ResultsType):
+        """
+        Set the results type of these results by parsing an input object.
+
+        :param value: Object to be parsed.
+        :type value: str | dict | PydResultsType | ResultsType
+        """
         from backend.validators.pydant import PydResultsType
         match value:
             case str():
@@ -2196,10 +2718,22 @@ class Results(BaseClass):
 
     @hybrid_property
     def procedure(self):
+        """
+        Get the procedure associated with these results.
+
+        :return: Associated procedure object.
+        :rtype: Procedure
+        """
         return self._procedure
 
     @procedure.setter
-    def procedure(self, value):
+    def procedure(self, value: str | dict | PydProcedure | Procedure):
+        """
+        Set the procedure for these results by parsing an input object.
+
+        :param value: Input object.
+        :type value: str | dict | PydProcedure | Procedure
+        """
         from backend.validators.pydant import PydProcedure
         match value:
             case str():
@@ -2222,15 +2756,25 @@ class Results(BaseClass):
 
     @hybrid_property
     def sampleprocedureassociation(self):
-        return self._sampleprocedureassociation
+        """
+        Get the sample/procedure association these results are attached to. Defaults to None.
+
+        :return: sample/procedure association if any.
+        :rtype: ProcedureSampleAssociation
+        """
+        return self._sampleprocedureassociation or None
 
     @sampleprocedureassociation.setter
-    def sampleprocedureassociation(self, value):
+    def sampleprocedureassociation(self, value: str | dict | PydSample | Sample | PydProcedureSampleAssociation | ProcedureSampleAssociation):
         """
-        Input objects will be assumed to be sample only and use self.procedure to set.
+        Set the sample/procedure association these results are attached to
+        Input objects that are sample only will use self.procedure to set.
+
+        :param value: The input ProcedureSampleAssociation or Sample object.
+        :type value: str | dict | PydSample | Sample | PydProcedureSampleAssociation | ProcedureSampleAssociation
         """
         from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
-        from backend.db.models import ProcedureSampleAssociation
+        from backend.db.models import ProcedureSampleAssociation, Sample
         try:
             proc = self.procedure
         except AttributeError as e:
@@ -2241,7 +2785,7 @@ class Results(BaseClass):
                 output = ProcedureSampleAssociation.query(sample=value, procedure=proc, limit=1)
             case dict():
                 output = ProcedureSampleAssociation.query_or_create(**value)
-            case PydSample():
+            case PydSample() | Sample():
                 output = ProcedureSampleAssociation(sample=value, procedure=proc)
             case PydProcedureSampleAssociation():
                 output = value.to_sql(update=False)
@@ -2265,6 +2809,12 @@ class Results(BaseClass):
     
     @property
     def sample_id(self) -> str | None:
+        """
+        Get the sample id of the sample these results are attached to (if any).
+
+        :return: Sample id
+        :rtype: str | None
+        """
         if self.assoc_id:
             try:
                 return self.sampleprocedureassociation.sample.sample_id
@@ -2274,24 +2824,70 @@ class Results(BaseClass):
             return None
 
     @property
+    def img_zip_path(self) -> Path | None:
+        """
+        Gets the img_zip_path of the parent ResultsType.
+
+        :return: ResultsType.img_zip_path if self.resultstype is not None.
+        :rtype: Path | None
+        """
+        rt = self.resultstype
+        if not isinstance(rt, ResultsType):
+            return None
+        else:
+            return self.resultstype.img_zip_path
+
+    @property
     def image(self) -> bytes | None:
-        dir = self.__directory_path__.joinpath("submission_imgs.zip")
+        """
+        Get the image associated with these results (if any).
+
+        :return: image as bytes
+        :rtype: bytes
+        """
         if not self._img:
+            return None
+        else:
+            dir = self.img_zip_path
+        if not dir:
             return None
         try:
             assert dir.exists()
         except AssertionError:
+            logger.error(f"The zip directory {dir} does not exist.")
             return None
         with ZipFile(dir) as zf:
             with zf.open(self._img) as f:
                 return f.read()
 
     @image.setter
-    def image(self, value):
-        self._img = value
+    def image(self, value: str | Path):
+        """
+        Set the image associated with these results.
+
+        :param value: The location of the input image.
+        :type value: str | Path
+        """
+        if isinstance(value, str):
+            value = Path(value).absolute()
+        if not isinstance(value, Path):
+            raise ValueError("Path object required.")
+        dir = self.img_zip_path
+        if not dir:
+            raise ValueError("No image zip file available.")
+        image_name = value.name
+        with ZipFile(dir, "w", ZIP_DEFLATED) as zf:
+            zf.write(value, arcname=image_name)
+        self._img = image_name
 
     @hybrid_property
     def is_sample(self) -> bool:
+        """
+        Is this a sample result?
+
+        :return: True if self._is_sample is True or if self.assoc_id is set.
+        :rtype: bool
+        """
         # A little too complex for booleanize, so just handle it here. If _is_sample is set, use that. Otherwise, if assoc_id is set, assume it's a sample.
         if self._is_sample is not None:
             return bool(self._is_sample)
@@ -2299,18 +2895,42 @@ class Results(BaseClass):
             return self.assoc_id is not None
         
     @is_sample.setter
-    def is_sample(self, value):
+    def is_sample(self, value: int | bool | str | None):
+        """
+        Sets whether or not this is a sample result as 1 or 0. Uses validators.shared.booleanize.
+
+        :param value: True if this is a sample result, otherwise false.
+        :type value: int | bool | str | None
+        """
         self._is_sample = booleanize(value, Booleanize.INTEGER)
 
     @property
     def proceduretype(self):
+        """
+        Gets the proceduretype of the associated procedure.
+
+        :return: self.procedure.proceduretype
+        :rtype: ProcedureType
+        """
         return self.procedure.proceduretype
 
     @property
     def write_sheet_name(self) -> str:
+        """
+        Constructs the Excel sheetname this will be written to.
+
+        :return: f"{self.proceduretype.name[:10]} {self.resultstype.name[:10]}"
+        :rtype: str
+        """
         return f"{self.proceduretype.name[:10]} {self.resultstype.name[:10]}"
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> PydResults:
+        """
+        Converts this object into a PydResults object.
+
+        :return: This object as its PydResults equivalent.
+        :rtype: PydResults
+        """
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
         # id is needed here due to duplication problems when procedure is edited.
         output.id = self.id
@@ -2339,6 +2959,12 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
 
     @classproperty
     def aliases(cls) -> List[str]:
+        """
+        Gets all names this class can be known by.
+
+        :return: super().aliases and hardcoded aliases.
+        :rtype: List[str]
+        """
         return super().aliases + ["resultstypeproceduretypeassociation"]
 
     def __init__(self, *args, **kwargs):
@@ -2358,6 +2984,12 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the constructed name of this object.
+
+        :return: f"{self.proceduretype.name}->{self.resultstype.name}"
+        :rtype: str
+        """
         try:
             resultstype = self.resultstype.name
         except AttributeError:
@@ -2370,6 +3002,17 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the ProcessVersion name.
+
+        This expression concatenates the related procedure type name,
+        results type name query filtering and ordering.
+
+        :param cls: ProcedureTypeResultsTypeAssociation model class.
+        :type cls: type[ProcedureTypeResultsTypeAssociation]
+        :return: SQL expression yielding the formatted ProcedureTypeResultsTypeAssociation name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         proceduretype_subquery = (
             select(ProcedureType.name)
             .where(ProcedureType.id==cls.proceduretype_id)
@@ -2387,10 +3030,22 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
 
     @hybrid_property
     def proceduretype(self):
+        """
+        Gets the procedure type associated with this relationship.
+
+        :return: self._proceduretype
+        :rtype: ProcedureType
+        """
         return self._proceduretype
 
     @proceduretype.setter
-    def proceduretype(self, value):
+    def proceduretype(self, value: str | dict | PydProcedureType | ProcedureType):
+        """
+        Sets procedure type of this relationship by parsing an input object.
+
+        :param value: The input object.
+        :type value: str | dict | PydProcedureType | ProcedureType
+        """
         from backend.validators.pydant import PydProcedureType
         match value:
             case str():
@@ -2413,10 +3068,22 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
 
     @hybrid_property
     def resultstype(self):
+        """
+        Gets the results type associated with this relationship.
+
+        :return: self._resultstype
+        :rtype: ResultsType
+        """
         return self._resultstype
 
     @resultstype.setter
-    def resultstype(self, value):
+    def resultstype(self, value: str | dict | PydResultsType | ResultsType):
+        """
+        Sets results type of this relationship by parsing an input object.
+
+        :param value: The input object.
+        :type value: str | dict | PydResultsType | ResultsType
+        """
         from backend.validators.pydant import PydResultsType
         match value:
             case str():
@@ -2439,18 +3106,42 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
 
     @property
     def parser_kwargs(self) -> dict:
+        """
+        Get any kwargs that should be fed into the parser when reading this results type.
+
+        :return: self._parser_kwargs or {}
+        :rtype: dict 
+        """
         return self._parser_kwargs or {}
 
     @property
     def writer_kwargs(self) -> dict:
+        """
+        Get any kwargs that should be fed into the writer when reading this results type.
+
+        :return: self._writer_kwargs or {}
+        :rtype: dict 
+        """
         return self._writer_kwargs or {}
 
     @hybrid_property
     def saved_settings(self) -> dict:
+        """
+        Get any saved settings for this results type. (Depreciated)
+
+        :return: self._writer_kwargs or {}
+        :rtype: dict 
+        """
         return self._saved_settings or {}
 
     @saved_settings.setter
-    def saved_settings(self, value):
+    def saved_settings(self, value: dict):
+        """
+        Sets saved settings for this results type. (Depreciated)
+
+        :param value: Incoming saved settings.
+        :type value: dict
+        """
         if isinstance(value, dict):
             self._saved_settings = value
         else:
@@ -2458,6 +3149,12 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
 
     @property
     def manager(self) -> DefaultResultsManager:
+        """
+        Gets the manager for editting this object.
+
+        :return: {self.resultstype.name}Manager
+        :rtype: DefaultResultsManager
+        """
         from backend.managers import results
         name = self.resultstype.name
         return getattr(results, f"{name.replace(' ', '')}Manager")
@@ -2468,6 +3165,7 @@ class ResultsType(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), nullable=False, unique=True)
     _results = relationship("Results", back_populates="_resultstype", cascade="all, delete-orphan")
+    _img_zip_path = Column(String(1024))
     _proceduretype = association_proxy("resultstypeproceduretypeassociation", "_proceduretype",
                                         creator = lambda proceduretype: ProcedureTypeResultsTypeAssociation(proceduretype=proceduretype))
     resultstypeproceduretypeassociation = relationship(
@@ -2500,13 +3198,59 @@ class ResultsType(BaseClass):
                 self.results = results
             except Exception:
                 logger.error(f"Couldn't set results to {results} for {self.__class__.__qualname__} with name {self.name}")
-        
+
+    @hybrid_property
+    def img_zip_path(self) -> Path:
+        """
+        Gets the path of image zip file for this object.
+
+        :return: A path object of a string stored in _img_zip_path or self.__class__.__directory_path__.joinpath(f"{self.name} Images.zip")
+        :rtype: Path
+        """
+        if isinstance(self._img_zip_path, str):
+            return Path(self._img_zip_path).absolute()
+        elif isinstance(self._img_zip_path, Path):
+            return self._img_zip_path
+        else:
+            return self.__class__.__directory_path__.joinpath(f"{self.name} Images.zip")
+
+    @img_zip_path.setter
+    def img_zip_path(self, value: Path | str | None):
+        """
+        Sets the path for image zip file for this object as a str. 
+
+        :param value: The path to the zip archive. If None defaults to self.__class__.__directory_path__.joinpath(f"{self.name} Images.zip")
+        :type value: Path | str | None
+        """
+        if not value:
+            value = self.__class__.__directory_path__.joinpath(f"{self.name} Images.zip")
+        if isinstance(value, str):
+            value = Path(value)
+        value.touch(exist_ok=True)
+        try:
+            self._img_zip_path = value.relative_to(self.__class__.__directory_path__).__str__
+        except ValueError as e:
+            # value must be a subdirectory of __directory_path__ or a ValueError will be raised.
+            raise e
+            
     @hybrid_property
     def proceduretype(self):
+        """
+        Gets the procedure types associated with this ResultsType.
+
+        :return: self._proceduretype
+        :rtype: ProcedureType 
+        """
         return self._proceduretype
 
     @proceduretype.setter
-    def proceduretype(self, value):
+    def proceduretype(self, value: str | dict | PydProcedureType | ProcedureType | ProcedureTypeResultsTypeAssociation):
+        """
+        Set the procedure type associated with this ResultsType by parsing an input object.
+
+        :param value: Input object.
+        :type value: str | dict | PydProcedureType | ProcedureType | ProcedureTypeResultsTypeAssociation
+        """
         from backend.validators.pydant import PydProcedureType
         if value is None:
             value = []
@@ -2543,10 +3287,22 @@ class ResultsType(BaseClass):
 
     @hybrid_property
     def results(self):
+        """
+        Get the results objects associated with this ResultsType.
+
+        :return: self._results
+        :rtype: Results
+        """
         return self._results
 
     @results.setter
-    def results(self, value):
+    def results(self, value: List[str | dict | PydResults | Results]):
+        """
+        Sets results instances associated with this ResultsType by parsing a list of input objects.
+
+        :param value: List of input objects.
+        :type value: List[str | dict | PydResults | Results]
+        """
         from backend.validators.pydant import PydResults
         from backend.db.models import Results
         if value is None:
@@ -2576,19 +3332,41 @@ class ResultsType(BaseClass):
         self._results = list_
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> PydResultsType:
+        """
+        Converts this ResultsType to PydResultsType.
+
+        :param pyd_model_name: The name of the Pyd object to be used in the conversion. Defaults to None.
+        :param type: str | None
+        :return: BaseClass.to_pydantic(pyd_model_name, **kwargs)
+        """
         return super().to_pydantic(pyd_model_name, **kwargs)
 
-    def load_proceduretypeassoc_settings(self, proceduretype: str | ProcedureType, mode: Literal['parser', "writer"] = "parser") -> dict:
+    def load_proceduretypeassoc_settings(self, proceduretype: str | ProcedureType, mode: ResultsMode = ResultsMode.PARSE) -> dict:
+        """
+        Gets the parser/writer settings for the association between this ResultsType and the given ProcedureType.
+
+        :param proceduretype: The procedure type of interest.
+        :type proceduretype: str | ProcedureType
+        :return: ProcedureTypeResultsTypeAssociation.{mode.value}_kwargs
+        :rtype: dict
+        """
         proceduretype = proceduretype.name if isinstance(proceduretype, ProcedureType) else proceduretype
         assoc: ProcedureTypeResultsTypeAssociation = next((pt for pt in self.resultstypeproceduretypeassociation if pt.proceduretype.name == proceduretype), None)
-        if mode == 'parser':
-            return assoc.parser_kwargs if assoc else {}
-        elif mode == 'writer':
-            return assoc.writer_kwargs if assoc else {}
-        else:
-            raise ValueError
+        # if mode == 'parser':
+        #     return assoc.parser_kwargs if assoc else {}
+        # elif mode == 'writer':
+        #     return assoc.writer_kwargs if assoc else {}
+        # else:
+        #     raise ValueError
+        return getattr(assoc, mode.value, {}) if assoc else {}
 
     def load_saved_settings(self, proceduretype: str | ProcedureType | None= None) -> dict:
+        """
+        Gets the settings for the association between this ResultsType and the given ProcedureType.
+        
+        :return: ProcedureTypeResultsTypeAssociation.saved_settings
+        :rtype: dict
+        """
         proceduretype = proceduretype.name if isinstance(proceduretype, ProcedureType) else proceduretype
         output = {}
         if proceduretype is None:

@@ -191,14 +191,31 @@ class SubmissionsTree(QTreeView):
                         action.addAction(proc)
                         self.menu.addMenu(action)
                 case "add results":
+                    options = query_obj.proceduretype.allowed_result_methods
+                    if not options:
+                        continue
                     action = QMenu(self.menu)
                     action.setTitle("Add Results")
-                    for results in query_obj.proceduretype.allowed_result_methods:
+                    for results in options:
                         res_name = results.get('name', None)
                         if res_name:
                             res = QAction(res_name, action)
                             res.triggered.connect(lambda _, procedure_name=res_name: self.con_actions['Add Results'](obj=self, resultstype_name=procedure_name))
                             action.addAction(res)
+                            self.menu.addMenu(action)
+                case "preprocessing":
+                    options = query_obj.proceduretype.preprocessing_methods
+                    if not options:
+                        continue
+                    action = QMenu(self.menu)
+                    action.setTitle("Preprocessing")
+                    for preprocess in options:
+                        prepro_name = preprocess.get('name', None)
+                        if prepro_name:
+                            pp = QAction(prepro_name, action)
+                            logger.debug(f"Running preprocess: {preprocess['function']}")
+                            pp.triggered.connect(lambda _, preprocess_name=prepro_name: preprocess["function"](obj=self, procedure=query_obj.to_pydantic(), resultstype=preprocess['results_type']))
+                            action.addAction(pp)
                             self.menu.addMenu(action)
                 case _:
                     action = QAction(key, self)

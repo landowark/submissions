@@ -37,6 +37,7 @@ class DiomniPCRSettings(DefaultSettings):
         return f"#{r:02x}{g:02x}{b:02x}"
 
     def write_output(self):
+        logger.debug(f"Using {self.__class__.__name__} write_output")
         filepath = select_save_file(obj=self.parent, default_name=self.procedure.name.get("value").replace(":", ""), filetype="csv")
         toplines  = [
             ['*All Inputs are case sensitive.  For Example:  FAM is different from Fam', '', '', '', '', '', '', '', '', '', '', ''],
@@ -49,7 +50,6 @@ class DiomniPCRSettings(DefaultSettings):
         for assoc in self.procedure.sample:
             if not assoc.sample:
                 continue
-            
             for setting in self.settings:
                 output = [
                     self.proceduretype.get_well_index(row=assoc.row, column=assoc.column, direction=IndexDirection.COL),

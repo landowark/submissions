@@ -14,7 +14,7 @@
             {% if run['plate_number'] %}
             <a style="height:30px; font-size:30px" id="rsl_plate_num">{{ run['plate_number'] }}</a>
             {% else %}
-            <input style="height:30px; font-size:30px" type="text" id="rsl_plate_num" value="RSL-XX-YYYYMMDD-P">
+            <input style="height:30px; font-size:30px" type="text" id="rsl_plate_num" value="RSL-CC-YYYYMMDD-P">
             {% endif %}
         </h1><br><br>
         <div class="procedure_creation_leftright">
@@ -95,9 +95,9 @@
             </div>
             <br>
         {% endfor %}
-        {% for button in preprocessing_buttons %}
+        <!-- {% for button in preprocessing_buttons %}
             <button onclick="runPreprocessFunction(this)">{{ button }}</button>
-        {% endfor %}
+        {% endfor %} -->
 
         {% include 'support/context_menu.html' %}
         {% endblock %}

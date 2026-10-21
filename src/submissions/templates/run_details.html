@@ -39,7 +39,7 @@
     {% endif %}
     {% endblock %}
     {% block signing_button %}
-    {% if not child %}
+    {% if not child and run['procedure'] %}
     <button type="button" id="sign_btn"{% if run['permission'] and not run['signed_by'] %}{% else %} hidden{% endif %}>Sign Off</button>
     {% endif %}
     {% endblock %}

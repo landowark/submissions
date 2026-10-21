@@ -5,8 +5,10 @@ from datetime import datetime, date, timedelta
 from dateutil.parser import parse as dateparse, ParserError
 from re import sub as rsub
 from tools import iterable_enforcer, timezone, TimeFill
-from typing import List, Any
+from typing import List, Any, TYPE_CHECKING
 from enum import Enum
+if TYPE_CHECKING:
+    from . import SourcedField
 
 
 def coerce_none_to_na(value: str | None) -> str:
@@ -16,7 +18,7 @@ class Booleanize(Enum):
     INTEGER = int
     BOOL = bool
 
-def booleanize(value: Any, mode: Booleanize = Booleanize.BOOL) -> int | bool:
+def booleanize(value: int | bool | str | None, mode: Booleanize = Booleanize.BOOL) -> int | bool:
     match value:
         case int() | bool():
             output = value
@@ -34,7 +36,7 @@ def booleanize(value: Any, mode: Booleanize = Booleanize.BOOL) -> int | bool:
     return mode.value(output)
 
 
-def parse_optional_datetime(value, timefill: TimeFill | None = None) -> datetime | None:
+def parse_optional_datetime(value: dict | SourcedField | str | datetime | date | int | None, timefill: TimeFill | None = None) -> datetime | None:
     from . import SourcedField
     match value:
         case dict():
@@ -74,7 +76,17 @@ def parse_optional_datetime(value, timefill: TimeFill | None = None) -> datetime
     return output.replace(tzinfo=timezone)
     
         
-def parse_expiry(value, days: int = 365) -> datetime | None:
+def parse_expiry(value: date | None, days: int = 365) -> datetime | None:
+    """
+    If no expiry given uses today as a start and adds {days, defaults to 365}.
+
+    :param value: incoming date. Defaulst to 
+    :type value: date | None
+    :param days: Days to add to the default value. 
+    :type days: int
+    :return: parse_optional_datetime(value, timefill=TimeFill.MAX)
+    :rtype: datetime | None
+    """
     if not value:
         value = date.today() + timedelta(days=days)
     value = parse_optional_datetime(value, timefill=TimeFill.MAX)

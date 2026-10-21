@@ -25,7 +25,7 @@ class ProcedureCreation(DefaultWebDialog):
         assert self.run is not None
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
-        self.preprocessing_functions = {i[0]: {"function": i[1], "resultstype": i[2]} for i in self.proceduretype.preprocessing_methods}
+        # self.preprocessing_functions = {i[0]: {"function": i[1], "resultstype": i[2]} for i in self.proceduretype.preprocessing_methods}
         try:
             assert isinstance(self.proceduretype, PydProcedureType)
         except AssertionError:
@@ -94,7 +94,7 @@ class ProcedureCreation(DefaultWebDialog):
             procedure=self.procedure,
             platemap=self.platemap,
             now = datetime.now(),
-            preprocessing_buttons = [item for item in self.preprocessing_functions.keys()],
+            # preprocessing_buttons = [item for item in self.preprocessing_functions.keys()],
             edit=self.edit
         )
         self.webview.setHtml(html)
@@ -127,6 +127,7 @@ class ProcedureCreation(DefaultWebDialog):
 
     @pyqtSlot(list)
     def rearrange_plate(self, sample_list: List[dict]):
+        logger.debug(pformat(sample_list))
         self.procedure.update_samples(sample_list=sample_list)
 
     @pyqtSlot(str)
@@ -203,8 +204,10 @@ class ProcedureCreation(DefaultWebDialog):
                 # Defensive attribute access for lot objects
                 active = getattr(lot, 'active', True)
                 lot_name = getattr(lot, 'name', None)
-                if active and lot_name is not None:
-                    names.append(lot_name)
+                if lot_name is not None:
+                    used_in_procedure = lot_name in self.procedure.used_reagentlots
+                    if active or used_in_procedure:
+                        names.append(lot_name)
         if assoc and getattr(assoc, 'last_used', None) is not None:
             names = assoc.bubble_last_used(reagentlot_list=names)
         return names

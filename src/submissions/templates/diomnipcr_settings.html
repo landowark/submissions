@@ -105,8 +105,10 @@
     // Call this to show native browser validation bubbles
     function validateForm() {
         const form = document.getElementById('dynamicForm');
+        const valid = form.checkValidity();
         // reportValidity() returns true if all 'required' fields are filled
-        return form.reportValidity(); 
+        form.reportValidity(); 
+        return valid
     }
 
     /**

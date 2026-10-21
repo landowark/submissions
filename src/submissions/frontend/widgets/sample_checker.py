@@ -62,7 +62,9 @@ class SampleChecker(QDialog):
 
     @pyqtSlot(str)
     def set_rsl_plate_number(self, rsl_plate_number: str):
+        logger.debug(f"Setting plate number to: {rsl_plate_number}")
         self.rsl_plate_number = rsl_plate_number
+        logger.debug(f"Plate number set to: {self.rsl_plate_number}")
     
     def format_sample_list(self) -> Generator[dict, None, None]:
         seen = set()

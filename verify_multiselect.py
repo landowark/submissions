@@ -53,7 +53,7 @@ html = render_details_template(
     procedure=p.improved_dict,
     platemap='',
     now=datetime.now(),
-    preprocessing_buttons=[],
+    # preprocessing_buttons=[],
     edit=False,
 )
 

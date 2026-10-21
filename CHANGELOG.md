@@ -1,3 +1,9 @@
+# 202610.4
+
+- Moved the preprocessing from procedure creation into context menu.
+- Strengthened the img setter for Results.
+- Completed documentation for: backend.db.models.procedures.__init__
+
 # 202610.3
 
 - Changed naming schema of newly created controls to reflect the RSL plate number only, rather than the procedure name.
