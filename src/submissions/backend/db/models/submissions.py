@@ -837,31 +837,38 @@ class Run(BaseClass, LogMixin):
     def name(self) -> str:
         return self.rsl_plate_number
 
-    @hybrid_property
-    def plate_number(self) -> str:
-        return self.rsl_plate_number
+    # @hybrid_property
+    # def plate_number(self) -> str:
+    #     return self.rsl_plate_number
 
     @hybrid_property
     def started_date(self) -> datetime:
-        if self._started_date:
-            return self._started_date
-        else:
+        if self.procedure:
             try:
                 value = min([proc.started_date for proc in self.procedure])
-            except ValueError:
+            except Exception as e:
+                logger.error(e)
+                try:
+                    value = self.clientsubmission.submitted_date
+                except AttributeError:
+                    value = datetime.now()
+        else:
+            try:
+                value = self.clientsubmission.submitted_date
+            except AttributeError:
                 value = datetime.now()
-            return value
+        return value
 
     @started_date.setter
     def started_date(self, value):
-        from backend.validators import SourcedField
+        value = parse_optional_datetime(value)
         if not value:
             value = self.clientsubmission.submitted_date
-        if isinstance(value, dict):
-            value = value.get("value", self.clientsubmission.submitted_date)
-        elif isinstance(value, SourcedField):
-            value = value.value
-        self._started_date = parse_optional_datetime(value)
+        # if isinstance(value, dict):
+        #     value = value.get("value", self.clientsubmission.submitted_date)
+        # elif isinstance(value, SourcedField):
+        #     value = value.value
+        self._started_date = value
 
     @hybrid_property
     def completed_date(self) -> datetime | None:

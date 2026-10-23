@@ -4,15 +4,15 @@
     <head>
         {% block head %}
         {{ super() }}
-        <title>{% if edit %}Edit{% else %}New{% endif %} {{ proceduretype['name'] }} for {{ run['plate_number'] }}</title>
+        <title>{% if edit %}Edit{% else %}New{% endif %} {{ proceduretype['name'] }} for {{ run['rsl_plate_number'] }}</title>
         {% endblock %}
     </head>
 
     <body>
         {% block body %}
         <h1>{% if edit %}Edit{% else %}New{% endif %} {{ proceduretype['name'] }} for
-            {% if run['plate_number'] %}
-            <a style="height:30px; font-size:30px" id="rsl_plate_num">{{ run['plate_number'] }}</a>
+            {% if run['rsl_plate_number'] %}
+            <a style="height:30px; font-size:30px" id="rsl_plate_num">{{ run['rsl_plate_number'] }}</a>
             {% else %}
             <input style="height:30px; font-size:30px" type="text" id="rsl_plate_num" value="RSL-CC-YYYYMMDD-P">
             {% endif %}
@@ -105,10 +105,10 @@
     </body>
 
     {% block script %}
-    <script>window.equipment_json = {{ proceduretype['equipmentrole'] | map(attribute='name') | list | sanitize }};</script>
+    <script>window.equipment_json = {{ proceduretype['equipmentrole'] | map(attribute='name') | list }};</script>
     
     <script>
-        var rsl_plate_num = "{{ run['plate_number'] }}";
+        var rsl_plate_num = "{{ run['rsl_plate_number'] }}";
         var procedure_name = "{{ procedure['name']['value'] }}"
         function rearrange_plate() {
             output = [];

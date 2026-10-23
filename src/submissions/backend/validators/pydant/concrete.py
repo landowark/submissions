@@ -1266,7 +1266,7 @@ class PydRun(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath", "uploaded_by", "comment"],
+            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath", "uploaded_by", "comment", "name", "plate_number"],
             "recover": ['sample', 'comment']
         }
     )
@@ -1372,6 +1372,7 @@ class PydRun(PydConcrete):
         self.sql_instance: Run = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
+        self.sql_instance.rsl_plate_number = self.rsl_plate_number.value
         self.sql_instance.clientsubmission = self.clientsubmission
         self.sql_instance.procedure        = self.procedure
         # .value is the unwrapped datetime — no normalize_dict_field needed

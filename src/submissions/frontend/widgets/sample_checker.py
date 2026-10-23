@@ -31,8 +31,11 @@ class SampleChecker(QDialog):
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
         samples = self.format_sample_list()
-        rsl_plate_number = run.rsl_plate_number.value if run else None
-        html = render_details_template(template="sample_checker", samples=samples, rsl_plate_number=rsl_plate_number)
+        if run:
+            self.set_rsl_plate_number(rsl_plate_number=run.rsl_plate_number.value)
+        else:
+            self.rsl_plate_number = None
+        html = render_details_template(template="sample_checker", samples=samples, rsl_plate_number=self.rsl_plate_number)
         self.webview.setHtml(html)
         self.webview.page().setWebChannel(self.channel)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel

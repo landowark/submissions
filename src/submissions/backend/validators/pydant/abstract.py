@@ -238,6 +238,9 @@ class PydProcedureType(PydAbstract):
             return
         super().remove_relationship(field=field, value=value)
 
+    def get_resultstypes(self):
+        
+
     def construct_plate_map(self, sample_dicts: List[PydProcedureSampleAssociation], creation:bool=True, vw_modifier:float=1.0) -> str:
         """
         Constructs an html based plate map for procedure details.

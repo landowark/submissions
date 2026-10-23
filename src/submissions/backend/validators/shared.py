@@ -14,9 +14,11 @@ if TYPE_CHECKING:
 def coerce_none_to_na(value: str | None) -> str:
     return "NA" if value is None else value
 
+
 class Booleanize(Enum):
     INTEGER = int
     BOOL = bool
+
 
 def booleanize(value: int | bool | str | None, mode: Booleanize = Booleanize.BOOL) -> int | bool:
     match value:
@@ -91,6 +93,7 @@ def parse_expiry(value: date | None, days: int = 365) -> datetime | None:
         value = date.today() + timedelta(days=days)
     value = parse_optional_datetime(value, timefill=TimeFill.MAX)
     return value
+
 
 def vet_comment(value: dict | List[dict], current: List[dict] = []) -> List[dict]:
     value = iterable_enforcer(value)

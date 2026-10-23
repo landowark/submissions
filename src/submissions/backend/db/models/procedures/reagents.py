@@ -11,10 +11,12 @@ from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityErr
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from datetime import datetime, timedelta
 from tools import check_authorization, classproperty, iterable_enforcer, setup_lookup, timezone, bubble_to_top_of_list
-from typing import List
+from typing import List, TYPE_CHECKING
 from backend.validators.shared import parse_expiry, vet_comment, booleanize, Booleanize
 from .. import BaseClass, LogMixin
 from . import ProcedureType, Procedure
+if TYPE_CHECKING:
+    from backend.validators.pydant import PydReagentLot, PydProcedure, PydReagent
 
 
 class ReagentRole(BaseClass):
@@ -83,10 +85,22 @@ class ReagentRole(BaseClass):
         
     @hybrid_property
     def proceduretype(self):
+        """
+        Gets the procedure types associated with this reagent role.
+
+        :return: self._proceduretype
+        :rtype: List[ProcedureType]
+        """
         return self._proceduretype
     
     @proceduretype.setter
-    def proceduretype(self, value):
+    def proceduretype(self, value: List[str | dict | ProcedureType | ProcedureTypeReagentRoleAssociation]):
+        """
+        Set the list of procedure types this reagent role is associated with by parsing a list of input objects.
+
+        :param value: List of input objects.
+        :type value: List[str | dict | ProcedureType | ProcedureTypeReagentRoleAssociation]
+        """
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -117,10 +131,22 @@ class ReagentRole(BaseClass):
 
     @hybrid_property
     def reagent(self):
+        """
+        Gets the reagents associated with this reagent role.
+
+        :return: self._reagent
+        :rtype: List[Reagent]
+        """
         return self._reagent
     
     @reagent.setter
-    def reagent(self, value):
+    def reagent(self, value: List[str | dict | ReagentRoleReagentAssociation | Reagent]):
+        """
+        Sets the reagents that can fill this role by parsing a list of input objects.
+
+        :param value: The list of input objects.
+        :type value: List[str | dict | ReagentRoleReagentAssociation | Reagent]
+        """
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -337,10 +363,22 @@ class Reagent(BaseClass, LogMixin):
 
     @hybrid_property
     def reagentrole(self):
+        """
+        Get the roles this reagent can fill.
+
+        :return: self._reagentrole
+        :rtype: List[ReagentRole]
+        """
         return self._reagentrole
     
     @reagentrole.setter
-    def reagentrole(self, value):
+    def reagentrole(self, value: List[str | dict | ReagentRoleReagentAssociation | ReagentRole]):
+        """
+        Set the roles this reagent can fill by parsing a list of input objects.
+
+        :param value: The list of input objects.
+        :type value: List[str | dict | ReagentRoleReagentAssociation | ReagentRole]
+        """
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -371,10 +409,22 @@ class Reagent(BaseClass, LogMixin):
 
     @hybrid_property
     def eol_ext(self) -> timedelta:
+        """
+        Get the extension of life days for this reagent.
+
+        :return: self._eol_ext
+        :rtype: timedelta
+        """
         return self._eol_ext
 
     @eol_ext.setter
-    def eol_ext(self, value):
+    def eol_ext(self, value: int | timedelta):
+        """
+        Set the extension of life time for this reagent.
+
+        :param value: Days to set as EOL. Can be positive or negative.
+        :type value: int | timedelta
+        """
         if isinstance(value, int):
             value = timedelta(days=value)
         elif isinstance(value, timedelta):
@@ -385,10 +435,22 @@ class Reagent(BaseClass, LogMixin):
     
     @hybrid_property
     def reagentlot(self):
+        """
+        Get the lots for this reagent.
+
+        :return: self._reagentlot
+        :rtype: List[ReagentLot]
+        """
         return self._reagentlot
     
     @reagentlot.setter
-    def reagentlot(self, value):
+    def reagentlot(self, value: List[str | dict | PydReagentLot | ReagentLot]):
+        """
+        Sets the lots of this reagent by parsing a list of input objects.
+
+        :param value: List of input objects.
+        :type value: List[str | dict | PydReagentLot | ReagentLot]
+        """
         from backend.validators.pydant import PydReagentLot
         if not isinstance(value, list):
             value = [value]
@@ -562,10 +624,22 @@ class ReagentLot(BaseClass):
 
     @hybrid_property
     def procedure(self):
+        """
+        Get the list of procedures this reagent lot has been used in.
+
+        :return: self._procedure
+        :rtype: List[Procedure]
+        """
         return self._procedure
     
     @procedure.setter
-    def procedure(self, value):
+    def procedure(self, value: List[str | dict | Procedure | PydProcedure | ProcedureReagentLotAssociation]):
+        """
+        Set the list of procedures this lot has been used in by parsing a list of input objects.
+
+        :param value: List of input objects.
+        :type value: List[str | dict | Procedure | PydProcedure | ProcedureReagentLotAssociation]
+        """
         from backend.validators.pydant import PydProcedure
         if not isinstance(value, list):
             value = [value]
@@ -599,18 +673,42 @@ class ReagentLot(BaseClass):
 
     @hybrid_property
     def expiry(self) -> datetime:
+        """
+        Get the expiry date of this reagent lot.
+
+        :return: self._expiry if self._expiry else datetime(year=2099, month=12, day=31, hour=23, minute=59, second=59, tzinfo=timezone)
+        :rtype: datetime 
+        """
         return self._expiry if self._expiry else datetime(year=2099, month=12, day=31, hour=23, minute=59, second=59, tzinfo=timezone)
 
     @expiry.setter
     def expiry(self, value):
+        """
+        Set the expiry date of this lot. Uses validators.shared.parse_expiry
+
+        :param value: Input date.
+        :type value: date | None
+        """
         self._expiry = parse_expiry(value)
     
     @hybrid_property
     def reagent(self):
+        """
+        Get the parent reagent of this lot.
+
+        :return: self._reagent
+        :rtype: Reagent
+        """
         return self._reagent
         
     @reagent.setter
-    def reagent(self, value):
+    def reagent(self, value: str | dict | PydReagent | Reagent):
+        """
+        Set the parent reagent of this lot by parsing an input object.
+
+        :param value: Input reagent object.
+        :type value: str | dict | PydReagent | Reagent
+        """
         from backend.validators.pydant import PydReagent
         match value:
             case str():

@@ -170,7 +170,7 @@ class SubmissionFormContainer(QWidget):
         self.missing_info = []
         # NOTE: set file dialog
         if isinstance(fname, bool) or fname is None:
-            fname = select_open_file(self, file_extension="xlsx")
+            fname = select_open_file(self, filetypes=".xlsx")
         if not fname:
             report.add_result(Alert(msg=f"File {fname.__str__()} not found.", status=AlertStatus.WARNING.value))
             return report

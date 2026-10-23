@@ -1132,6 +1132,7 @@ class TimeFill(Enum):
 class ResultsMode(Enum):
     PARSE = "parser_kwargs"
     WRITE = "writer_kwargs"
+    DETAIL = "detail_kwargs"
 
 
 def ensure_list(v: Any) -> List:

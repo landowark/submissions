@@ -6,7 +6,7 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from pathlib import Path
 from re import sub as rsub
-from inspect import signature, getmembers
+from inspect import signature, getmembers, getattr_static
 from string import ascii_lowercase
 from jinja2 import Template, TemplateNotFound
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator, ConfigDict, field_validator
@@ -679,14 +679,14 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             v = improved.get(k)
             if v is None:
                 continue
-            class_attr = getattr(self._sql_class, k, None)
+            class_attr = getattr_static(self._sql_class, k, None)
             if class_attr is None:
+                continue
+            if isinstance(class_attr, hybrid_property):
                 continue
             if hasattr(class_attr, "property"):
                 class_attr = class_attr.property
             match class_attr:
-                case hybrid_property():
-                    continue
                 case ColumnProperty():
                     if getattr(self.sql_instance, k) != v:
                         try:

@@ -216,5 +216,6 @@ class RSLNamer(object):
             else: continue
         template = jinja_env.from_string(source=template)
         return template.render(**output)
-    
+
+
 from .pydant import *

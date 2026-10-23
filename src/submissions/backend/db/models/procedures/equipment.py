@@ -1,6 +1,7 @@
 """
 SQLAlchemy models for equipment and equipment roles, including associations with procedures and processes.
 """
+
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
@@ -13,11 +14,11 @@ from sqlalchemy.ext.mutable import MutableList
 from datetime import date, datetime
 from tools import check_authorization, setup_lookup, timezone, TimeFill, Report
 from backend.validators.shared import parse_optional_datetime, booleanize, Booleanize, parse_expiry, vet_comment
-from typing import List, Any, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 from .. import BaseClass, Base, LogMixin
 from . import ProcedureType, Procedure
 if TYPE_CHECKING:
-    from backend.validators.pydant import PydProcedureEquipmentAssociation, PydEquipment, PydProcess, SourcedField
+    from backend.validators.pydant import PydProcedureEquipmentAssociation, PydEquipment, PydProcess, SourcedField, PydTipsLot, PydProcessVersion, PydProcedureType
 
 
 # Define the association table instance first
@@ -1810,6 +1811,12 @@ class TipsLot(BaseClass, LogMixin):
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets constructed name of this tips lot.
+
+        :return: "{self.tips.manufacturer} - {self.tips.ref} - {self.lot}"
+        :rtype: str
+        """
         try:
             manufacturer = self.tips.manufacturer
         except AttributeError:
@@ -1822,6 +1829,17 @@ class TipsLot(BaseClass, LogMixin):
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the tips lot name.
+
+        This expression concatenates the related tips manufacturer,
+        tips ref, for database-side query filtering and ordering.
+
+        :param cls: Tipslot model class.
+        :type cls: type[Tipslot]
+        :return: SQL expression yielding the formatted tipslot name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         tipsman_subquery = (
             select(Tips.manufacturer)
             .where(Tips.id==cls.tips_id)
@@ -1854,9 +1872,6 @@ class TipsLot(BaseClass, LogMixin):
 
         :param value: Active status value.
         :type value: int | bool | str | None
-        :return: None
-        :raises ValueError: If string value cannot be converted to boolean.
-        :raises TypeError: If type is not supported.
         """
         self._active = booleanize(value, Booleanize.INTEGER)
 
@@ -1914,6 +1929,12 @@ class TipsLot(BaseClass, LogMixin):
 
     @property
     def details_dict(self) -> dict:
+        """
+        Gets details dict. Overrides super to exclude procedureequipmenttipsassociation.
+
+        :return: {k: v for k, v in super().details_dict.items() if k not in ['procedureequipmenttipsassociation']}
+        :rtype: dict 
+        """
         return {k: v for k, v in super().details_dict.items() if k not in ['procedureequipmenttipslotassociation']}
     
     @check_authorization
@@ -2079,6 +2100,12 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the generated name of this object.
+
+        :return: "{self.procedureequipmentassociation.procedure.name}({self.procedureequipmentassociation.equipmentrole.name})->{self.tipslot.name}"
+        :rtype: str
+        """
         try:
             procedure = self.procedureequipmentassociation.procedure.name
         except AttributeError as e:
@@ -2248,13 +2275,13 @@ class ProcedureEquipmentAssociation(BaseClass):
         """
         Get the tip lots associated with this procedure-equipment use.
 
-        :return: list of TipsLot objects used during this procedure.
-        :rtype: list[TipsLot]
+        :return: self._tipslot
+        :rtype: List[TipsLot]
         """
         return self._tipslot
 
     @tipslot.setter
-    def tipslot(self, value):
+    def tipslot(self, value: List[str | dict | PydTipsLot | TipsLot]):
         """
         Set tip lots for this procedure-equipment association from flexible input types.
 
@@ -2295,13 +2322,13 @@ class ProcedureEquipmentAssociation(BaseClass):
         """
         Get the equipment role used for this procedure-equipment association.
 
-        :return: EquipmentRole object defining the role of the equipment.
+        :return: self._equipmentrole
         :rtype: EquipmentRole
         """
         return self._equipmentrole
 
     @equipmentrole.setter
-    def equipmentrole(self, value):
+    def equipmentrole(self, value: str | dict | PydEquipmentRole | EquipmentRole):
         """
         Set the equipment role for this procedure-equipment association from flexible input types.
 
@@ -2336,13 +2363,13 @@ class ProcedureEquipmentAssociation(BaseClass):
         """
         Get the equipment used for this procedure-equipment association.
 
-        :return: Equipment object used during this procedure.
+        :return: self._equipment
         :rtype: Equipment
         """
         return self._equipment
 
     @equipment.setter
-    def equipment(self, value):
+    def equipment(self, value: str | dict | PydEquipment | Equipment):
         """
         Set the equipment for this procedure-equipment association from flexible input types.
 
@@ -2377,13 +2404,13 @@ class ProcedureEquipmentAssociation(BaseClass):
         """
         Get the procedure for this equipment-procedure association.
 
-        :return: Procedure object using this equipment.
+        :return: self._procedure
         :rtype: Procedure
         """
         return self._procedure
 
     @procedure.setter
-    def procedure(self, value):
+    def procedure(self, value: str | dict | PydProcedure | Procedure):
         """
         Set the procedure for this equipment association from flexible input types.
 
@@ -2418,13 +2445,13 @@ class ProcedureEquipmentAssociation(BaseClass):
         """
         Get the process version used for this equipment-procedure activity.
 
-        :return: ProcessVersion object describing the process method used.
+        :return: self._processversion
         :rtype: ProcessVersion | None
         """
         return self._processversion
 
     @processversion.setter
-    def processversion(self, value):
+    def processversion(self, value: str | dict | PydProcessVersion | ProcessVersion | None):
         """
         Set the process version for this equipment association from flexible input types.
 
@@ -2458,7 +2485,7 @@ class ProcedureEquipmentAssociation(BaseClass):
         """
         Get the display name for this equipment-procedure association.
 
-        :return: Formatted name combining procedure and equipment names.
+        :return: "{self.procedure.name}->{self.equipment.name}"
         :rtype: str
         """
         try:
@@ -2474,10 +2501,15 @@ class ProcedureEquipmentAssociation(BaseClass):
     @name.expression
     def name(cls):
         """
-        SQL expression for computing the name in database queries.
+        Generate the SQL expression for this object's name.
+        
+        This expression concatenates the related procedure name,
+        equipment name, for database-side query filtering and ordering.
 
-        :return: SQLAlchemy expression for concatenating procedure and equipment names.
-        :rtype: sqlalchemy.sql.elements.BinaryExpression
+        :param cls: ProcedureEquipmentAssociation model class.
+        :type cls: type[ProcedureEquipmentAssociation]
+        :return: SQL expression yielding the formatted ProcedureEquipmentAssociation name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
         """
         procedure_subquery = (
             select(Procedure.name)
@@ -2496,10 +2528,22 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     @hybrid_property
     def comment(self) -> list[str] | None:
+        """
+        Gets comments associated with this object.
+
+        :return: self._comment
+        :rtype: list[str] | None
+        """
         return self._comment
     
     @comment.setter
-    def comment(self, value):
+    def comment(self, value: dict | List[dict]):
+        """
+        Sets comments associated with this object. Uses validators.shared.vet_comment
+        
+        :param value: Comment or list of comments.
+        :type value: dict | List[dict]
+        """
         self._comment = vet_comment(value, current=self._comment)
 
     def to_pydantic(self) -> PydProcedureEquipmentAssociation:
@@ -2561,9 +2605,9 @@ class ProcedureEquipmentAssociation(BaseClass):
     @property
     def details_dict(self) -> dict:
         """
-        Produce a detailed dictionary representation of this procedure equipment association.
+        Produce a detailed dictionary representation of this procedure equipment association. Overrides super to exclude equipmentprocedureassociation
 
-        :return: Details dictionary containing equipment, role, process version and tipslot metadata.
+        :return: {k: v for k, v in super().details_dict.items() if k not in ['equipmentprocedureassociation']}
         :rtype: dict
         """
         return {k: v for k, v in super().details_dict.items() if k not in ['equipmentprocedureassociation']}
@@ -2620,14 +2664,32 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 
     @hybrid_property
     def always_used(self) -> bool:
+        """
+        Gets always_used as a boolean.
+
+        :return: bool(self._always_used)
+        :rtype: bool 
+        """
         return bool(self._always_used)
     
     @always_used.setter
     def always_used(self, value):
+        """
+        Sets always_used as an integer. Used validators.shared.booleanize
+
+        :param value: Value to set always_used to.
+        :type value: int | bool | str | None
+        """
         self._always_used = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets constructed name of this object.
+
+        :return: "{self.proceduretype.name}->{self.equipmentrole.name}"
+        :rtype: str
+        """
         try:
             equipmentrole = self.equipmentrole.name
         except AttributeError:
@@ -2640,6 +2702,17 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the object name.
+
+        This expression concatenates the related procedure type name,
+        equipment role name, for database-side query filtering and ordering.
+
+        :param cls: Tipslot model class.
+        :type cls: type[Tipslot]
+        :return: SQL expression yielding the formatted tipslot name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         proceduretype_subquery = (
             select(ProcedureType.name)
             .where(ProcedureType.id==cls.proceduretype_id)
@@ -2657,10 +2730,22 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 
     @hybrid_property
     def proceduretype(self):
+        """
+        Gets the procedure type associated with this relationship.
+
+        :return: self._proceduretype
+        :rtype: ProcedureType
+        """
         return self._proceduretype
 
     @proceduretype.setter
-    def proceduretype(self, value):
+    def proceduretype(self, value: str | dict | PydProcedureType | ProcedureType):
+        """
+        Sets the procedure type of this relationship.
+
+        :param value: The input value.
+        :type value: str | dict | PydProcedureType | ProcedureType
+        """
         from backend.validators.pydant import PydProcedureType
         match value:
             case str():
@@ -2683,10 +2768,22 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     
     @hybrid_property
     def equipmentrole(self):
+        """
+        Gets the equipment role for this relationship.
+
+        :return: self._equipmentrole
+        :rtype: EquipmentRole
+        """
         return self._equipmentrole
 
     @equipmentrole.setter
-    def equipmentrole(self, value):
+    def equipmentrole(self, value: str | dict | PydEquipmentRole | EquipmentRole):
+        """
+        Sets the equipmentrole of this relationship.
+
+        :param value: Input object.
+        :type value: str | dict | PydEquipmentRole | EquipmentRole
+        """
         from backend.validators.pydant import PydEquipmentRole
         match value:
             case str():

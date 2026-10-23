@@ -1220,7 +1220,7 @@ class ProcedureType(BaseClass):
             reagentlot=[],
             equipment=[],
             results=[],
-            started_date=datetime.now(),
+            started_date=run.started_date if run else datetime.now(),
             completed_date=None,
             sql_instance=Procedure(),
         )
@@ -2953,8 +2953,9 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
     resultstype_id = Column(INTEGER, ForeignKey("_resultstype.id"), primary_key=True)  #: id of associated resultstype
     _proceduretype = relationship(ProcedureType, back_populates="proceduretyperesultstypeassociation")
     _resultstype = relationship("ResultsType", back_populates="resultstypeproceduretypeassociation")
-    _writer_kwargs = Column(JSON)
-    _parser_kwargs = Column(JSON)
+    _writer_kwargs = Column(JSON) #: Settings used by the results writer.
+    _parser_kwargs = Column(JSON) #: Settings used by the results parser.
+    _detail_kwargs = Column(JSON) #: Settings used when displaying plate map in details.
     _saved_settings = Column(JSON)
 
     @classproperty
@@ -3123,6 +3124,19 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
         :rtype: dict 
         """
         return self._writer_kwargs or {}
+
+    @property
+    def detail_kwargs(self) -> dict:
+        """
+        Get any kwargs that should be fed into the details display when presenting this results type.
+
+        :return: self._detail_kwargs or {}
+        :rtype: dict 
+        """
+        output = self._detail_kwargs or {}
+        output['tooltip_results_fields'] = output.get('tooltip_results_fields', [])
+        output['well_colour_field'] = output.get("well_colour_field", None)
+        return output
 
     @hybrid_property
     def saved_settings(self) -> dict:
