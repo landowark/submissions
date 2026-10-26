@@ -14,7 +14,10 @@ from backend.validators import RSLNamer
 from backend.validators.shared import coerce_none_to_na, parse_optional_datetime, booleanize, parse_expiry
 from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetime_field, _coerce_int_field, _coerce_str_field, RelationshipField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list, convert_row_column_to_well, sort_by_attr_or_key
+from tools import (
+    Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list, 
+    convert_row_column_to_well, sort_by_attr_or_key, ResultsMode, merge_dicts, jinja_env
+)
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -944,6 +947,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def make_procedure_platemap(self, creation: bool = False) -> str:
         from backend.excel.parsers import ClientSubmissionSampleParser as Parser
         sample_dicts = []
+        details_kwargs = self.load_resultstype_settings(mode=ResultsMode.DETAIL)
+        tooltip_results_fields = merge_dicts(details_kwargs).get("tooltip_results_fields", None)
         for iii, sample in enumerate(self.sample):
             match sample:
                 case PydProcedureSampleAssociation():
@@ -961,13 +966,13 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 case _:
                     logger.error(f"Unparsable sample: {sample}")
                     continue
+            sample.construct_tooltip(tooltip_results_fields)
         assert all([isinstance(s, PydProcedureSampleAssociation) for s in sample_dicts])
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=creation, vw_modifier=1.15)
         return html
 
-    def load_resultstype_settings(self, resultstype: str | PydResultsType, mode: Literal["parser", "writer"] = "parser") -> dict:
-        if not resultstype:
-            return {}
+    def load_resultstype_settings(self, resultstype: str | PydResultsType | None = None, mode: ResultsMode = ResultsMode.PARSE) -> dict:
+        
         resultstype = resultstype.name if isinstance(resultstype, PydResultsType) else resultstype
         return self.sql_instance.load_results_settings(resultstype=resultstype, mode=mode)
 
@@ -1542,7 +1547,33 @@ class PydProcedureSampleAssociation(PydConcrete):
     def abbreviation_name(self):
         return self.sql_instance.abbreviation_name
 
+    def construct_tooltip(self, tooltip_results_fields: List[str]) -> str | None:
+        """
+        Creates a tooltip from results for a list of fields of interest.
 
+        :param tooltip_results_fields: Keys for items to pull from the results dict.
+        :type tooltip_results_fields: List[str]
+        :return: A constructed string with a line break between each field.
+        :rtype: str | None
+        """
+        output = {}
+        for entry in self.results:
+            result = entry.get("result", {})
+            for field in tooltip_results_fields:
+                if isinstance(result, dict):
+                    found_value = result.get(field, None)
+                    if not found_value:
+                        continue
+                    output[field] = str(found_value)
+        if isinstance(self.sample, PydSample):
+            sample_txt = self.sample.sample_id
+        else:
+            sample_txt = self.sample 
+        
+        template = jinja_env.get_template("support/tooltip.html")
+        self.tooltip = template.render(sample_id=sample_txt, fields=output)
+
+        
 class PydProcedureEquipmentAssociation(PydConcrete):
 
     start_time: datetime = Field(default_factory=datetime.now, description="Start time of equipment use", validate_default=True)

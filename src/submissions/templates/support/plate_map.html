@@ -2,12 +2,12 @@
             aspect-ratio: {{ plate_columns }} / {{ plate_rows }};">
             {% for sample in samples %}
                 <div class="well{% if sample['control_type'] %} {{ sample['control_type'] }}{% endif %}"{% if creation %} draggable="true"{% endif %}{% if sample['sample_id'] %} id="{{ sample['sample_id'] }}"{% endif %}>
-                  {% if creation %}
-                    <p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}</p>
-                  {% else %}
-                    <a style="font-size: 0.7em; text-align: center; word-wrap: break-word;" class="data-link proceduresampleassociation" id="{{ sample['name'] }}">{{ sample['sample_id']}}</a>
-                  {% endif %}
-                  <br>
+                    {% if creation %}
+                      <p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}</p>
+                    {% else %}
+                      <a style="font-size: 0.7em; text-align: center; word-wrap: break-word;" class="data-link proceduresampleassociation" id="{{ sample['name'] }}">{{ sample['sample_id']}}</a>
+                    {% endif %}
+                    <br>
                 </div>
             {% endfor %}
         </div>

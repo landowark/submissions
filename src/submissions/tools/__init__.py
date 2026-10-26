@@ -1140,6 +1140,21 @@ def ensure_list(v: Any) -> List:
         return list(v)
     return v
 
+def merge_dicts(dict_list):
+    merged = {}
+    for d in dict_list:
+        if not isinstance(d, dict):
+            raise TypeError(f"Expected dict, got {type(d).__name__}")
+        for key, value in d.items():
+            if key not in merged:
+                merged[key] = value
+                continue
+            existing = merged[key]
+            if isinstance(existing, list) and isinstance(value, list):
+                merged[key] = existing + value
+            else:
+                merged[key] = value
+    return merged
 
 def replace_or_prepend_prefix(s: str, old_prefix: str, new_prefix: str, flags: int = 0) -> str:
     """

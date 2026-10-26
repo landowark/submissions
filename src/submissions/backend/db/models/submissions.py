@@ -2231,33 +2231,33 @@ class RunSampleAssociation(BaseClass):
             logger.error(output)
         return output
 
-    @property
-    def hitpicked(self) -> dict | None:
-        """
-        Outputs a dictionary usable for html plate maps.
+    # @property
+    # def hitpicked(self) -> dict | None:
+    #     """
+    #     Outputs a dictionary usable for html plate maps.
 
-        Returns:
-            dict: dictionary of sample id, row and column in elution plate
-        """
-        # NOTE: Since there is no PCR, negliable result is necessary.
-        sample = self.details_dict
-        env = jinja_template_loading()
-        template = env.get_template("support/tooltip.html")
-        tooltip_text = template.render(fields=sample)
-        try:
-            control = self.sample.control
-        except AttributeError:
-            control = None
-        if control is not None:
-            background = "rgb(128, 203, 196)"
-        else:
-            background = "rgb(105, 216, 79)"
-        try:
-            tooltip_text += sample['tooltip']
-        except KeyError:
-            pass
-        sample.update(dict(Name=self.sample.sample_id[:10], tooltip=tooltip_text, background_color=background))
-        return sample
+    #     Returns:
+    #         dict: dictionary of sample id, row and column in elution plate
+    #     """
+    #     # NOTE: Since there is no PCR, negliable result is necessary.
+    #     sample = self.details_dict
+    #     env = jinja_template_loading()
+    #     template = env.get_template("support/tooltip.html")
+    #     tooltip_text = template.render(fields=sample)
+    #     try:
+    #         control = self.sample.control
+    #     except AttributeError:
+    #         control = None
+    #     if control is not None:
+    #         background = "rgb(128, 203, 196)"
+    #     else:
+    #         background = "rgb(105, 216, 79)"
+    #     try:
+    #         tooltip_text += sample['tooltip']
+    #     except KeyError:
+    #         pass
+    #     sample.update(dict(Name=self.sample.sample_id[:10], tooltip=tooltip_text, background_color=background))
+    #     return sample
 
     @classmethod
     @setup_lookup

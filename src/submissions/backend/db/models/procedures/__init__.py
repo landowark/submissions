@@ -1286,7 +1286,7 @@ class ProcedureType(BaseClass):
                 output.append(dict(name=func.label, function=func, results_type=results_type))
         return output
 
-    def load_resultstypeassoc_settings(self, resultstype: str | ResultsType, mode: ResultsMode = ResultsMode.PARSE) -> dict:
+    def load_resultstypeassoc_settings(self, resultstype: str | ResultsType | None = None, mode: ResultsMode = ResultsMode.PARSE) -> List[dict]:
         """
         Gets the results settings for this procedure type and the given results type.
 
@@ -1298,14 +1298,12 @@ class ProcedureType(BaseClass):
         :rtype: dict
         """
         resultstype = resultstype.name if isinstance(resultstype, ResultsType) else resultstype
-        if not resultstype:
-            assoc = next((rt for rt in self.proceduretyperesultstypeassociation), None)
-        else:
-            assoc: ProcedureTypeResultsTypeAssociation = next((rt for rt in self.proceduretyperesultstypeassociation if rt.resultstype.name == resultstype), None)
-        if assoc is None:
-            return {}
+        assoc = [rt for rt in self.proceduretyperesultstypeassociation]
+        if resultstype:
+            assoc = [rt for rt in self.proceduretyperesultstypeassociation if rt.resultstype.name == resultstype]
         # mode is an Enum, so we can use its value to access the corresponding attribute
-        return getattr(assoc, mode.value, {}) if assoc else {}
+        output = [thing for thing in [getattr(item, mode.value, None) for item in assoc] if thing]
+        return output
         
 
 class Procedure(BaseClass):
@@ -2473,7 +2471,7 @@ class Procedure(BaseClass):
             else:
                 logger.error(f"Association not found for {reagentrole} and {proceduretype}")
                 
-    def load_results_settings(self, resultstype: str | ResultsType, mode: ResultsMode = ResultsMode.PARSE) -> dict:
+    def load_results_settings(self, resultstype: str | ResultsType | None = None, mode: ResultsMode = ResultsMode.PARSE) -> dict:
         """
         Gets the results settings for this procedure type and the given results type.
         
@@ -3135,7 +3133,7 @@ class ProcedureTypeResultsTypeAssociation(BaseClass):
         """
         output = self._detail_kwargs or {}
         output['tooltip_results_fields'] = output.get('tooltip_results_fields', [])
-        output['well_colour_field'] = output.get("well_colour_field", None)
+        # output['well_colour_field'] = output.get("well_colour_field", None)
         return output
 
     @hybrid_property

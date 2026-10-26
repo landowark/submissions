@@ -10,7 +10,7 @@ from typing import Generator, List, TYPE_CHECKING, Literal, Annotated
 from pydantic import field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField
 from backend.validators.shared import coerce_none_to_na, booleanize
-from tools import convert_well_to_row_column, IndexDirection, jinja_env
+from tools import convert_well_to_row_column, IndexDirection, jinja_env, ResultsMode
 if TYPE_CHECKING:
     from .concrete import PydSample, PydProcedureSampleAssociation
 
@@ -238,7 +238,18 @@ class PydProcedureType(PydAbstract):
             return
         super().remove_relationship(field=field, value=value)
 
-    def get_resultstypes(self):
+    def load_resultstypeassoc_settings(self, resultstype: str | ResultsType, mode: ResultsMode = ResultsMode.PARSE) -> dict:
+        """
+        Gets the results settings for this procedure type and the given results type.
+
+        :param resultstype: The ResultsType of interest.
+        :type resultstype: str | ResultsType
+        :param mode: The mode to retrieve settings for. Parse or Write.
+        :type mode: ResultsMode.PARSE | ResultsMode.WRITE
+        :return: a dictionary of settings keys and values.
+        :rtype: dict
+        """
+        return self.sql_instance.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
         
 
     def construct_plate_map(self, sample_dicts: List[PydProcedureSampleAssociation], creation:bool=True, vw_modifier:float=1.0) -> str:
