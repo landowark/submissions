@@ -546,6 +546,17 @@ def convert_strings(data):
     return data
 
 
+def get_dict_value_lineage(data: dict, key: str = "cq", sep: str = " > ", _lineage: tuple = ()) -> List[tuple]:
+    """Recursively find every `key` in nested dicts; return 'parent > child > key: value' strings."""
+    out = []
+    for k, v in data.items():
+        if isinstance(v, dict):
+            out.extend(get_dict_value_lineage(v, key, sep, _lineage + (k,)))
+        elif k == key:
+            out.append((sep.join(_lineage + (k,)), v))
+    return out
+
+
 def get_prioritized_dict_prefix(data, target_prefixes):
     # Base case: if it is a list, process any dictionaries inside it
     if isinstance(data, list):
@@ -1018,17 +1029,30 @@ def handle_results(value: dict | bool | str | datetime | date | None, html: bool
     return output
 
 
-def iterable_enforcer(value, pass_dict: bool = True) -> list:
+def iterable_enforcer(value, pass_dict: bool = True) -> list | dict:
     if value is None:
         return []
     if isinstance(value, Iterable):
-        if isinstance(value, dict) and pass_dict:
-            pass
-        elif not isinstance(value, str):
-            return list(value)
-        else:
-            pass
+        match value:
+            case dict():
+                if pass_dict:
+                    return value
+                else:
+                    return [value]
+            case list():
+                return value
+            case _ if not isinstance(value, str):
+                return list(value)
+            case _:
+                pass
     return [value]
+    #     if isinstance(value, dict) and pass_dict:
+    #         pass
+    #     elif not isinstance(value, str):
+    #         return list(value)
+    #     else:
+    #         pass
+    # return [value]
 
 
 def is_internal_attr_key(key) -> bool:
@@ -1140,6 +1164,7 @@ def ensure_list(v: Any) -> List:
         return list(v)
     return v
 
+
 def merge_dicts(dict_list):
     merged = {}
     for d in dict_list:
@@ -1155,6 +1180,7 @@ def merge_dicts(dict_list):
             else:
                 merged[key] = value
     return merged
+
 
 def replace_or_prepend_prefix(s: str, old_prefix: str, new_prefix: str, flags: int = 0) -> str:
     """

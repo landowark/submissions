@@ -19,7 +19,8 @@ from . import BaseClass, Base
 from tools import check_authorization, setup_lookup
 from typing import List, TYPE_CHECKING
 if TYPE_CHECKING:
-    from backend.db.models import ClientSubmission, Discount
+    from backend.db.models import ClientSubmission
+    from backend.validators.pydant import PydClientSubmission, PydContact
 
 
 # NOTE: table containing clientlab/contact relationship
@@ -104,24 +105,24 @@ class ClientLab(BaseClass):
     ##### Properties #####
     
     @hybrid_property
-    def clientsubmission(self) -> List[ClientSubmission]:
+    def clientsubmission(self):
         """
         Get the list of client submissions associated with this client lab.
 
-        :return: List of ClientSubmission objects
-        :rtype: list[ClientSubmission]
+        :return: self._clientsubmission
+        :rtype: List[ClientSubmission]
         """
         return self._clientsubmission
 
     @clientsubmission.setter
-    def clientsubmission(self, value):
+    def clientsubmission(self, value: List[str | dict | PydClientSubmission | ClientSubmission]):
         """
         Set client submissions for this client lab.
 
         Accepts various input formats and resolves them to ClientSubmission instances.
 
         :param value: Client submission data to associate (string, dict, PydClientSubmission, or ClientSubmission)
-        :type value: str | dict | PydClientSubmission | ClientSubmission | list | None
+        :type value: List[str | dict | PydClientSubmission | ClientSubmission] 
         :raises ValueError: If value cannot be resolved to a valid ClientSubmission
         """
         from backend.validators.pydant import PydClientSubmission
@@ -151,24 +152,24 @@ class ClientLab(BaseClass):
                 logger.error(f"Could not add {type(output)} to _clientsubmission")
 
     @hybrid_property
-    def contact(self) -> List[Contact]:
+    def contact(self):
         """
         Get the list of contacts associated with this client lab.
 
-        :return: List of Contact objects
-        :rtype: list[Contact]
+        :return: self._contact
+        :rtype: List[Contact]
         """
         return self._contact
 
     @contact.setter
-    def contact(self, value):
+    def contact(self, value: List[str | dict | PydContact | Contact]):
         """
         Set contacts for this client lab.
 
         Accepts various input formats and resolves them to Contact instances.
 
         :param value: Contact data to associate (string, dict, PydContact, or Contact)
-        :type value: str | dict | PydContact | Contact | list | None
+        :type value: List[str | dict | PydContact | Contact]
         :raises ValueError: If value cannot be resolved to a valid Contact
         """
         from backend.validators.pydant import PydContact
@@ -320,12 +321,12 @@ class Contact(BaseClass):
     ##### Properties #####
     
     @hybrid_property
-    def clientlab(self) -> List[ClientLab]:
+    def clientlab(self):
         """
         Get the list of client labs associated with this contact.
 
-        :return: List of ClientLab objects
-        :rtype: list[ClientLab]
+        :return: self._clientlab
+        :rtype: List[ClientLab]
         """
         return self._clientlab
 
@@ -371,24 +372,24 @@ class Contact(BaseClass):
         self._clientlab = list_
 
     @hybrid_property
-    def clientsubmission(self) -> List[ClientSubmission]:
+    def clientsubmission(self):
         """
         Get the list of client submissions associated with this contact.
 
-        :return: List of ClientSubmission objects
+        :return: self._clientsubmission
         :rtype: list[ClientSubmission]
         """
         return self._clientsubmission
 
     @clientsubmission.setter
-    def clientsubmission(self, value):
+    def clientsubmission(self, value: List[str | dict | PydClientSubmission | ClientSubmission]):
         """
         Set client submissions for this contact.
 
         Accepts various input formats and resolves them to ClientSubmission instances.
 
         :param value: Client submission data to associate (string, dict, PydClientSubmission, or ClientSubmission)
-        :type value: str | dict | PydClientSubmission | ClientSubmission | list | None
+        :type value: List[str | dict | PydClientSubmission | ClientSubmission]
         :raises ValueError: If value cannot be resolved to a valid ClientSubmission
         """
         from backend.validators.pydant import PydClientSubmission
@@ -473,6 +474,12 @@ class Contact(BaseClass):
 
     @property
     def details_dict(self) -> dict:
+        """
+        Get details dictionary for contacts, excluding Contact.clientsubmission
+
+        :return: {k:v for k, v in super().details_dict.items() if k not in ['clientsubmission']}
+        :rtype: dict
+        """
         return {k:v for k, v in super().details_dict.items() if k not in ['clientsubmission']}
 
 

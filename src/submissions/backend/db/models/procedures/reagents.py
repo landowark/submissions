@@ -16,7 +16,7 @@ from backend.validators.shared import parse_expiry, vet_comment, booleanize, Boo
 from .. import BaseClass, LogMixin
 from . import ProcedureType, Procedure
 if TYPE_CHECKING:
-    from backend.validators.pydant import PydReagentLot, PydProcedure, PydReagent
+    from backend.validators.pydant import PydReagentLot, PydProcedure, PydReagent, PydReagentRole, PydProcedureType
 
 
 class ReagentRole(BaseClass):
@@ -561,7 +561,7 @@ class ReagentLot(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     lot = Column(String(64), nullable=False, unique=True)  #: lot number of reagent
-    _scan_ids: Mapped[List[str]] = mapped_column(JSON, default=[])
+    _scan_ids: Mapped[List[str]] = mapped_column(JSON, default=[]) #: depreciated
     _expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
     _active = Column(INTEGER, default=1)
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id", ondelete='SET NULL',
@@ -730,25 +730,49 @@ class ReagentLot(BaseClass):
             logger.error(f"Could set {self.__class__.__qualname__}._reagent to {value}.")
         
     @hybrid_property
-    def active(self):
+    def active(self) -> bool:
+        """
+        Whether or not this reagent lot is currently in use.
+
+        :return: True if this is marked as active, otherwise False
+        :rtype: bool
+        """
         return bool(self._active)
 
     @active.setter
-    def active(self, value):
+    def active(self, value: int | bool | str | None):
+        """
+        Set his reagentlot as active by parsing an input object. Uses validators.shared.booleanize
+        
+        :param value: Input object.
+        :type value: int | bool | str | None
+        """
         self._active = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
     def scan_ids(self):
+        """
+        Barcode scanner aliases. (Depreciated)
+        """
         return self._scan_ids or []
     
     @scan_ids.setter
     def scan_ids(self, value):
+        """
+        Barcode scanner aliases. (Depreciated)
+        """
         value = iterable_enforcer(value)
         existing = self._scan_ids or []
         self._scan_ids = existing + value
     
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the constructed name for this reagent lot.
+
+        :return: "{self.reagent.name} - {self.lot}"
+        :rtype: str
+        """
         try:
             reagent = self.reagent.name
         except AttributeError:
@@ -757,6 +781,17 @@ class ReagentLot(BaseClass):
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the reagentlot name.
+
+        This expression concatenates the related reagent name,
+        and reagentlot.lot, for database-side query filtering and ordering.
+
+        :param cls: ReagentLot model class.
+        :type cls: type[ReagentLot]
+        :return: SQL expression yielding the formatted reagentlot name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         regeant_subquery = (
             select(Reagent.name)
             .where(Reagent.id==cls.reagent_id)
@@ -820,9 +855,20 @@ class ReagentLot(BaseClass):
 
     @property
     def details_dict(self) -> dict:
+        """
+        Gets the details of this reagent lot for display, skipping reagentlotprocedureassociation and procedure.
+
+        :return: {k: v for k,v in super().details_dict.items() if k not in ("reagentlotprocedureassociation", "procedure")}
+        :rtype: dict 
+        """
         return {k: v for k,v in super().details_dict.items() if k not in ("reagentlotprocedureassociation", "procedure")}
 
     def save(self) -> Report | None:
+        """
+        Persist this object with authorization enforcement.
+
+        Calls the base class save implementation after authorization succeeds.
+        """
         if not self._reagent:
             raise ValueError(f"This ReagentLot has no parent reagent. Cannot save.")
         super().save()
@@ -877,6 +923,12 @@ class ReagentRoleReagentAssociation(BaseClass):
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the constructed name for this relationship.
+
+        :return: {self.reagentrole.name}->{self.reagent.name}
+        :rtype: str
+        """
         try:
             reagent = self.reagent.name
         except AttributeError:
@@ -889,6 +941,17 @@ class ReagentRoleReagentAssociation(BaseClass):
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the relationship name.
+
+        This expression concatenates the related reagentrole name,
+        and reagent name, for database-side query filtering and ordering.
+
+        :param cls: ReagentRoleReagentAssociation model class.
+        :type cls: type[ReagentRoleReagentAssociation]
+        :return: SQL expression yielding the formatted ReagentRoleReagentAssociation name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         reagentrole_subquery = (
             select(ReagentRole.name)
             .where(ReagentRole.id==cls.reagentrole_id)
@@ -906,10 +969,22 @@ class ReagentRoleReagentAssociation(BaseClass):
 
     @hybrid_property
     def reagent(self):
+        """
+        Get the regent associated with this relationship.
+
+        :return: self._reagent
+        :rtype: Reagent
+        """
         return self._reagent
 
     @reagent.setter
-    def reagent(self, value):
+    def reagent(self, value: str | dict | PydReagent | Reagent):
+        """
+        Set the reagent associated with this relationship by parsing an input object.
+
+        :param value: The input object.
+        :type value: str | dict | PydReagent | Reagent
+        """
         from backend.validators.pydant import PydReagent
         match value:
             case str():
@@ -932,10 +1007,22 @@ class ReagentRoleReagentAssociation(BaseClass):
     
     @hybrid_property
     def reagentrole(self):
+        """
+        Get the regentrole associated with this relationship.
+
+        :return: self._reagentrole
+        :rtype: ReagentRole
+        """
         return self._reagentrole
 
     @reagentrole.setter
-    def reagentrole(self, value):
+    def reagentrole(self, value: str | dict | PydReagentRole | ReagentRole):
+        """
+        Set the reagentrole associated with this relationship by parsing an input object.
+
+        :param value: The input object.
+        :type value: str | dict | PydReagentRole | Reagent
+        """
         from backend.validators.pydant import PydReagentRole
         match value:
             case str():
@@ -1042,11 +1129,22 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @hybrid_property
     def last_used(self):
-        """Return the resolved ReagentLot linked to this association."""
+        """
+        Return the resolved ReagentLot linked to this association.
+        
+        :return: self._last_used
+        :rtype: ReagentLot
+        """
         return self._last_used
 
     @last_used.setter
-    def last_used(self, value):
+    def last_used(self, value: str | ReagentLot):
+        """
+        Set the last_used of this relationship by parsing an input object.
+
+        :param value: The input object.
+        :type value: str | ReagentLot
+        """
         if isinstance(value, str):
             value = ReagentLot.query(lot=value, limit=1)
             if isinstance(value, tuple):
@@ -1058,22 +1156,37 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @hybrid_property
     def always_used(self) -> bool:
-        """Return whether this reagent role is always used in the procedure type."""
-        # au = getattr(self, "_always_used", 1)
+        """
+        Return whether this reagent role is always used in the procedure type.
+        
+        :return: bool(self._always_used or 1)
+        :rtype: bool
+        """
         au = self._always_used or 1
         return bool(au)
 
     @always_used.setter
-    def always_used(self, value):
+    def always_used(self, value: int | bool | str | None):
+        """
+        Set whether this reagent is always used in the procedure type by parsing an input object. Uses validators.shared.booleanize
+
+        :param value: Input object.
+        :type value: int | bool | str | None
+        """
         self._always_used = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
     def proceduretype(self):
-        """Return the resolved ProcedureType linked to this association."""
+        """
+        Return the resolved ProcedureType linked to this association.
+        
+        :return: self._proceduretype
+        :rtype: ProcedureType
+        """
         return self._proceduretype
 
     @proceduretype.setter
-    def proceduretype(self, value):
+    def proceduretype(self, value: str | dict | PydProcedureType | ProcedureType):
         """Resolve and set the associated ProcedureType from flexible inputs.
 
         Accepts a ProcedureType instance, PydProcedureType, dict payload, or
@@ -1081,7 +1194,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
         :param value: Input representing the procedure type.
         :type value: ProcedureType | PydProcedureType | dict | str
-        :return: None
         """
         from backend.validators.pydant import PydProcedureType
         match value:
@@ -1105,19 +1217,24 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @hybrid_property
     def reagentrole(self):
-        """Return the resolved ReagentRole linked to this association."""
+        """
+        Return the resolved ReagentRole linked to this association.
+        
+        :return: self._reagentrole
+        :rtype: ReagentRole
+        """
         return self._reagentrole
 
     @reagentrole.setter
-    def reagentrole(self, value):
-        """Resolve and set the associated ReagentRole from flexible inputs.
+    def reagentrole(self, value: str | dict | PydReagentRole | ReagentRole):
+        """
+        Resolve and set the associated ReagentRole from flexible inputs.
 
         Accepts a ReagentRole instance, PydReagentRole, dict payload, or role
         name string.
 
         :param value: Input representing the reagent role.
         :type value: ReagentRole | PydReagentRole | dict | str
-        :return: None
         """
         from backend.validators.pydant import PydReagentRole
         match value:
@@ -1141,14 +1258,33 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @hybrid_property
     def multiselect(self) -> bool:
-        return bool(self._multiselect or 0)
+        """
+        Gets whether the multiselect in the manager is set for this reagentrole in this procedure type.
+
+        :return: self._multiselect or 0
+        :rtype: bool
+        """
+        ms = self._multiselect or 0
+        return bool(ms)
 
     @multiselect.setter
     def multiselect(self, value):
+        """
+        Set whether multiple reagentlots can be selected by parsing an input object. Uses validators.shared.booleanize
+
+        :param value: Input object.
+        :type value: int | bool | str | None
+        """
         self._multiselect = booleanize(value, Booleanize.INTEGER)
 
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the constructed name of this relationship.
+
+        :return: {self.proceduretype.name}->{self.reagentrole.name}
+        :rtype: str
+        """
         try:
             proceduretype = self.proceduretype.name
         except AttributeError:
@@ -1161,6 +1297,17 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the reagentlot name.
+
+        This expression concatenates the related reagent name,
+        and reagentlot.lot, for database-side query filtering and ordering.
+
+        :param cls: ReagentLot model class.
+        :type cls: type[ReagentLot]
+        :return: SQL expression yielding the formatted reagentlot name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         proceduretype_subquery = (
             select(ProcedureType.name)
             .where(ProcedureType.id==cls.proceduretype_id)
@@ -1226,11 +1373,27 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def update_last_used(self, reagentlot: ReagentLot):
+    def update_last_used(self, reagentlot: ReagentLot | str):
+        """
+        Sets the last reagentlot used to fulfill this relationship.
+
+        :param reagentlot: The last used reagent lot.
+        :type reagentlot: ReagentLot | str
+        """
+        if isinstance(reagentlot, str):
+            reagentlot = ReagentLot.query(lot=reagentlot, limit=1)
         self.last_used = reagentlot
         self.save()
 
     def bubble_last_used(self, reagentlot_list: List[str]) -> List[str]:
+        """
+        Move this relationship's last used reagentlot to the top of a list of reagent lots if present.
+
+        :param reagentlot_list: Input list of lot numbers. Uses tools.bubble_to_top_of_list
+        :type reagentlot_list: List[str]
+        :return: Output list with self.last_used.name at the top.
+        :rtype: List[str]
+        """
         return bubble_to_top_of_list(reagentlot_list, self.last_used.name)
         
 
@@ -1301,6 +1464,12 @@ class ProcedureReagentLotAssociation(BaseClass):
     
     @hybrid_property
     def name(self) -> str:
+        """
+        Gets the constructed name of this relationship.
+
+        :return: {self.procedure.name}->{self.reagentlot.name}
+        :rtype: str
+        """
         try:
             procedure = self.procedure.name
         except AttributeError:
@@ -1313,6 +1482,17 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @name.expression
     def name(cls):
+        """
+        Generate the SQL expression for the relationship name.
+
+        This expression concatenates the related procedure name,
+        and reagentlot name, for database-side query filtering and ordering.
+
+        :param cls: ProcedureReagentLotAssociation model class.
+        :type cls: type[ProcedureReagentLotAssociation]
+        :return: SQL expression yielding the formatted ProcedureReagentLotAssociation name.
+        :rtype: sqlalchemy.sql.elements.ClauseElement
+        """
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -1330,12 +1510,22 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @hybrid_property
     def reagentlot(self):
-        """Return the resolved ReagentLot associated with this procedure association."""
+        """
+        Return the resolved ReagentLot associated with this procedure association.
+        
+        :return: self._reagentlot
+        :rtype: ReagentLot
+        """
         return self._reagentlot
 
     @reagentlot.setter
-    def reagentlot(self, value):
-        """Resolve and attach the related ReagentLot from a flexible input."""
+    def reagentlot(self, value: str | dict | PydReagentLot | ReagentLot):
+        """
+        Resolve and attach the related ReagentLot from a flexible input.
+        
+        :param value: Input object.
+        :type value: str | dict | PydReagentLot | ReagentLot
+        """
         from backend.validators.pydant import PydReagentLot
         match value:
             case str():
@@ -1358,12 +1548,22 @@ class ProcedureReagentLotAssociation(BaseClass):
     
     @hybrid_property
     def procedure(self):
-        """Return the linked Procedure object for this reagent lot association."""
+        """
+        Return the linked Procedure object for this reagent lot association.
+        
+        :return: self._procedure
+        :rtype: Procedure
+        """
         return self._procedure
 
     @procedure.setter
-    def procedure(self, value):
-        """Resolve and attach the related Procedure from a flexible input."""
+    def procedure(self, value: str | dict | PydProcedure | Procedure):
+        """
+        Resolve and attach the related Procedure from a flexible input.
+        
+        :param value: Input object.
+        :type value: str | dict | PydProcedure | Procedure
+        """
         from backend.validators.pydant import PydProcedure
         match value:
             case str():
@@ -1386,12 +1586,22 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @hybrid_property
     def reagentrole(self):
-        """Return the resolved ReagentRole for this procedure/reagent lot association."""
+        """
+        Return the resolved ReagentRole for this procedure/reagent lot association.
+        
+        :return: self._reagentrole
+        :rtype: ReagentRole
+        """
         return self._reagentrole
 
     @reagentrole.setter
-    def reagentrole(self, value):
-        """Resolve and attach the related ReagentRole from flexible input."""
+    def reagentrole(self, value: str | dict | PydReagentRole | ReagentRole):
+        """
+        Resolve and attach the related ReagentRole from flexible input.
+        
+        :param value: The input object.
+        :type value: str | dict | PydReagentRole | ReagentRole
+        """
         from backend.validators.pydant import PydReagentRole
         match value:
             case str():
@@ -1414,10 +1624,22 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @hybrid_property
     def comment(self) -> str | None:
+        """
+        Get any comments attached to this relationship.
+
+        :return: self._comment
+        :rtype: str
+        """
         return self._comment
     
     @comment.setter
-    def comment(self, value):
+    def comment(self, value: dict | List[dict]):
+        """
+        Sets comments associated with this relationship.
+
+        :param value: Input object.
+        :type value: dict | List[dict]
+        """
         self._comment = vet_comment(value, current=self._comment)
 
     @classmethod

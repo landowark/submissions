@@ -16,7 +16,7 @@ from backend.validators.pydant import PydConcrete, SourcedField, _coerce_datetim
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
 from tools import (
     Alert, AlertStatus, Report, convert_well_to_row_column, get_prioritized_dict_prefix, iterable_enforcer, sort_dict_by_list, 
-    convert_row_column_to_well, sort_by_attr_or_key, ResultsMode, merge_dicts, jinja_env
+    convert_row_column_to_well, sort_by_attr_or_key, ResultsMode, merge_dicts, jinja_env, get_dict_value_lineage
 )
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
@@ -96,7 +96,7 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
             check = sql.image
         except FileNotFoundError:
             check = False
-        if not check:
+        if not check and self.image:
             sql.image = self.image
         if not sql.date_analyzed:
             sql.date_analyzed = self.date_analyzed
@@ -945,6 +945,14 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         return proceduretype_dict
     
     def make_procedure_platemap(self, creation: bool = False) -> str:
+        """
+        Make a platemap for this procedure.
+
+        :param creation: Whether this is being used in procedure_creation.
+        :type creation: bool
+        :return: An html string of the plate map.
+        :rtype: str
+        """
         from backend.excel.parsers import ClientSubmissionSampleParser as Parser
         sample_dicts = []
         details_kwargs = self.load_resultstype_settings(mode=ResultsMode.DETAIL)
@@ -974,7 +982,10 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def load_resultstype_settings(self, resultstype: str | PydResultsType | None = None, mode: ResultsMode = ResultsMode.PARSE) -> dict:
         
         resultstype = resultstype.name if isinstance(resultstype, PydResultsType) else resultstype
-        return self.sql_instance.load_results_settings(resultstype=resultstype, mode=mode)
+        if self.sql_instance:
+            return self.sql_instance.load_results_settings(resultstype=resultstype, mode=mode)
+        else:
+            return {}
 
     @property
     def used_reagentlots(self) -> List[str]:
@@ -1561,15 +1572,15 @@ class PydProcedureSampleAssociation(PydConcrete):
             result = entry.get("result", {})
             for field in tooltip_results_fields:
                 if isinstance(result, dict):
-                    found_value = result.get(field, None)
-                    if not found_value:
+                    found_values = get_dict_value_lineage(result, field)
+                    if not found_values:
                         continue
-                    output[field] = str(found_value)
+                    for value in found_values:
+                        output[value[0]] = value[1]
         if isinstance(self.sample, PydSample):
             sample_txt = self.sample.sample_id
         else:
             sample_txt = self.sample 
-        
         template = jinja_env.get_template("support/tooltip.html")
         self.tooltip = template.render(sample_id=sample_txt, fields=output)
 

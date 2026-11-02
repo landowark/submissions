@@ -2091,8 +2091,6 @@ class Procedure(BaseClass):
         names = ["Preprocessing", "Add Results", "Edit", "Add Comment", "Show Details", "Delete"]
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
-    
-
     @property
     def run_samples(self) -> Generator:
         """
@@ -2482,7 +2480,10 @@ class Procedure(BaseClass):
         :return: a dictionary of settings keys and values.
         :rtype: dict
         """
-        return self.proceduretype.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
+        try:
+            return self.proceduretype.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
+        except AttributeError:
+            return {}
     
 
 class Results(BaseClass):

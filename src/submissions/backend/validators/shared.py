@@ -38,7 +38,10 @@ def booleanize(value: int | bool | str | None, mode: Booleanize = Booleanize.BOO
     return mode.value(output)
 
 
-def parse_optional_datetime(value: dict | SourcedField | str | datetime | date | int | None, timefill: TimeFill | None = None) -> datetime | None:
+def parse_optional_datetime(value: dict | SourcedField | str | datetime | date | int | None, timefill: TimeFill | None = None) -> datetime:
+    """
+    Parses and input object into a datetime. Defaults to datetime.now()
+    """
     from . import SourcedField
     match value:
         case dict():

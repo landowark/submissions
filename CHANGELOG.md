@@ -1,3 +1,7 @@
+# 202610.5
+
+- Added configurable Results tooltips to the plate map.
+
 # 202610.4
 
 - Moved the preprocessing from procedure creation into context menu.

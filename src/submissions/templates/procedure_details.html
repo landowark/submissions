@@ -67,8 +67,7 @@
     {% endif %}
     {% if procedure['sample'] %}
     <button type="button"><h3><u>Procedure Samples:</u></h3></button>
-    {% if procedure['platemap']|length > 5 %}
-    <br><br>
+    {% if procedure['platemap'] | length > 5 %}
     {{ procedure['platemap'] }}
     {% else %}
     <p>{% for sample in procedure['sample'] %}

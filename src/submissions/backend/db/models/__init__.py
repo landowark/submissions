@@ -59,6 +59,11 @@ class SafeMiscInfo(MutableDict, dict):
         self._owner = owner
 
     def _is_internal_key(self, key) -> bool:
+        """
+        Gets whether this is a hidden key ('_' prefix or AssociationProxy, sa_instance_state). Uses tools.is_internal_attr_key
+
+        :rtype: bool
+        """
         return is_internal_attr_key(key)
         
     def _set_safe_item(self, key: str, value):
@@ -164,6 +169,7 @@ class BaseClass(Base):
 
     @reconstructor
     def init_on_load(self):
+
         raw = self.__dict__.get("_misc_info")
         if isinstance(raw, SafeMiscInfo):
             raw._owner = self
@@ -322,7 +328,7 @@ class BaseClass(Base):
         Inspects the table schema and returns all columns with JSON type.
 
         :return: List of JSON column names. Empty list if table doesn't exist.
-        :rtype: list[str]
+        :rtype: List[str]
         """
         try:
             return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
@@ -441,7 +447,7 @@ class BaseClass(Base):
         These fields are suitable for full-text or fuzzy search operations.
         
         :return: List of searchable field names.
-        :rtype: list[str]
+        :rtype: List[str]
         """
         output = []
         # NOTE: get only non-function attributes that are columns, not foreign keys, and of type String.
@@ -487,8 +493,13 @@ class BaseClass(Base):
 
     @classmethod
     def _mapped_fields(cls) -> set[str]:
-        """Names of columns, relationships and hybrid accessors on this model
-        (inherited ones included)."""
+        """
+        Names of columns, relationships and hybrid accessors on this model
+        (inherited ones included).
+        
+        :return: Set of InstrumentedAttribute and hybrid_property field names.
+        :rtype: Set[str]
+        """
         fields = set()
         # Collect instrumented attributes (columns, relationships) via getattr
         for name in dir(cls):
@@ -514,6 +525,24 @@ class BaseClass(Base):
     @classmethod
     def _query_or_create_sample_link(cls, *, parent, parent_model, parent_lookup,
                                  query_kwarg, ctor_kwarg, sample, id=None, **kwargs):
+        """
+        Runs query for a sample association. If none found, creates a new one.
+
+        :param parent: Parent instance of the association.
+        :type parent: str | ClientSubmission | Run
+        :param parent_model: Parent object class (for query in case of string).
+        :type parent: str | ClientSubmission | Run
+        :param parent_lookup: The field to use in querying the parent_model
+        :type parent_lookup: str
+        :param query_kwarg: The name of the parent object field in the assocation model (ex. RunSampleAssociation.run would be 'run')
+        :type query_kwarg: str
+        :param ctor_kwarg: alias for query_kwarg?
+        :type ctor_kwarg: str
+        :param sample: The sample in the target association.
+        :type sample: str | Sample
+        :param id: The id to set for a newly created instance.
+        :type id: int
+        """
         if isinstance(parent, str):
             parent = parent_model.query(**{parent_lookup: parent})
         if parent is None:
@@ -574,7 +603,21 @@ class BaseClass(Base):
         return instance, new
 
     @classmethod
-    def _filter_relationship(cls, query, column, value, model, lookup="name") -> Query:
+    def _filter_relationship(cls, query: Query, column, value, model, lookup="name") -> Query:
+        """
+        Filters a query of associations based on an arbitrary field.
+
+        :param query: Incoming query object.
+        :type query: Query
+        :param column: The field being looked up. (ex. pass in cls.name)
+        :type column: Column
+        :param value: The value being queried for.
+        :type value: Any
+        :param model: The association model to conduct queries on.
+        :type model: Any
+        :param lookup: The name of the column being looked up from 'model'
+        :type lookup: str
+        """
         if value is None:
             return query
         if isinstance(value, int) and not isinstance(value, bool):   # id lookup
@@ -589,6 +632,18 @@ class BaseClass(Base):
 
     @classmethod
     def _filter_scalar(cls, query, column, value, *, match=None) -> Query:
+        """
+        Filters a query of non-associations based on an arbitrary field.
+
+        :param query: Incoming query object.
+        :type query: Query
+        :param column: The field being looked up. (ex. pass in cls.name)
+        :type column: Column
+        :param value: The value being queried for.
+        :type value: Any
+        :param match: The sqlalchemy function for determining a match. Defaults to (column == value)
+        :type match: Any
+        """
         # `match` lets callers keep non-equality comparisons (e.g. startswith).
         if value is None:
             return query
@@ -750,7 +805,11 @@ class BaseClass(Base):
 
     @classmethod
     def get_primary_keys(cls) -> List[str]:
-        """Returns a list of primary key names from an SQLAlchemy object."""
+        """
+        Returns a list of primary key names from an SQLAlchemy object. (Generally just 'id')
+
+        :return: [key.name for key in sql_inspect(cls).primary_key]
+        """
         mapper = sql_inspect(cls)
         return [key.name for key in mapper.primary_key]
 
@@ -1092,6 +1151,12 @@ class BaseClass(Base):
 
     @classmethod
     def construct_relevant_fields(cls) -> Generator[Tuple[str, Any], None, None]:
+        """
+        Constructs generator of fields relevant to details_dicts.
+
+        :return: List (generator) of (key, value) tuples.
+        :rtype: Generator[Tuple[str, Any], None, None]
+        """
         dict_ = {k: v for k, v in cls.__dict__.items() if not k.startswith("_")}
         seen = set()
         for k, v in dict_.items():
@@ -1334,6 +1399,9 @@ class BaseClass(Base):
         return sorted(fields)
 
     def inspect_session(self):
+        """
+        Checks that all entries in every unsaved objects _misc_info will 
+        """
         for obj in self.__database_session__.dirty:
             if not obj._misc_info:
                 continue
@@ -1345,6 +1413,12 @@ class BaseClass(Base):
 
     @property
     def is_active(self) -> bool:
+        """
+        Gets whether this object is considered active. Defaults to True
+
+        :return: bool(self.active) or True
+        :rtype: bool
+        """
         try:
             return bool(self.active)
         except AttributeError:
