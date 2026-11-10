@@ -58,23 +58,31 @@ class DefaultResultsSampleWriter(DefaultTABLEWriter):
                "image", 'img', "plate_barcode", "resultstype", "reagent_lot#", "is_sample"]
     header_order = ["sample_id"]
 
-    def __init__(self, pydant_obj: List[PydResults], proceduretype, *args, **kwargs):
+    def __init__(self, pydant_obj: List[PydResults], *args, **kwargs):
         """
-        
+        :param pydant_obj: List of results objects to write.
+        :type pydant_obj: List[PydResults]
         """
-        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         if isinstance(self.pydant_obj, list):
             self.write_sheet = self.pydant_obj[0].write_sheet_name
         else:
             self.write_sheet = self.pydant_obj.write_sheet_name
 
     # NOTE: Required to pass self.sheet to function.
-    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int = 1, *args, **kwargs) -> Workbook:
+    def write_to_workbook(self, workbook: Workbook, start_row: int = 1, *args, **kwargs) -> Workbook:
+        """
+        Write to a named sheet of a provided workbook. Will create new sheet if named one doesn't exist.
+
+        :param workbook: The workbook object to be written to.
+        :type workbook: Workbook
+        :param start_row: Row in which to start writing. Defaults to None. 
+        :type start row: int | None
+        :returns: Workbook with values written.
+        :rtype: Workbook
+        """
         records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
-        for record in records:
-            pass
-        workbook = super().write_to_workbook(workbook=workbook, sheet=self.write_sheet, start_row=start_row)
+        workbook = super().write_to_workbook(workbook=workbook, sheet=self.write_sheet, start_row=start_row, records=records)
         return workbook
 
 

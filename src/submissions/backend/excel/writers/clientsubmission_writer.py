@@ -26,7 +26,10 @@ class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
         :param pydant_obj: PydClientSubmission object to be written.
         :type pydant_obj: PydClientSubmission
         """
+        from backend.validators.pydant import PydClientSubmission
+        assert isinstance(pydant_obj, PydClientSubmission)
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
+        print(f"\n{self.write_sheet}\n")
         # Add comment back due to exclusion
         self.fill_dictionary['comment'] = pydant_obj.comment
 

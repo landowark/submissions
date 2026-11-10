@@ -18,8 +18,11 @@ class DefaultWriter(object):
     """
     Default object to handle writing of pydantic objects to Excel files.
 
+    :cvar start_row: Default row to start writing at.
     :ivar pydantic_object: Object to be written to file.
     """
+
+    start_row = 1
 
     def __repr__(self):
         try:
@@ -38,6 +41,8 @@ class DefaultWriter(object):
         else:
             self.write_sheet = pydant_obj.class_config.write_sheet
         
+    
+    
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs):
         """
@@ -52,12 +57,7 @@ class DefaultWriter(object):
         :returns: Workbook with values written.
         :rtype: Workbook
         """
-        if not start_row:
-            try:
-                start_row = self.__class__.start_row
-            except AttributeError as e:
-                logger.exception(f"Couldn't get start row due to {e}")
-                start_row = 1
+        
         if not sheet:
             sheet = self.write_sheet
         self.sheet = sheet
@@ -70,19 +70,26 @@ class DefaultWriter(object):
                 sheetnames = []
         if self.sheet not in sheetnames:
             try:
+                logger.debug(f"Attempting to name first sheet '{self.sheet}'")
                 self.worksheet = workbook["Sheet"]
                 self.worksheet.title = self.sheet
             except KeyError:
-                self.worksheet = workbook.create_sheet(self.sheet)
+                logger.error(f"First sheet already taken, making new sheet.")
+                self.worksheet = workbook.create_sheet(title=self.sheet)
         else:
             self.worksheet = workbook[self.sheet]
+        try:
+            assert hasattr(self, "worksheet")
+        except AssertionError:
+            raise AssertionError(f"This object {self} has no worksheet")
+        start_row = self.delineate_start_row(start_row=start_row)
         self.worksheet = self.prewrite(self.worksheet, start_row=start_row)
         self.start_row = self.delineate_start_row(start_row=start_row)
         # NOTE: Declared in child classes
         self.end_row = self.delineate_end_row(start_row=start_row)
         return workbook
 
-    def delineate_start_row(self, start_row: int = 1) -> int:
+    def delineate_start_row(self, start_row: int | None = None) -> int:
         """
         Gets the first black row.
 
@@ -91,6 +98,12 @@ class DefaultWriter(object):
         :returns: First row including/after start_row with all negative values
         :rtype: int
         """
+        if not start_row:
+            try:
+                start_row = self.__class__.start_row
+            except AttributeError as e:
+                logger.exception(f"Couldn't get start row due to {e}")
+                start_row = 1
         for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
             if all([item.value is None for item in row]):
                 return iii
@@ -247,7 +260,7 @@ class DefaultTABLEWriter(DefaultWriter):
         return start_row + len(self.pydant_obj) + 2
         
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int | None = None, 
+                          start_row: int = 1, 
                           records: List[dict] | None = None, *args, **kwargs) -> Workbook:
         """
         Write to a named sheet of a provided workbook. Will create new sheet if named one doesn't exist.
@@ -263,6 +276,7 @@ class DefaultTABLEWriter(DefaultWriter):
         :returns: Workbook with values written.
         :rtype: Workbook
         """
+        start_row = self.delineate_start_row(start_row=start_row)
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         if records is None:
             records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
