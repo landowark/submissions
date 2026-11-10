@@ -276,8 +276,8 @@ class DefaultTABLEWriter(DefaultWriter):
         :returns: Workbook with values written.
         :rtype: Workbook
         """
-        start_row = self.delineate_start_row(start_row=start_row)
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
+        # start_row = self.start_row
         if records is None:
             records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
         df = DataFrame(records)[self.sorted_header_row]
@@ -301,7 +301,7 @@ class DefaultTABLEWriter(DefaultWriter):
         # Rename column Headers.
         df = df.rename(columns=handle_keys)
         rows = dataframe_to_rows(df, index=False, header=True)
-        for r_idx, row in enumerate(rows, start_row + 1 ):
+        for r_idx, row in enumerate(rows, self.start_row):
             for c_idx, value in enumerate(row, 1):
                 value = handle_results(value, html=False)
                 if value is None:
