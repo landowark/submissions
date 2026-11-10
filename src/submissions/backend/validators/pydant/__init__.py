@@ -1157,8 +1157,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         Gets class configuration for use in templates.
 
-        Returns:
-            DotDict: Class configuration.
+        :returns: Class configuration dictionary.
+        :rtype: DotDict
         """
         config = cls.model_config.get("json_schema_extra", {})
         config['excluded'] = config.get("excluded", ["excluded"])

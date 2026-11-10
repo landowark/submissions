@@ -5,18 +5,21 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from numpy import nan as npnan
-from typing import  TYPE_CHECKING
+from typing import List
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
 from openpyxl.utils.dataframe import dataframe_to_rows
 from tools import flatten_list, sort_dict_by_list, handle_keys, handle_results
-if TYPE_CHECKING:
-    from backend.db.models import ProcedureType
 
 
 class DefaultWriter(object):
+    """
+    Default object to handle writing of pydantic objects to Excel files.
+
+    :ivar pydantic_object: Object to be written to file.
+    """
 
     def __repr__(self):
         try:
@@ -25,6 +28,10 @@ class DefaultWriter(object):
             return f"{self.__class__.__name__}<Unknown Filepath>"
 
     def __init__(self, pydant_obj, *args, **kwargs):
+        """
+        :param pydant_obj: Object to be written to file.
+        :type pydant_obj: PydBaseClass
+        """
         self.pydant_obj = pydant_obj
         if isinstance(self.pydant_obj, list):
             self.write_sheet = pydant_obj[0].class_config.write_sheet
@@ -33,6 +40,18 @@ class DefaultWriter(object):
         
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs):
+        """
+        Write to a named sheet of a provided workbook. Will create new sheet if named one doesn't exist.
+
+        :param workbook: The workbook object to be written to.
+        :type workbook: Workbook
+        :param sheet: The name of the sheet to which to write. Defaults to None. If None will attempt to get from cvar Writer.sheet
+        :type type: str | None
+        :param start_row: Row in which to start writing. Defaults to None. 
+        :type start row: int | None
+        :returns: Workbook with values written.
+        :rtype: Workbook
+        """
         if not start_row:
             try:
                 start_row = self.__class__.start_row
@@ -66,11 +85,11 @@ class DefaultWriter(object):
     def delineate_start_row(self, start_row: int = 1) -> int:
         """
         Gets the first black row.
-        Args:
-            start_row (int): row to start looking at.
 
-        Returns:
-            int
+        :param start_row: row to start looking at. Defaults to 1.
+        :type start_row: int
+        :returns: First row including/after start_row with all negative values
+        :rtype: int
         """
         for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
             if all([item.value is None for item in row]):
@@ -80,16 +99,32 @@ class DefaultWriter(object):
         else:
             return self.worksheet.max_row + 2
 
-    def prewrite(self, worksheet: Worksheet, start_row: int) -> Worksheet:
+    def prewrite(self, worksheet: Worksheet, **kwargs) -> Worksheet:
+        """
+        Steps taken to make a worksheet ready to receive values.
+
+        To be defined in child classes.
+
+        :param worksheet: The worksheet which to prepare.
+        :type worksheet: Worksheet
+        :returns: In this case, the same worksheet.
+        """
         return worksheet
 
-    def columns_best_fit(self, worksheet: Worksheet) -> None:
+    @classmethod
+    def columns_best_fit(cls, worksheet: Worksheet) -> Worksheet:
         """
-        Make all columns best fit
+        Make all columns' widths best fit.
+
+        :param worksheet: The worksheet on which to change column widths.
+        :type worksheet: 
         """
         for col in worksheet.columns:
             setlen = 0
-            column = col[0].column_letter  # Get the column name
+            try:
+                column = col[0].column_letter  # Get the column name
+            except AttributeError:
+                continue
             for cell in col:
                 if len(str(cell.value)) > setlen:
                     setlen = len(str(cell.value))
@@ -100,24 +135,53 @@ class DefaultWriter(object):
 
 
 class DefaultKEYVALUEWriter(DefaultWriter):
+    """
+    Default object to handle writing of pydantic objects as Key | Value pairs to Excel files.
+
+    :ivar pydantic_object: Object to be written to file.
+    """
     
-    
-    def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
+    def __init__(self, pydant_obj, *args, **kwargs):
+        """
+        :param pydant_obj: Object to be written to file.
+        :type pydant_obj: PydBaseClass
+        """
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.excluded = pydant_obj.class_config.excluded
         self.key_value_order = pydant_obj.class_config.key_value_order
+        logger.debug(f"Creating fill dictionary for {self.pydant_obj}")
         fill_dictionary = {k: v for k, v in self.pydant_obj.improved_dict.items() if k not in self.excluded}
         self.fill_dictionary = sort_dict_by_list(fill_dictionary, self.key_value_order)
 
-    def delineate_end_row(self, start_row: int = 1):
+    def delineate_end_row(self, start_row: int = 1) -> int:
+        """
+        Calculates the ending row of a contiguous series of rows.
+
+        :param start_row: The row to start looking at. Defaults to 1
+        :type start_row: int
+        :returns: len(self.fill_dictionary) + start_row
+        :rtype: int 
+        """
         return len(self.fill_dictionary) + start_row
 
-    @classmethod
-    def check_location(cls, locations: list, sheet: str):
-        return any([item['sheet'] == sheet for item in locations])
+    # @classmethod
+    # def check_location(cls, locations: list, sheet: str):
+    #     return any([item['sheet'] == sheet for item in locations])
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
+        """
+        Write to a named sheet of a provided workbook. Will create new sheet if named one doesn't exist.
+
+        :param workbook: The workbook object to be written to.
+        :type workbook: Workbook
+        :param sheet: The name of the sheet to which to write. Defaults to None. If None will attempt to get from cvar Writer.sheet
+        :type type: str | None
+        :param start_row: Row in which to start writing. Defaults to None. 
+        :type start row: int | None
+        :returns: Workbook with values written.
+        :rtype: Workbook
+        """
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row)
         for ii, (k, v) in enumerate(self.fill_dictionary.items(), start=self.start_row):
             self.worksheet.cell(column=1, row=ii, value=handle_keys(k))
@@ -129,13 +193,30 @@ class DefaultKEYVALUEWriter(DefaultWriter):
         return workbook
 
     def postwrite(self, worksheet: Worksheet) -> Worksheet:
+        """
+        Steps taken to properly format a worksheet after it contains values..
+
+        :param worksheet: The worksheet which to format.
+        :type worksheet: Worksheet
+        """
         worksheet = self.columns_best_fit(worksheet=worksheet)
         return worksheet
 
 
 class DefaultTABLEWriter(DefaultWriter):
+    """
+    Default object to handle writing of pydantic objects as to rows of Excel files. One object per row.
+
+    :ivar pydantic_object: Object to be written to file.
+    """
 
     def __init__(self, pydant_obj, actual_objs_type: str | None = None, *args, **kwargs):
+        """
+        :param pydant_obj: Object to be written to file.
+        :type pydant_obj: PydBaseClass
+        :param actual_objs_type: Gets what actual obj this is supposed to be from the original object. (Ex. Get PydSample from PydClientSubmissionSampleAssociation)
+        :type actual_objs_type: str
+        """
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.pydant_obj = getattr(self.pydant_obj, actual_objs_type) if actual_objs_type else self.pydant_obj
         try:
@@ -149,18 +230,39 @@ class DefaultTABLEWriter(DefaultWriter):
             logger.exception(f"Error occurred while initializing TABLE writer: {e}")
             self.key_value_order = []
 
-    def get_row_count(self, start_row: int = 1):
-        list_df = DataFrame([item for item in self.worksheet.values][start_row - 1:])
-        row_count = list_df.shape[0]
-        return row_count
+    # def get_row_count(self, start_row: int = 1):
+    #     list_df = DataFrame([item for item in self.worksheet.values][start_row - 1:])
+    #     row_count = list_df.shape[0]
+    #     return row_count
 
     def delineate_end_row(self, start_row: int = 1) -> int:
-        end_row = start_row + len(self.pydant_obj) + 2
-        return end_row
+        """
+        Calculates the ending row of a contiguous series of rows.
 
+        :param start_row: The row to start looking at. Defaults to 1
+        :type start_row: int
+        :returns: start_row + len(self.pydant_obj) + 2
+        :rtype: int 
+        """
+        return start_row + len(self.pydant_obj) + 2
+        
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, 
-                          records: list | None = None, *args, **kwargs) -> Workbook:
+                          records: List[dict] | None = None, *args, **kwargs) -> Workbook:
+        """
+        Write to a named sheet of a provided workbook. Will create new sheet if named one doesn't exist.
+
+        :param workbook: The workbook object to be written to.
+        :type workbook: Workbook
+        :param sheet: The name of the sheet to which to write. Defaults to None. If None will attempt to get from cvar Writer.sheet
+        :type type: str | None
+        :param start_row: Row in which to start writing. Defaults to None. 
+        :type start row: int | None
+        :param records: List of objects to write to rows. One record per row.
+        :type records: List[dict]
+        :returns: Workbook with values written.
+        :rtype: Workbook
+        """
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         if records is None:
             records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
@@ -195,7 +297,13 @@ class DefaultTABLEWriter(DefaultWriter):
         return workbook
 
     @property
-    def sorted_header_row(self) -> list:
+    def sorted_header_row(self) -> List[str]:
+        """
+        Sorts table header row based on the key_value_order from the pydant_obj class_config.
+
+        :returns: List of key_value_order strings plus an alphabetical list of remaining fields.
+        :rtype: List[str]
+        """
         output = []
         header_list = list(set(flatten_list([item.fields for item in self.pydant_obj])))
         class_config = self.pydant_obj[0].class_config
@@ -205,18 +313,54 @@ class DefaultTABLEWriter(DefaultWriter):
         return output + sorted([item for item in header_list if item not in class_config.excluded])
 
     def postwrite(self, worksheet: Worksheet) -> Worksheet:
+        """
+        Steps taken to properly format a worksheet after it contains values.
+
+        :param worksheet: The worksheet which to format.
+        :type worksheet: Worksheet
+        :returns: Formatted worksheet.
+        :rtype: Worksheet
+        """
         worksheet = self.columns_best_fit(worksheet=worksheet)
-        worksheet = self.colour_start_row(worksheet=worksheet)
+        worksheet = self.format_worksheet_row(worksheet=worksheet, row=self.start_row)
         return worksheet
-    
-    def colour_start_row(self, worksheet: Worksheet) -> Worksheet:
-        font = Font(bold=True, color="ffffffff")
-        fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
-        align = Alignment(horizontal="center")
-        for cell in worksheet[self.start_row]:
-            cell.font = font
-            cell.fill = fill
-            cell.alignment = align
+
+    @staticmethod
+    def format_worksheet_row(worksheet: Worksheet, 
+                         row: int,
+                         font: dict | None = None,
+                         fill: dict | None = None,
+                         align: dict | None = None
+                         ) -> Worksheet:
+        """
+        Post-write step to format header row in Excel.
+
+        :param worksheet: The worksheet with the row to be formatted.
+        :type worksheet: Worksheet
+        :param row: The index of the row to be formatted.
+        :type row: int
+        :param font: Dictionary of cell font values. Check openpyxl.styles.Font for allowed keys/values. Defaults to None, fallback values in code.
+        :type font: dict
+        :param fill: Dictionary of cell fill values. Check openpyxl.styles.PatternFill for allowed keys/values. Defaults to None, fallback values in code.
+        :type font: dict
+        :param align: Dictionary of cell alignment values. Check openpyxl.styles.Alignment for allowed keys/values. Defaults to None, fallback values in code.
+        :type align: dict
+        :returns: Worksheet with properly formatted row.
+        :rtype: Worksheet
+        """
+        if not font:
+            font = dict(color="ffffffff", bold=True)
+        if not fill:
+            fill = dict(start_color='376589', end_color='376589', fill_type="solid")
+        if not align:
+            align = dict(horizontal="center")
+        font_ = Font(**font)
+        fill_ = PatternFill(**fill)
+        align_ = Alignment(**align)
+        for cell in worksheet[row]:
+            cell.font = font_
+            cell.fill = fill_
+            cell.alignment = align_
         return worksheet
 
 

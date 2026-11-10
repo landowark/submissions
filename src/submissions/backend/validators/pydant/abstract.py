@@ -196,7 +196,6 @@ class PydProcedureTypeResultsTypeAssociation(PydAbstract):
 
     _validate_na = field_validator("always_used", mode="before")(booleanize)
 
-    
 
 class PydProcedureType(PydAbstract):
     

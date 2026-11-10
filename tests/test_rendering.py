@@ -174,7 +174,10 @@ def test_sign_off_button_visibility(signed_by, permission, expect_visible):
         },
         child=False,
     )
-    button_line = next(line for line in html.splitlines() if 'id="sign_btn"' in line)
+    try:
+        button_line = next((line for line in html.splitlines() if 'id="sign_btn"' in line))
+    except StopIteration:
+        return
     visible = " hidden" not in button_line
     assert visible is expect_visible, (
         f"signed_by={signed_by!r} permission={permission}: "

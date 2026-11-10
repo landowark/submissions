@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from backend.validators.pydant import (
         PydSample, PydClientSubmission, PydProcedureSampleAssociation, 
         PydSubmissionType, SourcedField, PydContact, PydRun, PydClientLab,
-        PydClientSubmissionSampleAssociation
+        PydClientSubmissionSampleAssociation, PydResults
     )
     from frontend.widgets import SubmissionsTree, SubmissionFormContainer
     from frontend.widgets.omni_search import SearchResults
@@ -1073,7 +1073,7 @@ class Run(BaseClass, LogMixin):
         Sets the samples for this run by parsing a list of input objects.
 
         :param value: List of input objects
-        :type value: List[str | dict | PydSample | PydClientSubmissionSampleAssociation | Sample | RunSampleAssociation]):
+        :type value: List[str | dict | PydSample | PydClientSubmissionSampleAssociation | Sample | RunSampleAssociation]:
         """
         from backend.validators.pydant import PydSample, PydClientSubmissionSampleAssociation
         value = iterable_enforcer(value, pass_dict=False)
@@ -2575,20 +2575,28 @@ class ClientSubmissionSampleAssociation(BaseClass):
               **kwargs
               ):
         """
-        Lookup junction of Submission and Sample in the database
+        Lookup sample in the database by a number of parameters.
 
-        Args:
-            clientsubmission (models.ClientSubmission | str | None, optional): Submission of interest. Defaults to None.
-            exclude_submission_type ( str | None, optional): Name of submissiontype to exclude. Defaults to None.
-            sample (models.Sample | str | None, optional): Sample of interest. Defaults to None.
-            row (int, optional): Row of the sample location on procedure plate. Defaults to 0.
-            column (int, optional): Column of the sample location on the procedure plate. Defaults to 0.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-            chronologic (bool, optional): Return results in chronologic order. Defaults to False.
-            reverse (bool, optional): Whether or not to reverse order of list. Defaults to False.
-
-        Returns:
-            models.ClientSubmissionSampleAssociation|List[models.ClientSubmissionSampleAssociation]: Junction(s) of interest
+        :param clientsubmission: Client submission to filter by. Can be a ClientSubmission object or a string identifier. Defaults to None.
+        :type clientsubmission: ClientSubmission | str | None
+        :param exclude_submission_type: Submission type to exclude from the results. Defaults to None.
+        :type exclude_submission_type: str | None
+        :param sample: Sample to filter by. Can be a Sample object or a string identifier. Defaults to None.
+        :type sample: Sample | str | None
+        :param row: Row number to filter by. Defaults to 0 (no filtering).
+        :type row: int
+        :param column: Column number to filter by. Defaults to 0 (no filtering).
+        :type column: int
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :param chronologic: Whether to order results chronologically. Defaults to False.
+        :type chronologic: bool
+        :param reverse: Whether to reverse the order of results. Defaults to False.
+        :type reverse: bool
+        :param **kwargs: Additional keyword arguments for the query.
+        :type **kwargs: Any
+        :returns: List of matching sample-submission associations.
+        :rtype: List[ClientSubmissionSampleAssociation]
         """
         row = row or 0
         column = column or 0
@@ -2632,7 +2640,20 @@ class ClientSubmissionSampleAssociation(BaseClass):
                         sample: Sample | str | None = None,
                         id: int | None = None,
                         **kwargs) -> List[Any]:
-    
+        """
+        Query or create a sample link.
+
+        :param clientsubmission: Client submission to filter by. Can be a ClientSubmission object or a string identifier. Defaults to None.
+        :type clientsubmission: ClientSubmission | str | None
+        :param sample: Sample to filter by. Can be a Sample object or a string identifier. Defaults to None.
+        :type sample: Sample | str | None
+        :param id: ID of the association to filter by. Defaults to None.
+        :type id: int | None
+        :param **kwargs: Additional keyword arguments for the query or creation.
+        :type **kwargs: Any
+        :return: List of matching or newly created sample links.
+        :rtype: List[ClientSubmissionSampleAssociation]
+        """
         return cls._query_or_create_sample_link(
                     parent=clientsubmission, parent_model=ClientSubmission, parent_lookup="submitter_plate_id",
                     query_kwarg="clientsubmission", ctor_kwarg="submission", sample=sample, id=id, **kwargs
@@ -2649,8 +2670,8 @@ class ClientSubmissionSampleAssociation(BaseClass):
         but this can be overridden for junction tables that might be referred 
         to by the names of the two linked tables.
 
-        Returns:
-            List[str]: List of names
+        :returns: List of names
+        :rtype: List[str]
         """
         return super().aliases + ["equipmentequipmentroleassociation"]
 
@@ -2662,7 +2683,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
 
         :param obj: Parent object for the comment action.
         :type obj: Any
-        :return: None
         """
         logger.info("Add Comment!")
         from frontend.widgets import SubmissionComment
@@ -2672,18 +2692,39 @@ class ClientSubmissionSampleAssociation(BaseClass):
             self.comment = comment
             self.save(original=False)
 
-    def to_pydantic(self, **kwargs) -> BaseModel:
+    def to_pydantic(self, **kwargs) -> PydClientSubmissionSampleAssociation:
+        """
+        Converts the ClientSubmissionSampleAssociation instance to a Pydantic model representation.
+
+        :return: PydClientSubmissionSampleAssociation representation of the instance.
+        :rtype: PydClientSubmissionSampleAssociation
+        """
         output = super().to_pydantic(**kwargs)
+        # .rank is used by runs and procedures as well.
         output.rank = self.submission_rank
         return output
 
 
 class RunSampleAssociation(BaseClass):
     """
-    table containing procedure/sample associations
-    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
-    """
+    Associates a sample with a run and records its order within that run.
 
+    This junction object links a sample to the analytical run it belongs to and
+    preserves the sample position in the run's sample list.
+
+    :ivar run_id: Foreign key for the parent run.
+    :vartype run_id: int
+    :ivar sample_id: Foreign key for the associated sample.
+    :vartype sample_id: int
+    :ivar run_rank: Position of the sample within the run.
+    :vartype run_rank: int
+    :ivar comment: User notes associated with this sample-run link.
+    :vartype comment: list[dict] | None
+    :ivar run: Parent run linked to this association.
+    :vartype run: Run
+    :ivar sample: Sample associated with this run.
+    :vartype sample: Sample
+    """
     run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
     sample_id = Column(INTEGER, ForeignKey("_sample.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated sample
     run_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
@@ -2724,7 +2765,13 @@ class RunSampleAssociation(BaseClass):
                 logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
     
     @hybrid_property
-    def name(self):
+    def name(self) -> str:
+        """
+        Gets the constructed name of the association, which combines the run name, sample name, and run rank.
+
+        :return: {self.run.name}->{self.sample.name} (rank={self.run_rank})
+        :rtype: str
+        """
         try:
             run = self.run.name
         except AttributeError:
@@ -2741,6 +2788,12 @@ class RunSampleAssociation(BaseClass):
     
     @name.expression
     def name(cls):
+        """
+        Gets the constructed name of the association as a SQL expression, which combines the run name, sample name, and run rank.
+
+        :return: SQL expression for the name of the association.
+        :rtype: sqlalchemy.sql.expression.Label
+        """
         run_subquery = (
             select(Run.name)
             .where(Run.id==cls.run_id)
@@ -2758,10 +2811,22 @@ class RunSampleAssociation(BaseClass):
 
     @hybrid_property
     def sample(self):
+        """
+        Gets the list of samples associated with this run.
+
+        :return: self._sample
+        :rtype: Sample
+        """
         return self._sample
 
     @sample.setter
-    def sample(self, value):
+    def sample(self, value: str | dict | Sample | PydSample):
+        """
+        Set the sample associated with this relationship by parsing an input object.
+
+        :param value: The sample identifier or object to set.
+        :type value: str | dict | Sample | PydSample
+        """
         from backend.validators.pydant import PydSample
         match value:
             case str():
@@ -2784,10 +2849,22 @@ class RunSampleAssociation(BaseClass):
   
     @hybrid_property
     def run(self):
+        """
+        Gets the run associated with this relationship.
+
+        :returns: self._run
+        :rtype: Run
+        """
         return self._run
 
     @run.setter
-    def run(self, value):
+    def run(self, value: str | dict | Run | PydRun):
+        """
+        Sets the run associated with this relationship by parsing an input object.
+
+        :param value: The run identifier or object to set.
+        :type value: str | dict | Run | PydRun
+        """
         from backend.validators.pydant import PydRun
         match value:
             case str():
@@ -2809,31 +2886,58 @@ class RunSampleAssociation(BaseClass):
             logger.error(f"Could not set {self.__class__.__qualname__}._run to {type(output)}")
 
     @hybrid_property
-    def comment(self):
+    def comment(self) -> List[dict]:
+        """
+        Gets the comments associated with this sample-run link.
+
+        :returns: [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+        :rtype: List[dict]
+        """
         if not self._comment:
             return []
         return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
     
     @comment.setter
-    def comment(self, value):
+    def comment(self, value: dict | List[dict]):
+        """
+        Sets the comments associated with this sample-run link.
+        Uses validators.shared.vet_comment to validate the input value.
+
+        :param value: The comments to set.
+        :type value: dict | List[dict]
+        """
         self._comment = vet_comment(value, current=self._comment)
 
     @hybrid_property
-    def abbreviation_name(self):
+    def abbreviation_name(self) -> str:
+        """
+        Gets the abbreviated name of the sample associated with this run, which is based on the client submission abbreviation.
+
+        :returns: Abbreviated name of the sample.
+        :rtype: str
+        """
         return replace_or_prepend_prefix(self.sample.sample_id, old_prefix=r"^RSL-[A-Z]+-", new_prefix=f"RSL-{self.run.clientsubmission.abbreviation}-")
         # return f"RSL-{self.run.clientsubmission.abbreviation}-{self.sample.sample_id}"
 
     def to_pydantic(self) -> PydSample:
         """
-        Creates a pydantic model for this sample.
+        Converts this sample to a pydantic model.
 
-        Returns:
-            PydSample: Pydantic Model
+        :returns: Pydantic Model
+        :rtype: PydSample
         """
         from backend.validators import PydSample
         return PydSample(**self.details_dict)
     
     def to_PydProcedureSampleAssociation(self, procedure):
+        """
+        Converts this sample to a PydProcedureSampleAssociation model for a given procedure.
+
+        :param procedure: The procedure to associate with this sample.
+        :type procedure: Procedure
+        :returns: PydProcedureSampleAssociation model
+        :rtype: PydProcedureSampleAssociation
+        """
         from backend.validators import PydProcedureSampleAssociation
         from backend.excel import ClientSubmissionSampleParser as Parser
         sample = self.to_pydantic()
@@ -2895,20 +2999,27 @@ class RunSampleAssociation(BaseClass):
               **kwargs
               ):
         """
-        Lookup junction of Submission and Sample in the database
+        Lookup sample in the database by a number of parameters.
 
-        Args:
-            run (models.Run | str | None, optional): Submission of interest. Defaults to None.
-            exclude_submission_type ( str | None, optional): Name of submissiontype to exclude. Defaults to None.
-            sample (models.Sample | str | None, optional): Sample of interest. Defaults to None.
-            row (int, optional): Row of the sample location on procedure plate. Defaults to 0.
-            column (int, optional): Column of the sample location on the procedure plate. Defaults to 0.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-            chronologic (bool, optional): Return results in chronologic order. Defaults to False.
-            reverse (bool, optional): Whether or not to reverse order of list. Defaults to False.
-
-        Returns:
-            models.ClientSubmissionSampleAssociation|List[models.ClientSubmissionSampleAssociation]: Junction(s) of interest
+        :param run: Run to filter by. Can be a Run object or a string identifier. Defaults to None.
+        :type run: Run | str | None
+        :param exclude_submission_type: Submission type to exclude. Defaults to None.
+        :type exclude_submission_type: str | None
+        :param sample: Sample to filter by. Can be a Sample object or a string identifier. Defaults to None.
+        :type sample: Sample | str | None
+        :param row: Row of the sample location on the procedure plate. Defaults to 0.
+        :type row: int
+        :param column: Column of the sample location on the procedure plate. Defaults to 0.
+        :type column: int
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :param chronologic: Return results in chronologic order. Defaults to False.
+        :type chronologic: bool
+        :param reverse: Whether or not to reverse order of list. Defaults to False.
+        :type reverse: bool
+        :param **kwargs: Additional keyword arguments for the query.
+        :type **kwargs: Any
+        :returns: List of ClientSubmissionSampleAssociation objects matching the criteria.
         """
         row = row or 0
         column = column or 0
@@ -2955,13 +3066,14 @@ class RunSampleAssociation(BaseClass):
         """
         Queries for an association, if none exists creates a new one.
 
-        Args:
-            run (Run | str | None, optional): associated procedure. Defaults to None.
-            sample (Sample | str | None, optional): associated sample. Defaults to None.
-            id (int | None, optional): association id. Defaults to None.
-
-       Returns:
-            ClientSubmissionSampleAssociation: Queried or new association.
+        :param run: associated procedure. Defaults to None.
+        :type run:  Run | str | None
+        :param sample: associated sample. Defaults to None.
+        :type sample: Sample | str | None
+        :param id: association id. Defaults to None.
+        :type id: int | None
+        :returns: Queried or new association.
+        :rtype: ClientSubmissionSampleAssociation
         """
         return cls._query_or_create_sample_link(
             parent=run, parent_model=Run, parent_lookup="name",
@@ -2973,6 +3085,12 @@ class RunSampleAssociation(BaseClass):
 
     @property
     def details_dict(self) -> dict:
+        """
+        Gets a dictionary of the association's details, including relevant information from the associated sample and run.
+
+        :return: super().details_dict merged with sample details and misc_info.
+        :rtype: dict
+        """
         output = super().details_dict
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
@@ -2991,7 +3109,6 @@ class RunSampleAssociation(BaseClass):
 
         :param obj: Parent object for the comment action.
         :type obj: Any
-        :return: None
         """
         logger.info("Add Comment!")
         from frontend.widgets import SubmissionComment
@@ -3003,7 +3120,30 @@ class RunSampleAssociation(BaseClass):
 
 
 class ProcedureSampleAssociation(BaseClass):
+    """
+    Represents the association between a procedure and a sample.
 
+    :ivar id: Unique identifier for the association record.
+    :vartype id: int
+    :ivar procedure_id: Foreign key linking this association to the procedure.
+    :vartype procedure_id: int
+    :ivar sample_id: Foreign key linking this association to the sample.
+    :vartype sample_id: int
+    :ivar row: Row position of the sample within the procedure layout.
+    :vartype row: int | None
+    :ivar column: Column position of the sample within the procedure layout.
+    :vartype column: int | None
+    :ivar procedure_rank: Ordering rank for this procedure/sample pairing.
+    :vartype procedure_rank: int
+    :ivar _comment: Stored comment metadata associated with the relationship.
+    :vartype _comment: list[dict] | None
+    :ivar procedure: Procedure linked to this association.
+    :vartype procedure: Procedure
+    :ivar sample: Sample linked to this association.
+    :vartype sample: Sample
+    :ivar results: Results attached to this procedure/sample association.
+    :vartype results: list[Results]
+    """
     # columns: id becomes the sole PK; the old composite becomes a UNIQUE constraint
     id             = Column(INTEGER, primary_key=True, autoincrement=True)          # was: unique=True, nullable=False
     procedure_id   = Column(INTEGER, ForeignKey("_procedure.id", ondelete="CASCADE"),  nullable=False)  # drop primary_key=True
@@ -3033,94 +3173,6 @@ class ProcedureSampleAssociation(BaseClass):
         cascade="save-update, merge",
     )  #: associated equipment
     _results = relationship("Results", back_populates="_sampleprocedureassociation")  #: associated results
-
-    @hybrid_property
-    def sample(self):
-        return self._sample
-    
-    @sample.setter
-    def sample(self, value):
-        from backend.validators.pydant import PydSample
-        match value:
-            case str():
-                output = Sample.query(name=value, limit=1)
-            case dict():
-                output = Sample.query_or_create(**value)
-            case PydSample():
-                # NOTE: If the sample hasn't already been saved, we'll have to do some updating.
-                update = not hasattr(value.sql_instance, "_sa_instance_state")
-                if update:
-                    logger.warning(f"{value} has not been saved previously. Updating")
-                output = value.to_sql(update=update)
-            case Sample():
-                output = value
-            case _:
-                logger.error(f"Unmatched value {type(value)}: {value} for {self.__class__.__qualname__}._sample")
-                return
-        if isinstance(output, tuple):
-            output = output[0]
-        if isinstance(output, Sample):
-            self._sample = output
-        else:
-            logger.error(f"{self.__class__.__qualname__} Could not set _sample to {type(output)}")
-
-    @hybrid_property
-    def procedure(self):
-        return self._procedure
-
-    @procedure.setter
-    def procedure(self, value):
-        from backend.validators.pydant import PydProcedure
-        match value:
-            case str():
-                output = Procedure.query(name=value, limit=1)
-            case dict():
-                output = Procedure.query_or_create(**value)
-            case PydProcedure():
-                output = value.to_sql(update=False)
-            case Procedure():
-                output = value
-            case _:
-                logger.error(f"Unmatched value {value} for procedure")
-                return
-        if isinstance(output, tuple):
-            output = output[0]
-        if isinstance(output, Procedure):
-            self._procedure = output
-        else:
-            logger.error(f"Could not set _procedure to {type(output)}")
-
-    @hybrid_property
-    def comment(self):
-        if not self._comment:
-            return []
-        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
-    
-    @comment.setter
-    def comment(self, value):
-        self._comment = vet_comment(value, current=self._comment)
-
-    def add_comment(self, obj):
-        """
-        Add a comment to this procedure.
-
-        This method is a placeholder for comment UI integration.
-
-        :param obj: Parent object for the comment action.
-        :type obj: Any
-        :return: None
-        """
-        logger.info("Add Comment!")
-        from frontend.widgets import SubmissionComment
-        dlg = SubmissionComment(parent=obj, submission=self)
-        if dlg.exec():
-            comment = dlg.parse_form()
-            self.comment = comment
-            self.save(original=False)
-
-    @hybrid_property
-    def abbreviation_name(self):
-        return f"RSL-{self.procedure.run.clientsubmission.abbreviation}-{self.sample.sample_id}"
 
     def __init__(self, new_id: int | None = None,  *args, **kwargs):
         """
@@ -3159,9 +3211,145 @@ class ProcedureSampleAssociation(BaseClass):
         if new_id is not None:
             self.id = new_id
         self._comment = [] if self._comment is None else self._comment
+
+    @hybrid_property
+    def sample(self):
+        """
+        Get the sample associated with this procedure/sample association.
+
+        :returns: self._sample
+        :rtype: Sample
+        """
+        return self._sample
+    
+    @sample.setter
+    def sample(self, value: str | dict | Sample | PydSample):
+        """
+        Set the sample associated with this procedure/sample association by parsing an input object.
+
+        :param value: The sample identifier or object to set.
+        :type value: str | dict | Sample | PydSample
+        """
+        from backend.validators.pydant import PydSample
+        match value:
+            case str():
+                output = Sample.query(name=value, limit=1)
+            case dict():
+                output = Sample.query_or_create(**value)
+            case PydSample():
+                # NOTE: If the sample hasn't already been saved, we'll have to do some updating.
+                update = not hasattr(value.sql_instance, "_sa_instance_state")
+                if update:
+                    logger.warning(f"{value} has not been saved previously. Updating")
+                output = value.to_sql(update=update)
+            case Sample():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {type(value)}: {value} for {self.__class__.__qualname__}._sample")
+                return
+        if isinstance(output, tuple):
+            output = output[0]
+        if isinstance(output, Sample):
+            self._sample = output
+        else:
+            logger.error(f"{self.__class__.__qualname__} Could not set _sample to {type(output)}")
+  
+    @hybrid_property
+    def procedure(self):
+        """
+        Gets the procedure associated with this procedure/sample association.
+
+        :returns: self._procedure
+        :rtype: Procedure
+        """
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, value: str | dict | Procedure | PydProcedure):
+        """
+        Set the procedure associated with this procedure/sample association by parsing an input object.
+
+        :param value: The procedure identifier or object to set.
+        :type value: str | dict | Procedure | PydProcedure
+        """
+        from backend.validators.pydant import PydProcedure
+        match value:
+            case str():
+                output = Procedure.query(name=value, limit=1)
+            case dict():
+                output = Procedure.query_or_create(**value)
+            case PydProcedure():
+                output = value.to_sql(update=False)
+            case Procedure():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {value} for procedure")
+                return
+        if isinstance(output, tuple):
+            output = output[0]
+        if isinstance(output, Procedure):
+            self._procedure = output
+        else:
+            logger.error(f"Could not set _procedure to {type(output)}")
+
+    @hybrid_property
+    def comment(self):
+        """
+        Gets the comments associated with this procedure/sample association.
+
+        :returns: [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+        :rtype: List[dict]
+        """
+        if not self._comment:
+            return []
+        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+    
+    @comment.setter
+    def comment(self, value):
+        """
+        Sets the comments associated with this procedure/sample association.
+
+        :param value: The comments to set.
+        :type value: List[dict]
+        """
+        self._comment = vet_comment(value, current=self._comment)
+
+    def add_comment(self, obj):
+        """
+        Add a comment to this procedure.
+
+        This method is a placeholder for comment UI integration.
+
+        :param obj: Parent object for the comment action.
+        :type obj: Any
+        :return: None
+        """
+        logger.info("Add Comment!")
+        from frontend.widgets import SubmissionComment
+        dlg = SubmissionComment(parent=obj, submission=self)
+        if dlg.exec():
+            comment = dlg.parse_form()
+            self.comment = comment
+            self.save(original=False)
+
+    @hybrid_property
+    def abbreviation_name(self) -> str:
+        """
+        Gets the abbreviated name of the sample associated with this procedure, which is based on the client submission abbreviation.
+
+        :returns: Abbreviated name of the sample.
+        :rtype: str
+        """
+        return f"RSL-{self.procedure.run.clientsubmission.abbreviation}-{self.sample.sample_id}"
     
     @hybrid_property
     def name(self):
+        """
+        Gets the name of the procedure/sample association.
+
+        :returns: {self.procedure.name}->{self.sample.name} (rank={self.procedure_rank})
+        :rtype: str
+        """
         try:
             procedure = self.procedure.name
         except AttributeError:
@@ -3174,6 +3362,12 @@ class ProcedureSampleAssociation(BaseClass):
     
     @name.expression
     def name(cls):
+        """
+        Gets the name of the procedure/sample association as a SQL expression.
+
+        :returns: SQL expression for the name of the association.
+        :rtype: sqlalchemy.sql.expression.Label
+        """
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -3191,10 +3385,22 @@ class ProcedureSampleAssociation(BaseClass):
     
     @hybrid_property
     def results(self):
+        """
+        Gets the results associated with this procedure/sample association.
+
+        :returns: self._results
+        :rtype: list[Results]
+        """
         return self._results
 
     @results.setter
-    def results(self, value):
+    def results(self, value: List[str | dict | Results | PydResults]):
+        """
+        Set results associated with this procedure/sample association by parsing an input iterable.
+
+        :param value: An iterable of result identifiers or objects to set.
+        :type value: List[str | dict | Results | PydResults]
+        """
         from backend.validators.pydant import PydResults
         from backend.db.models import Results
         value = iterable_enforcer(value)
@@ -3223,7 +3429,13 @@ class ProcedureSampleAssociation(BaseClass):
         self._results = list_
 
     @property
-    def well(self):
+    def well(self) -> str | None:
+        """
+        Gets the well position of the sample in the procedure plate based on its row and column.
+
+        :returns: Well position in the format 'A1', 'B2', etc.
+        :rtype: str | None
+        """
         return convert_row_column_to_well(self.row, self.column)
 
     @classmethod
@@ -3233,6 +3445,22 @@ class ProcedureSampleAssociation(BaseClass):
               procedure: Procedure | str | None = None, 
               limit: int = 0,
               **kwargs):
+        """
+        Query for procedure/sample associations based on name, sample, and procedure.
+
+        :param name: Name of the association to filter by. Defaults to None.
+        :type name: str | None
+        :param sample: Sample to filter by. Can be a Sample object or a string identifier. Defaults to None.
+        :type sample: Sample | str | None
+        :param procedure: Procedure to filter by. Can be a Procedure object or a string identifier. Defaults to None.
+        :type procedure: Procedure | str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :param **kwargs: Additional keyword arguments for the query.
+        :type **kwargs: Any
+        :returns: List of ProcedureSampleAssociation objects matching the criteria.
+        :rtype: List[ProcedureSampleAssociation]
+        """
         query = cls.__database_session__.query(cls)
         match name:
             case str():
@@ -3262,8 +3490,10 @@ class ProcedureSampleAssociation(BaseClass):
         """
         Increments the association id automatically
 
-        Returns:
-            int: incremented id
+        :param procedure_rank: The rank of the procedure/sample association. Defaults to 1.
+        :type procedure_rank: int
+        :returns: incremented id
+        :rtype: int
         """
         try:
             output = max([item.id for item in cls.query()])
@@ -3274,6 +3504,12 @@ class ProcedureSampleAssociation(BaseClass):
 
     @property
     def details_dict(self) -> dict:
+        """
+        Gets a dictionary of the association's details, including relevant information from the associated sample and run.
+
+        :return: super().details_dict merged with sample details and misc_info.
+        :rtype: dict
+        """
         output = super().details_dict
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in []}
@@ -3296,6 +3532,14 @@ class ProcedureSampleAssociation(BaseClass):
         return output
 
     def to_pydantic(self, **kwargs):
+        """
+        Converts this procedure/sample association to a pydantic model.
+
+        :param **kwargs: Additional keyword arguments for the pydantic model.
+        :type **kwargs: Any
+        :returns: Pydantic Model
+        :rtype: PydProcedureSampleAssociation
+        """
         output = super().to_pydantic()
         try:
             output.submission_rank = output.misc_info.get('submission_rank', None)
@@ -3320,6 +3564,9 @@ class ProcedureSampleAssociation(BaseClass):
         return output
 
     def save(self):
+        """
+        Persists the current state of the procedure/sample association to the database.
+        """
         if self.sample_id in [None, ""]:
             return
         super().save()

@@ -12,6 +12,16 @@ from openpyxl.worksheet.worksheet import Worksheet
 class ProcedureInfoParser(DefaultKEYVALUEParser):
 
     def __init__(self, worksheet: Worksheet, start_row: int =1, end_row: int | None = None, *args, **kwargs):
+        """
+        :param worksheet: The Excel worksheet to parse.
+        :type worksheet: Worksheet
+        :param start_row: The starting row for parsing. Defaults to 1.
+        :type start_row: int
+        :param end_row: The ending row for parsing. If None, it will be determined automatically.
+        :type end_row: int | None
+        :param *args: Additional positional arguments.
+        :param **kwargs: Additional keyword arguments.
+        """
         from backend.validators.pydant import PydProcedure
         super().__init__(worksheet=worksheet, start_row=start_row, end_row=end_row, *args, **kwargs)
         self._pyd_object = PydProcedure

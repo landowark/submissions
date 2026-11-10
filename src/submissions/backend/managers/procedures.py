@@ -75,6 +75,11 @@ class DefaultProcedureManager(DefaultManager):
         Look up a named parser for this procedure type, falling back to the default.
         Logs a clear warning when a custom parser is not found, rather than silently
         catching AttributeError.
+
+        :param operation: The operation to resolve, either 'parse' or 'write'.
+        :type operation: Literal['parse', 'write']
+        :param role: The role of the operator, e.g., 'info', 'reagent', 'equipment', 'sample'.
+        :type role: str
         """
         class_name = f"{self.proceduretype.name.replace(' ', '')}{role.title()}{operation.title()}r"
         cls = getattr(procedure_parsers, class_name, None)

@@ -16,7 +16,18 @@ if TYPE_CHECKING:
 
 
 class DiomniPCRInfoParser(DefaultResultsInfoParser):
+    """
+    Class to parse meta information from Diomni PCR results in an Excel worksheet.
+    This parser extracts key-value pairs and processes them according to the specified Pydantic model.
 
+    :cvar pyd_name: Name of the Pydantic model associated with this parser.
+    :type pyd_name: str
+    :ivar worksheet: The Excel worksheet to parse.
+    :type worksheet: Worksheet
+    :ivar procedure: The associated procedure object. If None, it will be determined from the worksheet.
+    :type procedure: Procedure | None
+    
+    """
     def __init__(self, worksheet: Worksheet, procedure: Procedure | None = None, *args, **kwargs):
         self.resultstype = "Diomni PCR"
         self.procedure = procedure
@@ -29,9 +40,29 @@ class DiomniPCRInfoParser(DefaultResultsInfoParser):
         
 
 class DiomniPCRSampleParser(DefaultResultsSampleParser):
-    """Object to pull data from Design and Analysis PCR export file."""
+    """
+    Object to pull data from Design and Analysis PCR export file. Ultimate parent class: DefaultTABLEParser
+    This parser extracts column-value pairs for each table row and processes them according to the specified Pydantic model.
+    
+    :cvar pyd_name: Name of the Pydantic model associated with this parser.
+    :type pyd_name: str
+    :ivar worksheet: The Excel worksheet to parse.
+    :type worksheet: Worksheet
+    :ivar date_analyzed: The date and time when the analysis was performed. If None, it will be determined from the worksheet.
+    :type date_analyzed: datetime | None
+    :ivar procedure: The associated procedure object. If None, it will be determined from the worksheet.
+    :type procedure: Procedure | None
+    """
 
     def __init__(self, worksheet: Worksheet, date_analyzed: datetime | None = None, procedure: Procedure | None = None, *args, **kwargs):
+        """        
+        :param worksheet: The Excel worksheet to parse.
+        :type worksheet: Worksheet
+        :param date_analyzed: The date and time when the analysis was performed. If None, it will be determined from the worksheet.
+        :type date_analyzed: datetime | None
+        :param procedure: The associated procedure object. If None, it will be determined from the worksheet.
+        :type procedure: Procedure | None
+        """
         self.resultstype = "Diomni PCR"
         self.procedure = procedure
         self.date_analyzed = date_analyzed
@@ -39,9 +70,22 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
 
     @cached_property
     def parsed_info(self) -> List[Tuple]:
+        """
+        Returns the parsed information as a list of tuples.
+        Caches the result upon first access.
+
+        :returns: list(self._generate_parsed_info())
+        :rtype: List[Tuple] 
+        """
         return list(self._generate_parsed_info())
 
     def _generate_parsed_info(self) -> Generator[dict, None, None]:
+        """
+        Generates dictionaries of data from Excel rows, standardizes well keys, and constructs unique sample dictionaries.
+
+        :returns: Generator of results dictionaries for each unique sample.
+        :rtype: Generator[dict, None, None]
+        """
         output = [item for item in super().parsed_info]
         output = self.standardize_well_keys(output)
         try:
@@ -66,7 +110,16 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
             yield {sample.get('sample'): multi}
 
     @classmethod
-    def standardize_well_keys(cls, input_list: List[dict]):
+    def standardize_well_keys(cls, input_list: List[dict]) -> List[dict]:
+        """
+        Standardizes keys for fields related to well positions in a list of dictionaries. 
+        It checks for the presence of 'well' or 'wells' keys and moves their values to a new key 'well_position'.
+
+        :param input_list: List of dictionaries containing sample data.
+        :type input_list: List[dict]
+        :returns: List of dictionaries with standardized well position keys.
+        :rtype: List[dict]
+        """
         # Process each dictionary in the list
         for entry in input_list:
             # Check for 'well' or 'wells' and move the value to 'well position'
@@ -78,6 +131,15 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
 
     @classmethod
     def assign_well_key(cls, source_dict):
+        """
+        Assigns a well position key to the output dictionary based on the presence of specific keys in the source dictionary.
+        It prioritizes the keys in the order of "well_position", "well", and "wells". If none of these keys are present, it assigns None to the "well" key in the output.
+
+        :param source_dict: The source dictionary containing sample data.
+        :type source_dict: dict
+        :returns: A dictionary with the assigned well position key and sample information.
+        :rtype: dict
+        """
         # List keys in the order of priority
         priority_keys = ["well_position", "well", "wells"]
         output = dict(sample=source_dict.get("sample", None))
@@ -91,7 +153,17 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
         return output
 
     @classmethod
-    def construct_unique_sample_dict(cls, input_list) -> list:
+    def construct_unique_sample_dict(cls, input_list: List[dict]) -> List[dict]:
+        """
+        Makes a list of unique sample dictionaries based on the 'sample' and 'well_position' keys from the input list of dictionaries.
+        It uses the assign_well_key method to standardize the well position key for each dictionary
+        and ensures that only unique combinations of 'sample' and 'well_position' are included in the output list.
+
+        :param input_list: List of dictionaries containing sample data.
+        :type input_list: List[dict]
+        :returns: List of unique sample dictionaries with standardized well position keys.
+        :rtype: List[dict]
+        """
         output = []
         for item in input_list:
             entry = cls.assign_well_key(item)

@@ -974,7 +974,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 case _:
                     logger.error(f"Unparsable sample: {sample}")
                     continue
-            sample.construct_tooltip(tooltip_results_fields)
+            if hasattr(sample, 'construct_tooltip'):
+                try:
+                    sample.construct_tooltip(tooltip_results_fields)
+                except Exception as e:
+                    logger.exception(f"Error occurred while constructing tooltip for sample {sample}: {e}")
         assert all([isinstance(s, PydProcedureSampleAssociation) for s in sample_dicts])
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=creation, vw_modifier=1.15)
         return html

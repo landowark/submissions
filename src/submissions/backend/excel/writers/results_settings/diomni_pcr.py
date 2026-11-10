@@ -8,26 +8,34 @@ from tools import IndexDirection, convert_row_column_to_well
 
 
 class DiomniPCRSettings(DefaultSettings):
+    """
+    Derived from DefaultSettings to write a plate map csv to import into Diomni.
+
+    :cvar label: Button label that shows up in the Procedure creation (Depreciated)
+    :type label: str
+    """
 
     label = "Export Diomni Plate"
 
-    def hex_to_rgb(self, hex_string):
+    def hex_to_rgb(self, hex_string: str) -> str:
         """
-        Converts a hex color string to RGB(RR,GG,BB) format.
-        Example: '#007bff' -> 'RGB(0,123,255)'
+        Converts a hex colour string to RGB(RR,GG,BB) format.
+        
+        :param hex_string: Hex colour code to use. Example: '#007bff' -> 'RGB(0,123,255)'
+        :type hex_string: str
         """
         # Remove the '#' prefix if present
         hex_string = hex_string.lstrip('#')
-        
         # Convert hex to integer components
         r, g, b = tuple(int(hex_string[i:i+2], 16) for i in (0, 2, 4))
-        
         return f"RGB({r},{g},{b})"
     
-    def rgb_to_hex(self, rgb_string):
+    def rgb_to_hex(self, rgb_string: str) -> str:
         """
         Converts 'RGB(RR,GG,BB)' format to hex string '#RRGGBB'.
-        Example: 'RGB(0,123,255)' -> '#007bff'
+        
+        :param rgb_string: RGB colour code Example: 'RGB(0,123,255)' -> '#007bff'
+        :type rgb_string: str
         """
         # Clean the string and extract numbers
         cleaned = rgb_string.replace('RGB(', '').replace(')', '')
@@ -37,7 +45,10 @@ class DiomniPCRSettings(DefaultSettings):
         return f"#{r:02x}{g:02x}{b:02x}"
 
     def write_output(self):
-        logger.debug(f"Using {self.__class__.__name__} write_output")
+        """
+        Writes settings to a csv file in diomni format.
+        """
+        
         filepath = select_save_file(obj=self.parent, default_name=self.procedure.name.get("value").replace(":", ""), filetype="csv")
         toplines  = [
             ['*All Inputs are case sensitive.  For Example:  FAM is different from Fam', '', '', '', '', '', '', '', '', '', '', ''],

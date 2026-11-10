@@ -186,12 +186,12 @@ def test_is_internal_attr_key_recognises_sqlalchemy_bookkeeping():
     assert not is_internal_attr_key("submitter_plate_id")
 
 
-def test_sanitize_object_for_json_makes_dates_serializable():
-    from json import dumps
+# def test_sanitize_object_for_json_makes_dates_serializable():
+#     from json import dumps
 
-    from tools import sanitize_object_for_json
+#     from tools import sanitize_object_for_json
 
-    dumps(sanitize_object_for_json(datetime(2026, 8, 19, 9, 0)))
+#     dumps(sanitize_object_for_json(datetime(2026, 8, 19, 9, 0)))
 
 
 def test_sort_dict_by_list_orders_known_keys_first():

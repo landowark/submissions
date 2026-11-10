@@ -18,9 +18,8 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     I have no idea how it actually works.
     Listens for connect and then turns on foreign keys?
 
-    Args:
-        dbapi_connection (_type_): _description_
-        connection_record (_type_): _description_
+    :param dbapi_connection: _description_
+    :param connection_record: _description_
     """
     if ctx.database.schema != "sqlite":
         return
@@ -36,13 +35,9 @@ def update_log(mapper, connection, target):
     """
     Updates log table whenever an object with LogMixin is updated.
 
-    Args:
-        mapper ():
-        connection ():
-        target ():
-
-    Returns:
-        None
+    :param mapper: The SQLAlchemy mapper.
+    :param connection: The database connection.
+    :param target: The target object being updated.
     """
     state = sql_inspect(target)
     object_name = state.object.truncated_name
