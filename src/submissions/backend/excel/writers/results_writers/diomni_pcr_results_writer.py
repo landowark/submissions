@@ -13,14 +13,51 @@ from . import DefaultResultsInfoWriter, DefaultResultsSampleWriter
 
 
 class DiomniPCRInfoWriter(DefaultResultsInfoWriter):
+    """
+    Derived from DefaultResultsInfoWriter to write results info as Key | Value pairs into Excel.
 
-    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None, start_row: int = 1, *args, **kwargs) -> Workbook:
-        return super().write_to_workbook(workbook, sheet, start_row, *args, **kwargs)
+    :cvar exclude: Keys to exclude from writing. 
+    :type exclude: List[str]
+    :ivar pydantic_object: Object to be written to file.
+    """
+
+    def write_to_workbook(self, workbook: Workbook, start_row: int = 1, *args, **kwargs) -> Workbook:
+        """
+        Write to a self.sheet of a provided workbook. Will create new sheet if named one doesn't exist.
+
+        DO NOT REMOVE! Though it may seem redundant, this is necessary for proper formatting.
+
+        :param workbook: The workbook object to be written to.
+        :type workbook: Workbook
+        :param start_row: Row in which to start writing. Defaults to None. 
+        :type start row: int | None
+        :returns: Workbook with values written.
+        :rtype: Workbook
+        """
+        return super().write_to_workbook(workbook=workbook, start_row=start_row, *args, **kwargs)
     
 
 class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
+    """
+    Derived from DefaultResultsSampleWriter to write sample results info as rows into Excel.
+    
+    :cvar exclude: Keys to exclude from writing.
+    :cvar header_order: List of the columns to move to the front.
+    """
 
-    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None, start_row: int = 1, *args, **kwargs) -> Workbook:
+    def write_to_workbook(self, workbook: Workbook, start_row: int = 1, *args, **kwargs) -> Workbook:
+        """
+        Overrides super completely.
+        
+        Write to a named sheet of a provided workbook. Will create new sheet if named one doesn't exist.
+
+        :param workbook: The workbook object to be written to.
+        :type workbook: Workbook
+        :param start_row: Row in which to start writing. Defaults to None. 
+        :type start row: int | None
+        :returns: Workbook with values written.
+        :rtype: Workbook
+        """
         font = Font(bold=True, color="ffffffff", size=16)
         fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
         align = Alignment(horizontal="center")

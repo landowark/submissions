@@ -6,7 +6,10 @@ from backend.validators.pydant import PydProcedure, PydProcedureType
 from frontend.widgets import DefaultWebDialog
 from PyQt6.QtCore import pyqtSlot, QVariant
 from PyQt6.QtWidgets import QDialog
+from datetime import date
 from tools import render_details_template
+from pathlib import Path
+from frontend.widgets.functions import select_save_file
 
 
 class DefaultSettings(object):
@@ -27,6 +30,7 @@ class DefaultSettings(object):
         self.parent = obj
         self.settings = resultstype.load_saved_settings()
         self.procedure = procedure
+        self.resultstype = resultstype
         self.proceduretype = self.procedure.proceduretype
         assert isinstance(self.proceduretype, PydProcedureType)
         template_name = f"{resultstype.name.replace(" ", "").lower()}_settings"
@@ -40,6 +44,26 @@ class DefaultSettings(object):
         self.dlg.exec()
         # if self.dlg.exec():
         #     self.write_output()
+
+    def render_file_path(self, file_extension: str = "xlsx") -> Path:
+        """
+        Renders a filepath specific to this type of result.
+
+        :param file_extension: The extension type of the file to save. (E.g.: csv, xlsx, jpg). Defaults to xlsx.
+        :type file_extension: str
+        :returns: Path object.
+        :rtype: Path
+        """
+        fallback_name =  f"{self.resultstype.name} - {date.today().isoformat()}"
+        match self.procedure.name:
+            case dict():
+                default_name = self.procedure.name.get("value", fallback_name)
+            case str():
+                default_name = self.procedure.name
+            case _:
+                default_name = fallback_name
+        default_name = default_name.replace(":", "")
+        return select_save_file(obj=self.parent, default_name=default_name, file_extension=file_extension)
 
     def handle_dialog_finished(self, result: QDialog.DialogCode):
         """

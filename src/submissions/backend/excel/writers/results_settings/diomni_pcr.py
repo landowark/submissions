@@ -49,7 +49,7 @@ class DiomniPCRSettings(DefaultSettings):
         Writes settings to a csv file in diomni format.
         """
         
-        filepath = select_save_file(obj=self.parent, default_name=self.procedure.name.get("value").replace(":", ""), filetype="csv")
+        filepath = self.render_file_path(file_extension="csv")
         toplines  = [
             ['*All Inputs are case sensitive.  For Example:  FAM is different from Fam', '', '', '', '', '', '', '', '', '', '', ''],
             ['*Do not change column header names and do not delete [Sample Setup]. Minimal columns needed are:  Well and Well Position', '', '', '', '', '', '', '', '', '', '', ''],

@@ -48,7 +48,7 @@ class DefaultResultsInfoWriter(DefaultKEYVALUEWriter):
 
 class DefaultResultsSampleWriter(DefaultTABLEWriter):
     """
-    Derived from DefaultKEYVALUEWriter to write results info as Key | Value pairs into Excel.
+    Derived from DefaultTableWriter to write sample results info as rows into Excel.
     
     :cvar exclude: Keys to exclude from writing.
     :cvar header_order: List of the columns to move to the front.

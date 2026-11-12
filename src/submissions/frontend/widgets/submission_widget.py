@@ -274,7 +274,7 @@ class SubmissionFormWidget(QWidget):
             fname (Path | None, optional): Input filename. Defaults to None.
         """
         if isinstance(fname, bool) or fname is None:
-            fname = select_save_file(obj=self, default_name=self.pyd.export_filename, filetype="csv")
+            fname = select_save_file(obj=self, default_name=self.pyd.export_filename, file_extension="csv")
         try:
             self.pyd.export_csv(fname)
         except PermissionError:

@@ -50,7 +50,7 @@ def select_open_file(obj: QMainWindow|None = None, filetypes: str | None = None)
     return fname
 
 
-def select_save_file(obj: QMainWindow, default_name: str, filetype: str) -> Path:
+def select_save_file(obj: QMainWindow, default_name: str, file_extension: str) -> Path:
     """
     File dialog to select a file to write to
 
@@ -71,7 +71,7 @@ def select_save_file(obj: QMainWindow, default_name: str, filetype: str) -> Path
         logger.exception(f"Could not get last directory from {app.last_dir}: {e}")
         p = Path(app.last_dir) if app and app.last_dir else Path.home()
         home_dir = p.joinpath(default_name).resolve().__str__()
-    fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{filetype}(*.{filetype})")[0])
+    fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{file_extension}(*.{file_extension})")[0])
     if app:
         app.last_dir = fname.parent
     return fname

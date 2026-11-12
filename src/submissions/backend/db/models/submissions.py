@@ -1710,7 +1710,7 @@ class Run(BaseClass, LogMixin):
         Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
         manager = Manager(parent=obj, input_object=self.to_pydantic())
         default_name = manager.pyd.export_filename
-        output_filepath = select_save_file(obj=obj, default_name=default_name, filetype="xlsx")
+        output_filepath = select_save_file(obj=obj, default_name=default_name, file_extension="xlsx")
         workbook = manager.write()
         try:
             workbook.remove_sheet("Sheet")

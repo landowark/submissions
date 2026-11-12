@@ -4,21 +4,22 @@ block_cipher = None
 
 #### custom for automation of documentation building ####
 
-import sys, subprocess
+import sys, subprocess, os
 from pathlib import Path
 sys.path.append(Path(__name__).parent.joinpath('src').absolute().__str__())
 from submissions import __version__, __project__, project_path
 print(f"Using {project_path.absolute().__str__()} as project path.")
 doc_path = project_path.joinpath("docs").absolute()
-build_path = project_path.joinpath(".venv", "Scripts", "sphinx-build").absolute().__str__()
-print("\033[1mRunning Sphinx subprocess to generate rst files...\033[0m")
-api_path = project_path.joinpath(".venv", "Scripts", "sphinx-apidoc").absolute().__str__()
-subprocess.run([api_path, "-o", doc_path.joinpath("source").__str__(), project_path.joinpath("src", "submissions").__str__(), "-f"])
-print("\033[1mRunning Sphinx subprocess to generate html docs...\033[0m")
-docs_build = doc_path.joinpath("build")
-if not docs_build.exists():
-    docs_build.mkdir(exist_ok=True, parents=True)
-subprocess.run([build_path, doc_path.joinpath("source").__str__(), docs_build.__str__(), "-a"])
+if os.environ.get("BUILD_DOCS"):
+    build_path = project_path.joinpath(".venv", "Scripts", "sphinx-build").absolute().__str__()
+    print("\033[1mRunning Sphinx subprocess to generate rst files...\033[0m")
+    api_path = project_path.joinpath(".venv", "Scripts", "sphinx-apidoc").absolute().__str__()
+    subprocess.run([api_path, "-o", doc_path.joinpath("source").__str__(), project_path.joinpath("src", "submissions").__str__(), "-f"])
+    print("\033[1mRunning Sphinx subprocess to generate html docs...\033[0m")
+    docs_build = doc_path.joinpath("build")
+    if not docs_build.exists():
+        docs_build.mkdir(exist_ok=True, parents=True)
+    subprocess.run([build_path, doc_path.joinpath("source").__str__(), docs_build.__str__(), "-a"])
 
 #########################################################
 
@@ -48,7 +49,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["*.xlsx"],
+    excludes=["tkinter", "matplotlib", "scipy", "IPython", "jupyter", "notebook", "pytest", "sphinx", "docutils", "pyarrow", "numba"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -85,7 +86,6 @@ exe = EXE(
     debug=True,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
     # Change these for non-beta versions
     #console=False,
     #disable_windowed_traceback=True,
@@ -93,6 +93,7 @@ exe = EXE(
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
+    upx=False,
     codesign_identity=None,
     entitlements_file=None,
 )
