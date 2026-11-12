@@ -67,10 +67,12 @@ class SubmissionsTree(QTreeView):
     runExpanded = pyqtSignal(QModelIndex)
 
     def __init__(self, model, parent=None):
+        from sqlalchemy import func
         super(SubmissionsTree, self).__init__(parent)
         from backend.db.models import ClientSubmission
         self.app = get_application_from_parent(parent)
-        self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
+        # self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
+        self.total_count = ClientSubmission.__database_session__.query(func.count(ClientSubmission.id)).scalar()
         self.setExpandsOnDoubleClick(False)
         self.model: ClientSubmissionRunModel = model
         self.setModel(self.model)
@@ -232,10 +234,17 @@ class SubmissionsTree(QTreeView):
         :meth:`upsert_submission`, which updates just the affected row instead of
         re-querying and re-serialising the entire page.
         """
-        from backend.db.models import ClientSubmission
+        # from backend.db.models import ClientSubmission
+        # self.model.clear()
+        # subs = [submission_row_data(item)
+        #         for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
+        from sqlalchemy.orm import selectinload
+        from backend.db.models import ClientSubmission, Run
+        options = [selectinload(ClientSubmission._clientlab),
+                   selectinload(ClientSubmission._run).selectinload(Run._procedure)]
         self.model.clear()
         subs = [submission_row_data(item)
-                for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
+                for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size, options=options)]
         sorted_subs = sorted(subs, key=lambda s: _date_sort_key(s.get('submitted_date')), reverse=True)
         self.model.add_top_level_submissions(sorted_subs)
         for ii in range(len(self.model.headers)):

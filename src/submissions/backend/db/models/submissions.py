@@ -94,7 +94,7 @@ class ClientSubmission(BaseClass, LogMixin):
         "ClientSubmissionSampleAssociation",
         back_populates="_clientsubmission",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        # lazy="selectin",
     )  #: Relation to ClientSubmissionSampleAssociation
 
     _sample = association_proxy("clientsubmissionsampleassociation",
@@ -524,7 +524,7 @@ class ClientSubmission(BaseClass, LogMixin):
               limit: int = 0,
               page: int = 1,
               page_size: None | int = 250,
-              **kwargs
+              options: list | None = None, **kwargs
               ):
         """
         Lookup procedure based on a number of parameters. Overrides parent.
@@ -605,6 +605,8 @@ class ClientSubmission(BaseClass, LogMixin):
             offset = None
         if chronologic:
             query = query.order_by(cls.submitted_date.desc())
+        if options:
+              query = query.options(*options)
         return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
     @classmethod

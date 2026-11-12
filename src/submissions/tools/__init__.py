@@ -27,7 +27,7 @@ from jinja2 import Environment, FileSystemLoader, Template
 from pathlib import Path
 from sqlalchemy.orm import scoped_session, sessionmaker
 from contextlib import contextmanager
-from sqlalchemy import create_engine, text, MetaData
+from sqlalchemy import create_engine, text, inspect as sqla_inspect
 from pydantic import ValidationError, field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
 from typing import Any, Tuple, Literal, List, Generator, Callable, TypeVar
@@ -1468,14 +1468,22 @@ class Settings(BaseSettings, extra="allow"):
                           )
         else:
             session = self.database.session
-            metadata = MetaData()
+            # metadata = MetaData()
+            # try:
+            #     metadata.reflect(bind=self.database.engine)
+            # except AttributeError as e:
+            #     print(f"Error getting tables: {e}")
+            #     return
+            # if "_configitem" not in metadata.tables.keys():
+            #     print(f"Couldn't find _configitems in {metadata.tables.keys()}.")
+            #     return
             try:
-                metadata.reflect(bind=self.database.engine)
+                has_config = sqla_inspect(self.database.engine).has_table("_configitem")
             except AttributeError as e:
                 print(f"Error getting tables: {e}")
                 return
-            if "_configitem" not in metadata.tables.keys():
-                print(f"Couldn't find _configitems in {metadata.tables.keys()}.")
+            if not has_config:
+                print("Couldn't find _configitem table.")
                 return
             config_items = session.execute(text("SELECT * FROM _configitem")).all()
             output = {}
@@ -1500,7 +1508,14 @@ class Settings(BaseSettings, extra="allow"):
         if p.__str__() not in sys.path:
             sys.path.append(p.__str__())
         # NOTE: Get all .py files that don't have __ in them.
-        modules = p.glob("[!__]*.py")
+        # modules = p.glob("[!__]*.py")
+        wanted = set()
+        for attr in ("startup_scripts", "teardown_scripts"):
+            try:
+                wanted.update(getattr(self, attr).keys())
+            except AttributeError:
+                pass
+        modules = [m for m in p.glob("[!__]*.py") if m.stem in wanted]
         for module in modules:
             try:
                 mod = import_module(module.stem)

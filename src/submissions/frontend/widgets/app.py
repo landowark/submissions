@@ -209,7 +209,7 @@ class App(QMainWindow):
         dlg.exec()
 
     def update_data(self):
-        self.table_widget.sub_wid.setData(page=self.table_widget.pager.page_anchor, page_size=page_size)
+        self.table_widget.sub_wid.set_data(page=self.table_widget.pager.page_anchor, page_size=page_size)
 
     # TODO: Change this to the Pydantic version.
     def manage_orgs(self):
@@ -283,29 +283,45 @@ class AddSubForm(QWidget):
         self.tab1.setLayout(self.tab1.layout)
         self.tab1.layout.addWidget(self.interior)
         self.tab1.layout.addWidget(self.sheetwidget)
-        self.tab2.layout = QVBoxLayout(self)
-        self.irida_viewer = KrakenViewer(self)
-        self.tab2.layout.addWidget(self.irida_viewer)
-        self.tab2.setLayout(self.tab2.layout)
-        self.tab3.layout = QVBoxLayout(self)
-        self.pcr_viewer = PCRViewer(self)
-        self.tab3.layout.addWidget(self.pcr_viewer)
-        self.tab3.setLayout(self.tab3.layout)
-        summary_report = Summary(self)
-        self.tab4.layout = QVBoxLayout(self)
-        self.tab4.layout.addWidget(summary_report)
-        self.tab4.setLayout(self.tab4.layout)
-        turnaround = TurnaroundTime(self)
-        self.tab5.layout = QVBoxLayout(self)
-        self.tab5.layout.addWidget(turnaround)
-        self.tab5.setLayout(self.tab5.layout)
-        concentration = ConcentrationViewer(self)
-        self.tab6.layout = QVBoxLayout(self)
-        self.tab6.layout.addWidget(concentration)
-        self.tab6.setLayout(self.tab6.layout)
+        # self.tab2.layout = QVBoxLayout(self)
+        # self.irida_viewer = KrakenViewer(self)
+        # self.tab2.layout.addWidget(self.irida_viewer)
+        # self.tab2.setLayout(self.tab2.layout)
+        # self.tab3.layout = QVBoxLayout(self)
+        # self.pcr_viewer = PCRViewer(self)
+        # self.tab3.layout.addWidget(self.pcr_viewer)
+        # self.tab3.setLayout(self.tab3.layout)
+        # summary_report = Summary(self)
+        # self.tab4.layout = QVBoxLayout(self)
+        # self.tab4.layout.addWidget(summary_report)
+        # self.tab4.setLayout(self.tab4.layout)
+        # turnaround = TurnaroundTime(self)
+        # self.tab5.layout = QVBoxLayout(self)
+        # self.tab5.layout.addWidget(turnaround)
+        # self.tab5.setLayout(self.tab5.layout)
+        # concentration = ConcentrationViewer(self)
+        # self.tab6.layout = QVBoxLayout(self)
+        # self.tab6.layout.addWidget(concentration)
+        # self.tab6.setLayout(self.tab6.layout)
+        # NOTE: chart tabs are built the first time they're opened
+        self._tab_factories = {
+            self.tab2: KrakenViewer,
+            self.tab3: PCRViewer,
+            self.tab4: Summary,
+            self.tab5: TurnaroundTime,
+            self.tab6: ConcentrationViewer,
+        }
+        self.tabs.currentChanged.connect(self._build_tab)
         # NOTE: add tabs to main widget
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)
 
+    def _build_tab(self, index: int) -> None:
+        tab = self.tabs.widget(index)
+        factory = self._tab_factories.pop(tab, None)
+        if factory is None:
+            return
+        tab.layout = QVBoxLayout(tab)
+        tab.layout.addWidget(factory(self))
 
 __all__ = ["App", "AddSubForm"]

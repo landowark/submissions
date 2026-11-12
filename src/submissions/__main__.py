@@ -1,5 +1,7 @@
 import logging, sys, os, traceback
 from tools import ctx, check_if_app, CustomLogger
+import time
+_t0 = time.perf_counter()
 
 # NOTE: environment variable must be set to enable qtwebengine in network path
 if check_if_app():
@@ -22,6 +24,8 @@ if __name__ == '__main__':
     app = QApplication(['', '--no-sandbox'])
     try:
         ex = App(ctx=ctx)
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: print(f"Window ready: {time.perf_counter() - _t0:.1f}s"))
         app.exec()
     except Exception as e:
         traceback.print_exc()
