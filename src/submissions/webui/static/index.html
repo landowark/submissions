@@ -1,18 +1,25 @@
 <!doctype html>
   <html>
-  <head><meta charset="utf-8"><title>Submissions</title></head>
+  <head>
+    <meta charset="utf-8">
+    <title>Submissions</title>
+    <link rel="stylesheet" href="app.css">
+  </head>
   <body>
-    <h1 id="title">Loading…</h1>
-    <p id="count"></p>
-    <button id="save">Test save dialog</button>
-    <script>
-      window.addEventListener('pywebviewready', async () => {
-        const info = await pywebview.api.app_info();
-        document.getElementById('title').textContent = `Submissions (v${info.version}) - ${info.database}`;
-        document.getElementById('count').textContent = `${await pywebview.api.submission_count()} submissions`;
-        document.getElementById('save').onclick = async () =>
-          alert(await pywebview.api.choose_save_file('Test', 'xlsx') ?? 'cancelled');
-      });
-    </script>
+    <header><h1 id="title">Loading…</h1></header>
+    <main>
+      <table id="submissions">
+        <thead><tr><th>Name</th><th>Submission Type</th><th>Client Lab</th><th>Submitted Date</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <nav id="pager">
+        <button id="prev">&lsaquo; Previous</button>
+        <span id="page-label"></span>
+        <button id="next">Next &rsaquo;</button>
+      </nav>
+    </main>
+    <ul id="context-menu" class="menu" hidden></ul>
+    <div id="status" hidden></div>
+    <script src="submissions.js"></script>
   </body>
   </html>

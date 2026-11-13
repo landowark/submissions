@@ -798,19 +798,40 @@ class ClientSubmission(BaseClass, LogMixin):
         """
         from frontend.widgets.pop_ups import QuestionAsker
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.submitter_plate_id}?\n")
+        # if msg.exec():
+        #     self.run = []
+        #     self.clientsubmissionsampleassociation = []
+        #     self.__database_session__.delete(self)
+        #     try:
+        #         self.__database_session__.commit()
+        #     except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+        #         self.__database_session__.rollback()
+        #         raise e
+        #     try:
+        #         obj.set_data()
+        #     except AttributeError:
+        #         logger.exception("App will not refresh data at this time.")
         if msg.exec():
-            self.run = []
-            self.clientsubmissionsampleassociation = []
-            self.__database_session__.delete(self)
-            try:
-                self.__database_session__.commit()
-            except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
-                self.__database_session__.rollback()
-                raise e
-            try:
-                obj.set_data()
-            except AttributeError:
-                logger.exception("App will not refresh data at this time.")
+              self.remove_from_db()
+              try:
+                  obj.set_data()
+              except AttributeError:
+                  logger.exception("App will not refresh data at this time.")
+
+    def remove_from_db(self) -> None:
+        """
+        Deletes this submission from the database, without any UI.
+
+        :raises: SQLIntegrityError or SQLOperationalError if problem with commit.
+        """
+        self.run = []
+        self.clientsubmissionsampleassociation = []
+        self.__database_session__.delete(self)
+        try:
+            self.__database_session__.commit()
+        except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+            self.__database_session__.rollback()
+            raise e
 
     def get_procedure_sample_results(self, include=Set[Literal['positive', 'negative', 'samples']]) -> Generator[Results, None, None]:
         """
@@ -854,13 +875,15 @@ class ClientSubmission(BaseClass, LogMixin):
         clientlab = getattr(self, "clientlab", None)
         runs = [
             dict(
+                id=run.id,
                 rsl_plate_number=run.rsl_plate_number,
-                procedure=[proc.name for proc in run.procedure],
+                procedure=[dict(id=proc.id, name=proc.name) for proc in run.procedure],
                 approved=run.approved
             )
             for run in self.run
         ]
         return dict(
+            id=self.id,
             submissiontype=self.submissiontype_name,
             submitter_plate_id=self.submitter_plate_id,
             submitted_date=self.submitted_date,
@@ -1687,16 +1710,24 @@ class Run(BaseClass, LogMixin):
         from frontend.widgets.pop_ups import QuestionAsker
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.rsl_plate_number}?\n")
         if msg.exec():
-            self.__database_session__.delete(self)
-            try:
-                self.__database_session__.commit()
-            except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
-                self.__database_session__.rollback()
-                raise e
-            try:
-                obj.set_data()
-            except AttributeError:
-                logger.error("App will not refresh data at this time.")
+              self.remove_from_db()
+              try:
+                  obj.set_data()
+              except AttributeError:
+                  logger.exception("App will not refresh data at this time.")
+
+    def remove_from_db(self) -> None:
+        """
+        Deletes this submission from the database, without any UI.
+
+        :raises: SQLIntegrityError or SQLOperationalError if problem with commit.
+        """
+        self.__database_session__.delete(self)
+        try:
+            self.__database_session__.commit()
+        except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+            self.__database_session__.rollback()
+            raise e
 
     def edit(self, obj):
         """
@@ -1738,18 +1769,27 @@ class Run(BaseClass, LogMixin):
         :param output_filepath: Path in the folder structure to save the workbook to.
         :type output_filepath: str | Path | None
         """
-        from backend import managers
         from frontend.widgets.functions import select_save_file
-        Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
-        manager = Manager(parent=obj, input_object=self.to_pydantic())
-        default_name = manager.pyd.export_filename
+        workbook, default_name = self.export_workbook()
         output_filepath = select_save_file(obj=obj, default_name=default_name, file_extension="xlsx")
+        workbook.save(filename=output_filepath)
+
+    def export_workbook(self) -> tuple:
+        """
+        Builds this run's export workbook without any UI.
+
+        :return: The workbook and its default file name.
+        :rtype: tuple[Workbook, str]
+        """
+        from backend import managers
+        Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
+        manager = Manager(parent=None, input_object=self.to_pydantic())
         workbook = manager.write()
         try:
             workbook.remove_sheet("Sheet")
         except ValueError:
             pass
-        workbook.save(filename=output_filepath)
+        return workbook, manager.pyd.export_filename
 
     @property
     def filename(self) -> str:

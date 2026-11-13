@@ -6,7 +6,21 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from functools import wraps
 import webview
+from math import ceil
+from datetime import date, datetime
+from getpass import getuser
+from tools import is_power_user
 
+# NOTE: Right-click actions the web UI can run so far. The rest still need their Qt dialogs ported.
+WEB_ACTIONS = {"Delete", "Add Comment", "Export"}
+
+
+def _iso(value) -> str:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return "" if value is None else str(value)
 
 def db_call(func):
     """
@@ -48,3 +62,93 @@ class Api(object):
             webview.FileDialog.SAVE, save_filename=f"{default_name}.{extension}",
             file_types=(f"{extension.upper()} files (*.{extension})",))
         return result if isinstance(result, str) else (result[0] if result else None)
+
+    @staticmethod
+    def _model(kind: str):
+        from backend.db.models import ClientSubmission, Run, Procedure
+        return {"submission": ClientSubmission, "run": Run, "procedure": Procedure}[kind]
+
+    def _get(self, kind: str, id: int):
+        obj = self._ctx.database.session().get(self._model(kind), int(id))
+        if obj is None:
+            raise LookupError(f"No {kind} with id {id}.")
+        return obj
+
+    @db_call
+    def list_submissions(self, page: int = 1, page_size: int = 250) -> dict:
+        """
+        One page of the submissions tree, newest first.
+
+        :return: {total, page, pages, rows}
+        """
+        from sqlalchemy import func
+        from sqlalchemy.orm import selectinload
+        from backend.db.models import ClientSubmission, Run
+        total = self._ctx.database.session().query(func.count(ClientSubmission.id)).scalar()
+        options = [selectinload(ClientSubmission._clientlab),
+                    selectinload(ClientSubmission._run).selectinload(Run._procedure)]
+        rows = []
+        for submission in ClientSubmission.query(chronologic=True, page=page, page_size=page_size, options=options):
+            row = submission.row_data
+            row['submitted_date'] = _iso(row['submitted_date'])
+            rows.append(row)
+        return dict(total=total, page=page, pages=max(1, ceil(total / page_size)), rows=rows)
+
+    @db_call
+    def context_menu(self, kind: str, id: int) -> list:
+        """
+        Right-click menu for a tree row. Mirrors SubmissionsTree.contextMenuEvent.
+
+        :return: [{label, enabled, options}], options being sub-menu names or None.
+        """
+        obj = self._get(kind, id)
+        menu = []
+        for key in obj.custom_context_events.keys():
+            match key.lower():
+                case "add procedure":
+                    options = [procedure.name for procedure in obj.allowed_procedures]
+                case "add results":
+                    options = [item['name'] for item in (obj.proceduretype.allowed_result_methods or []) if item.get('name')]
+                case "preprocessing":
+                    options = [item['name'] for item in (obj.proceduretype.preprocessing_methods or []) if item.get('name')]
+                case _:
+                    options = None
+            if options == []:
+                continue
+            menu.append(dict(label=key, enabled=key in WEB_ACTIONS, options=options))
+        return menu      
+
+    @db_call
+    def run_action(self, kind: str, id: int, action: str, option: str | None = None, text: str | None = None) -> dict:
+        """
+        Runs a right-click action.
+
+        :return: {ok, message, refresh}
+        """
+        if action not in WEB_ACTIONS:
+            return dict(ok=False, message=f"'{action}' isn't available in the web UI yet.", refresh=False)
+        try:
+            obj = self._get(kind, id)
+            match action:
+                case "Delete":
+                    if not is_power_user():
+                        return dict(ok=False, message=f"User {getuser()} is not authorized for this function.", refresh=False)
+                    obj.remove_from_db()
+                    return dict(ok=True, message="Deleted.", refresh=True)
+                case "Add Comment":
+                    if not text or not text.strip():
+                        return dict(ok=False, message="Comment was empty.", refresh=False)
+                    obj.comment = dict(user=getuser(), time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), text=text.strip())
+                    report = obj.save(original=False) if kind == "run" else obj.save()
+                    problems = [result.msg for result in getattr(report, "results", [])]
+                    return dict(ok=not problems, message="; ".join(problems) or "Comment added.", refresh=False)
+                case "Export":
+                    workbook, default_name = obj.export_workbook()
+                    path = self.choose_save_file(default_name, "xlsx")
+                    if not path:
+                        return dict(ok=False, message="Export cancelled.", refresh=False)
+                    workbook.save(filename=path)
+                    return dict(ok=True, message=f"Saved {path}", refresh=False)
+        except Exception as e:
+            logger.exception(f"{action} on {kind} {id} failed: {e}")
+            return dict(ok=False, message=f"{action} failed: {e}", refresh=False)                  

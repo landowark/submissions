@@ -2245,26 +2245,49 @@ class Procedure(BaseClass):
         from frontend.widgets.pop_ups import QuestionAsker
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
         if msg.exec():
-            # Ensure child associations are removed cleanly before deleting the Procedure.
-            procedure_equipment_assocs = list(self.procedureequipmentassociation)
-            for ass in procedure_equipment_assocs:
-                try:
-                    ass.tipslot = []
-                except Exception:
-                    logger.error(f"Unable to clear tipslot associations for {ass}")
-            self.procedureequipmentassociation = []
-            self.procedurereagentlotassociation = []
-            self.proceduresampleassociation = []
-            self.__database_session__.delete(self)
-            try:
-                self.__database_session__.commit()
-            except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
-                self.__database_session__.rollback()
-                raise e
+            self.remove_from_db()
             try:
                 obj.set_data()
             except AttributeError:
-                logger.error("App will not refresh data at this time.")
+                logger.exception("App will not refresh data at this time.")
+
+    def remove_from_db(self) -> None:
+        """
+        Deletes this submission from the database, without any UI.
+
+        :raises: SQLIntegrityError or SQLOperationalError if problem with commit.
+        """
+        self.procedureequipmentassociation = []
+        self.procedurereagentlotassociation = []
+        self.proceduresampleassociation = []
+        self.__database_session__.delete(self)
+        try:
+            self.__database_session__.commit()
+        except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+            self.__database_session__.rollback()
+            raise e
+          
+        # if msg.exec():
+        #     # Ensure child associations are removed cleanly before deleting the Procedure.
+        #     procedure_equipment_assocs = list(self.procedureequipmentassociation)
+        #     for ass in procedure_equipment_assocs:
+        #         try:
+        #             ass.tipslot = []
+        #         except Exception:
+        #             logger.error(f"Unable to clear tipslot associations for {ass}")
+        #     self.procedureequipmentassociation = []
+        #     self.procedurereagentlotassociation = []
+        #     self.proceduresampleassociation = []
+        #     self.__database_session__.delete(self)
+        #     try:
+        #         self.__database_session__.commit()
+        #     except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+        #         self.__database_session__.rollback()
+        #         raise e
+        #     try:
+        #         obj.set_data()
+        #     except AttributeError:
+        #         logger.error("App will not refresh data at this time.")
         
     # TODO: Convert references to details_dict_expand_fields calls so I can trim this down.
     @property
@@ -2484,6 +2507,7 @@ class Procedure(BaseClass):
             return self.proceduretype.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
         except AttributeError:
             return {}
+
     
 
 class Results(BaseClass):
