@@ -10,29 +10,39 @@ from datetime import date
 from pathlib import Path
 from typing import Callable
 import webview
-from tools import render_details_template
 from .charts import _names
 from .modal import ModalApi, add_buttons, exec_window
 from .sample_checker import format_sample_list
 from .window_thread import WindowThread, on_window_thread
 
 FORM_SCRIPT = """
-<script>
-function markUpdated(input) {
-    const label = document.querySelector(`label[for="${input.id}"]`);
-    if (label) label.textContent = 'UPDATED ' + label.dataset.title;
-}
-async function saveForm(button) {
-    button.disabled = true;
-    const values = {};
-    for (const input of document.querySelectorAll('#submission-form [data-key]')) {
-    if (!input.disabled && !input.readOnly) values[input.dataset.key] = input.value;
+  <script>
+    function markUpdated(input) {
+      const label = document.querySelector(`label[for="${input.id}"]`);
+      if (label) label.textContent = 'UPDATED ' + label.dataset.title;
     }
-    const result = await pywebview.api.save(values);
-    if (result && !result.ok) { alert(result.message); button.disabled = false; }
-}
-</script>
-"""
+    function markDuplicates() {
+      const inputs = [...document.querySelectorAll('#samples input')];
+      const counts = {};
+      for (const input of inputs) counts[input.value] = (counts[input.value] || 0) + 1;
+      for (const input of inputs) input.classList.toggle('duplicate', counts[input.value] > 1);
+      return inputs.some((input) => counts[input.value] > 1);
+    }
+    async function saveForm(button) {
+      if (markDuplicates() && !confirm('Some sample ids are repeated (shown in red). Save anyway?')) return;
+      button.disabled = true;
+      const values = {};
+      for (const input of document.querySelectorAll('#submission-form [data-key]')) {
+        if (!input.disabled && !input.readOnly) values[input.dataset.key] = input.value;
+      }
+      const samples = {};
+      for (const input of document.querySelectorAll('#samples input')) samples[input.dataset.rank] = input.value;
+      const result = await pywebview.api.save(values, samples);
+      if (result && !result.ok) { alert(result.message); button.disabled = false; }
+    }
+    markDuplicates();
+  </script>
+  """
 
 
 def _display_value(value):
@@ -135,23 +145,46 @@ def _field_html(field: dict) -> str:
     return (f'<div class="field"><label for="f-{key}" data-title="{title}">{html_lib.escape(field["status"])} {title}</label>'
             f'{control}</div>')
 
+def _samples_html(samples: list[dict]) -> str:
+    """
+    The sample id list from the old Sample Checker page, as editable inputs.
+    """
+    rows = "".join(
+        f'<div class="sample"><span>{int(sample["rank"]):02d}</span>'
+        f'<input type="text" data-rank="{sample["submission_rank"]}" '
+        f'value="{html_lib.escape(str(sample["sample_id"] or ""))}" oninput="markDuplicates()"></div>'
+        for sample in samples)
+    return (f'<section id="samples"><h3>Samples</h3><p>Take a moment to verify sample names.</p>{rows}</section>')
 
-def _form_page(title: str, fields: list[dict]) -> str:
-    rows = "".join(_field_html(field) for field in fields)
-    return f"""<!doctype html><html><head><meta charset="utf-8"><title>{html_lib.escape(title)}</title>
+def _form_page(title: str, fields: list[dict], samples: list[dict] | None = None) -> str:
+      rows = "".join(_field_html(field) for field in fields)
+      samples_section = _samples_html(samples) if samples else ""
+      return f"""<!doctype html><html><head><meta charset="utf-8"><title>{html_lib.escape(title)}</title>
         <style>
-        body {{ font: 14px "Segoe UI", sans-serif; margin: 16px; }}
-        .field {{ margin-bottom: 10px; }}
-        .field label {{ display: block; font-weight: 600; margin-bottom: 2px; }}
-        .field input, .field select {{ width: 100%; max-width: 420px; padding: 3px; box-sizing: border-box; }}
+            body {{ font: 14px "Segoe UI", sans-serif; margin: 16px; }}
+            .columns {{ display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }}
+            #submission-form {{ flex: 1 1 380px; }}
+            .field {{ margin-bottom: 10px; }}
+            .field label {{ display: block; font-weight: 600; margin-bottom: 2px; }}
+            .field input, .field select {{ width: 100%; max-width: 420px; padding: 3px; box-sizing: border-box; }}
+            #samples {{ flex: 1 1 320px; max-height: 75vh; overflow: auto; }}
+            #samples h3 {{ margin-top: 0; }}
+            .sample {{ display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }}
+            .sample span {{ width: 2em; text-align: right; color: #666; }}
+            .sample input {{ flex: 1; padding: 3px; }}
+            .sample input.duplicate {{ color: red; border: 1px solid red; }}
         </style></head><body>
         <h2>{html_lib.escape(title)}</h2>
-        <form id="submission-form" onsubmit="return false">{rows}</form>
-        <div style="display: flex; gap: 8px;">
-        <button type="button" onclick="pywebview.api.cancel()">Cancel</button>
-        <button type="button" onclick="saveForm(this)">Save</button>
+        <div class="columns">
+            <form id="submission-form" onsubmit="return false">{rows}</form>
+            {samples_section}
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+            <button type="button" onclick="pywebview.api.cancel()">Cancel</button>
+            <button type="button" onclick="saveForm(this)">Save</button>
         </div>
         {FORM_SCRIPT}</body></html>"""
+
 
 
 class ChoiceApi(ModalApi):
@@ -178,6 +211,7 @@ def choose_submissiontype(message: str):
     return SubmissionType.query(name=api._choice) if api._choice else None
 
 
+
 class SubmissionFormApi(object):
     """
     js_api for one import/edit window: a Sample Checker page (import only), then the submission form.
@@ -193,6 +227,7 @@ class SubmissionFormApi(object):
         self._pyd = None
         self._disable = []
         self._fields = []
+        self._sample_ids = {}
 
     def _load_import(self, path: Path) -> tuple[str, str]:
         from backend.managers import DefaultClientSubmissionManager
@@ -202,9 +237,7 @@ class SubmissionFormApi(object):
         self._pyd = DefaultClientSubmissionManager(parent=None, input_object=path).to_pydantic()
         if not isinstance(self._pyd, PydClientSubmission):
             raise TypeError(f"Got wrong type for {self._pyd}: {type(self._pyd)}")
-        html = render_details_template(template="sample_checker", samples=format_sample_list(self._pyd.sample),
-                                        rsl_plate_number=None)
-        return "Sample Checker", add_buttons(html)
+        return self._form(with_samples=True)
 
     def _load_edit(self, submission_id: int) -> tuple[str, str]:
         from backend.db.models import ClientSubmission
@@ -214,47 +247,34 @@ class SubmissionFormApi(object):
         self._disable = ['submitter_plate_id']
         return self._form()
 
-    def _form(self) -> tuple[str, str]:
+    def _form(self, with_samples: bool = False) -> tuple[str, str]:
         self._fields = form_fields(self._pyd, self._disable)
+        samples = format_sample_list(self._pyd.sample) if with_samples else None
+        # NOTE: Remember what was shown, so save() only writes back the ids the user changed.
+        self._sample_ids = {int(s["submission_rank"]): str(s["sample_id"] or "") for s in samples or []}
         title = "Edit Submission" if self._edit else "New Submission"
-        return title, _form_page(title, self._fields)
+        return title, _form_page(title, self._fields, samples)
 
-    # NOTE: Sample Checker page (template calls these through bridge.js).
-    @on_window_thread
-    def text_changed(self, submission_rank: str, key: str, new_value: str) -> None:
-        sample = next((s for s in self._pyd.sample if int(submission_rank) == s.submission_rank), None)
-        if sample is None:
-            logger.error(f"Unable to find sample {submission_rank}")
-            return
-        setattr(sample, key, new_value)
-
-    def enable_sample(self, submission_rank: int, enabled: bool) -> None:
-        # NOTE: The checkboxes only appear when a run exists, never during an import.
-        pass
-
-    def set_rsl_plate_number(self, rsl_plate_number: str) -> None:
-        pass
-
-    @on_window_thread
-    def accept(self) -> None:
-        """
-        Sample Checker OK: go on to the form.
-        """
-        title, html = self._form()
-        self._window.set_title(title)
-        self._window.load_html(html)
-
+    
     def cancel(self) -> None:
         logger.warning("Submission cancelled.")
         self._window.destroy()
 
     @on_window_thread
-    def save(self, values: dict) -> dict:
+    def save(self, values: dict, samples: dict | None = None) -> dict:
         """
         Port of ClientSubmissionFormWidget.create_new_submission.
         """
         from backend.validators.pydant import PydSample
         try:
+            for rank, sample_id in (samples or {}).items():
+                if self._sample_ids.get(int(rank)) == sample_id:
+                    continue
+                sample = next((s for s in self._pyd.sample if int(rank) == s.submission_rank), None)
+                if sample is None:
+                    logger.error(f"Unable to find sample {rank}")
+                    continue
+                setattr(sample, "sample_id", sample_id)
             kinds = {field["key"]: field["kind"] for field in self._fields}
             for key, value in values.items():
                 if key == "sample" or key not in kinds:
@@ -287,7 +307,7 @@ def _open(api: SubmissionFormApi, loader, *args) -> None:
     except Exception:
         api._thread.close()
         raise
-    api._window = webview.create_window(title, html=html, js_api=api, width=950, height=800)
+    api._window = webview.create_window(title, html=html, js_api=api, width=1250, height=850)
     api._window.events.closed += api._thread.close
 
 
