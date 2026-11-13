@@ -10,7 +10,14 @@
       <h1 id="title">Loading…</h1>
       <select id="manage"><option value="">Manage…</option></select>
     </header>
-    <main>
+    <nav id="tabs">
+      <button type="button" data-tab="submissions" class="active">Submissions</button>
+      <button type="button" data-tab="pcr">PCR Controls</button>
+      <button type="button" data-tab="concentrations">Concentrations</button>
+      <button type="button" data-tab="cost">Cost Report</button>
+      <button type="button" data-tab="turnaround">Turnaround Times</button>
+    </nav>
+    <main id="tab-submissions">
       <table id="submissions">
         <thead><tr><th>Name</th><th>Submission Type</th><th>Client Lab</th><th>Submitted Date</th></tr></thead>
         <tbody></tbody>
@@ -21,8 +28,20 @@
         <button id="next">Next &rsaquo;</button>
       </nav>
     </main>
+    <main id="tab-chart" hidden>
+      <div id="chart-filters"></div>
+      <div id="chart-actions">
+        <button type="button" id="chart-save-png">Save Chart</button>
+        <button type="button" id="chart-save-data">Save Data</button>
+        <button type="button" id="chart-print" hidden>Save PDF</button>
+      </div>
+      <p id="chart-message" hidden></p>
+      <div id="chart-plot"></div>
+      <iframe id="chart-report" hidden></iframe>
+    </main>
     <ul id="context-menu" class="menu" hidden></ul>
     <div id="status" hidden></div>
     <script src="submissions.js"></script>
+    <script src="charts.js"></script>
   </body>
   </html>

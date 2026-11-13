@@ -14,7 +14,7 @@ class PCRViewer(PosNegPane):
         Sets data in the info pane
         
         """
-        from frontend.visualizations.pcr_charts import PCRFigure
+        from backend.visualizations.pcr_charts import PCRFigure
         super().update_data()
         if not self.chart_settings:      # nothing to plot yet
             return

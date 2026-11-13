@@ -209,4 +209,27 @@ class Api(object):
         object_type = next(cls for cls in self._managables() if cls.__name__ == f"Pyd{name}")
         open_manager(self._ctx, object_type)
 
-    
+    @db_call
+    def chart_options(self, name: str) -> dict:
+        from .charts import filter_options
+        return filter_options(name)
+
+    @db_call
+    def chart(self, name: str, filters: dict) -> dict:
+        from .charts import chart
+        return chart(name, filters)
+
+    @db_call
+    def save_chart_data(self, name: str, filters: dict) -> dict:
+        from .charts import save_data
+        return save_data(name, filters, self.choose_save_file)
+
+    def save_chart_png(self, name: str, filters: dict, data_url: str) -> dict:
+        from .charts import save_png
+        return save_png(name, filters, data_url, self.choose_save_file)
+
+    @db_call
+    def print_report(self, filters: dict) -> None:
+        from .charts import open_report_window
+        open_report_window(filters)
+        

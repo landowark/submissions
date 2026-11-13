@@ -7,7 +7,7 @@ logger = getLogger(f"submissions.{__name__}")
 from PyQt6.QtWidgets import QWidget, QPushButton, QComboBox, QLabel
 from .info_tab import InfoPane
 from backend.excel.reports import TurnaroundMaker
-from frontend.visualizations.turnaround_chart import TurnaroundChart
+from backend.visualizations.turnaround_chart import TurnaroundChart
 
 
 class TurnaroundTime(InfoPane):

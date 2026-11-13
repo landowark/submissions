@@ -19,7 +19,7 @@ class ConcentrationViewer(PosNegPane):
         Returns:
             None
         """
-        from frontend.visualizations.concentrations_chart import ConcentrationsChart
+        from backend.visualizations.concentrations_chart import ConcentrationsChart
         super().update_data()
         if not self.chart_settings:      # nothing to plot yet
             return

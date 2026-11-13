@@ -13,7 +13,7 @@ QT_FRONTEND = [
     "frontend",
     "PyQt6.QtWebEngineCore", "PyQt6.QtWebEngineWidgets", "PyQt6.QtWebEngineQuick", "PyQt6.QtWebChannel",
     "PyQt6.QtQml", "PyQt6.QtQuick", "PyQt6.QtPdf", "PyQt6.QtPdfWidgets",
-    "pyqtgraph", "plotly", "kaleido",
+    "pyqtgraph", "kaleido",
 ]
 # NOTE: Optional imports of pandas/numpy and friends that the app never uses.
 UNUSED = ["tkinter", "matplotlib", "scipy", "IPython", "jupyter", "notebook", "pytest", "sphinx", "docutils",

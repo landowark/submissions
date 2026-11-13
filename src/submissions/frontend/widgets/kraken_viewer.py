@@ -389,7 +389,7 @@ class KrakenViewer(InfoPane):
         Returns:
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
         """
-        from frontend.visualizations import KrakenFigure
+        from backend.visualizations import KrakenFigure
         report = Report()
         # NOTE: set the mode_sub_type for kraken. Disabled in PCRControl
         months = self.diff_month(self.start_date, self.end_date)
