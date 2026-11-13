@@ -66,6 +66,20 @@ function renderFilters(name) {
       select.onchange = () => { values.submission_type = select.value; drawChart(); };
       parts.push(fieldset('Submission Type', select));
     }
+    if (options.projects) {
+      const select = document.createElement('select');
+      for (const project of options.projects) select.add(new Option(project, project));
+      select.value = values.project;
+      select.onchange = () => { values.project = select.value; drawChart(); };
+      const meta = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.checked = values.metadata_only;
+      box.onchange = () => { values.metadata_only = box.checked; drawChart(); };
+      meta.append(box, ' Metadata Only');
+      parts.push(fieldset('Project', select, meta));
+    }
+    if (options.error) status(options.error);
     document.getElementById('chart-filters').replaceChildren(...parts);
     document.getElementById('chart-print').hidden = name !== 'cost';
     document.getElementById('chart-save-png').hidden = name === 'cost';
@@ -80,6 +94,8 @@ function defaultValues(options) {
       include: (options.control_types || []).filter((c) => c.checked).map((c) => c.name),
       submission_type: 'All',
       clientlabs: [...(options.clientlabs || [])],
+      project: '',
+      metadata_only: true,
     };
 }
 
@@ -97,6 +113,10 @@ async function drawChart() {
       values.start_date = d.toISOString().slice(0, 10);
       document.getElementById('chart-start_date').value = values.start_date;
       status(`Start date after end date is not allowed! Setting to ${values.start_date}.`);
+    }
+    if (name === 'irida' && values.project) {
+      show(chartMessage);
+      chartMessage.textContent = 'Loading from IRIDA Next…';
     }
     const request = ++chartRequest;
     try {
@@ -129,12 +149,17 @@ async function openTab(name) {
     document.getElementById('tab-chart').hidden = name === 'submissions';
     if (name === 'submissions') return;
     currentChart = name;
-    if (!charts[name]) {
-      const options = await pywebview.api.chart_options(name);
-      charts[name] = { options, values: defaultValues(options) };
+    try {
+      if (!charts[name]) {
+        const options = await pywebview.api.chart_options(name);
+        charts[name] = { options, values: defaultValues(options) };
+      }
+      renderFilters(name);
+      await drawChart();
+    } catch (err) {
+      console.error(err);
+      status(`Couldn't open ${name}: ${err.message ?? err}`);
     }
-    renderFilters(name);
-    await drawChart();
   }
 
 for (const button of document.querySelectorAll('#tabs button')) button.addEventListener('click', () => openTab(button.dataset.tab));

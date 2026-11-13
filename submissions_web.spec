@@ -33,7 +33,8 @@ a = Analysis(
         ("alembic.ini", "files"),
         ("src\\scripts\\*.py", "files\\scripts"),
     ],
-    hiddenimports=["pyodbc", "webview.platforms.edgechromium", "webview.platforms.winforms", "clr"],
+    hiddenimports=["pyodbc", "webview.platforms.edgechromium", "webview.platforms.winforms", "clr",
+                     "gql", "gql.transport.requests"],
     excludes=QT_FRONTEND + UNUSED,
     noarchive=False,
 )

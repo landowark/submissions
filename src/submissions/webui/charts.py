@@ -1,4 +1,4 @@
- """
+"""
 Charts and reports for the web UI. Ports the Qt InfoPane tabs: PCR Controls, Concentrations,
 Turnaround Times and Cost Report.
 """
@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable
 import webview
 
-TITLES = {"pcr": "PCR Controls", "concentrations": "Concentrations", "turnaround": "Turnaround Times", "cost": "Cost Report"}
+TITLES = {"irida":"Irida Controls", "pcr": "PCR Controls", "concentrations": "Concentrations", "turnaround": "Turnaround Times", "cost": "Cost Report"}
 # NOTE: Results type behind each control-chart tab (InfoPane.results_type in the Qt app).
 RESULTS_TYPES = {"pcr": "Diomni PCR", "concentrations": "Qubit"}
 
@@ -31,6 +31,15 @@ def _months(start: datetime, end: datetime) -> int:
     # NOTE: Same as InfoPane.diff_month.
     return abs((start.year - end.year) * 12 + start.month - end.month)
 
+def _names(result) -> list[str]:
+    """
+    Names from a BaseClass.query() result, which is a single object (not a list) on exactly one match.
+    """
+    if result is None:
+        return []
+    if not isinstance(result, list):
+        result = [result]
+    return [item.name for item in result]
 
 def filter_options(name: str) -> dict:
     """
@@ -44,9 +53,16 @@ def filter_options(name: str) -> dict:
         options["control_types"] = [dict(name="Positive", checked=True), dict(name="Negative", checked=True),
                                     dict(name="Samples", checked=False)]
     elif name == "turnaround":
-        options["turnaround_types"] = ["All"] + [st.name for st in SubmissionType.query()]
+        options["turnaround_types"] = ["All"] + _names(SubmissionType.query())
     elif name == "cost":
-        options["clientlabs"] = [lab.name for lab in ClientLab.query()]
+        options["clientlabs"] = _names(ClientLab.query())
+    elif name == "irida":
+        from backend.irida import load_projects
+        try:
+            options["projects"] = [""] + list(load_projects().keys())
+        except ValueError as e:
+            options["projects"] = [""]
+            options["error"] = str(e)
     return options
 
 def _maker(name: str, filters: dict):
@@ -61,7 +77,7 @@ def _maker(name: str, filters: dict):
     if name in RESULTS_TYPES:
         submission_types = filters.get("submission_types")
         if submission_types is None:
-            submission_types = [st.name for st in SubmissionType.query()]
+            submission_types = _names(SubmissionType.query())
         settings = dict(start_date=start, end_date=end, include=filters.get("include", []),
                         submission_types=submission_types, months=_months(start, end))
         maker_class = PCRMaker if name == "pcr" else ConcentrationMaker
@@ -72,13 +88,54 @@ def _maker(name: str, filters: dict):
                 dict(start_date=start, end_date=end))
     if name == "cost":
         return ReportMaker(start_date=start, end_date=end, organizations=filters.get("clientlabs", [])), {}
+    if name == "irida":
+        from backend.excel.reports import ChartReportMaker
+        fig = _kraken_figure(filters)
+        if fig is None:
+            raise ValueError("No data to save for the selected project and dates.")
+        return ChartReportMaker(df=fig.df), {}
     raise ValueError(f"Unknown chart: {name}")
 
+_irida_cache: dict = {}
+
+def _kraken_figure(filters: dict):
+    """
+    Pulls (or reuses) the IRIDA data for the filters and builds the Kraken chart, as KrakenViewer.chart_maker_function does.
+    """
+    from tools import ctx
+    from backend.irida import connection, load_projects, grab_data, kraken_dataframe
+    from backend.visualizations import KrakenFigure
+    metadata_only = bool(filters.get("metadata_only", True))
+    key = (filters["project"], filters["start_date"], filters["end_date"], metadata_only)
+    start, end = _dates(filters)
+    if key not in _irida_cache:
+        url, token = connection(ctx)
+        data = grab_data(url, token, load_projects()[filters["project"]], start, end, metadata_only=metadata_only)
+        _irida_cache.clear()
+        _irida_cache[key] = kraken_dataframe(data, metadata_only=metadata_only)
+    df = _irida_cache[key]
+    if df.empty:
+        return None
+    settings = dict(project=filters["project"], start_date=start, end_date=end, months=_months(start, end),
+                    species_or_genus="Species" if metadata_only else "Genus")
+    # NOTE: KrakenFigure adds columns to its dataframe, so give it a copy of the cached one.
+    return KrakenFigure(df=df.copy(), settings=settings)
 
 def chart(name: str, filters: dict) -> dict:
     """
     :return: {figure: plotly JSON}, {html, has_data} for the cost report, or {message} when there's nothing to show.
     """
+    if name == "irida":
+        if not filters.get("project"):
+            return dict(message="Choose a project.")
+        try:
+            fig = _kraken_figure(filters)
+        except Exception as e:
+            logger.exception(f"Couldn't load IRIDA Next data: {e}")
+            return dict(message=f"Couldn't load data from IRIDA Next: {e}")
+        if fig is None:
+            return dict(message="No data available for the selected project and dates.")
+        return dict(figure=fig.to_json())
     from backend.visualizations import PCRFigure, ConcentrationsChart, TurnaroundChart
     from backend.db.models import SubmissionType
     try:
