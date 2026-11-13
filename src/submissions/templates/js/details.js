@@ -1,15 +1,15 @@
 
 
-var backend;
-if (typeof QWebChannel !== 'undefined') {
-    new QWebChannel(qt.webChannelTransport, function(channel) {
-        backend = channel.objects.backend;
-        window.backend = backend;
-        console.log('QWebChannel ready, backend:', backend);
-    });
-} else {
-    console.warn('QWebChannel or qt not available yet - make sure qwebchannel.js is included');
-}
+// var backend;
+// if (typeof QWebChannel !== 'undefined') {
+//     new QWebChannel(qt.webChannelTransport, function(channel) {
+//         backend = channel.objects.backend;
+//         window.backend = backend;
+//         console.log('QWebChannel ready, backend:', backend);
+//     });
+// } else {
+//     console.warn('QWebChannel or qt not available yet - make sure qwebchannel.js is included');
+// }
 
 document.addEventListener('DOMContentLoaded', function() {
     var links = document.querySelectorAll('a.data-link');

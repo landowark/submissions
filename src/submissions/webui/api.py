@@ -12,7 +12,7 @@ from getpass import getuser
 from tools import is_power_user
 
 # NOTE: Right-click actions the web UI can run so far. The rest still need their Qt dialogs ported.
-WEB_ACTIONS = {"Delete", "Add Comment", "Export"}
+WEB_ACTIONS = {"Delete", "Add Comment", "Export", "Show Details"}
 
 
 def _iso(value) -> str:

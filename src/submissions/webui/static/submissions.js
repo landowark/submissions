@@ -115,7 +115,7 @@ async function runAction(tr, action, option = null) {
     }
     try {
       const result = await pywebview.api.run_action(tr.dataset.kind, Number(tr.dataset.id), action, option, text);
-      status(result.message);
+      if (result.message) status(result.message);
       if (result.refresh) await load(state.page);
     } catch (err) {
       status(`${action} failed: ${err.message ?? err}`);
@@ -132,7 +132,10 @@ function status(message) {
 }
 
 tbody.addEventListener('click', (e) => { const tr = e.target.closest('tr'); if (tr) select(tr); });
-tbody.addEventListener('dblclick', () => status('Show Details moves to the web UI in phase 4.'));
+tbody.addEventListener('dblclick', (e) => {
+    const tr = e.target.closest('tr');
+    if (tr && !e.target.classList.contains('toggle')) runAction(tr, 'Show Details');
+  });
 tbody.addEventListener('contextmenu', async (e) => {
     const tr = e.target.closest('tr');
     if (!tr) return;

@@ -1074,7 +1074,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
         if isinstance(js_in, str | Path):
             js_in = [js_in]
-        js_in = ["details", self._sql_name.lower()] + js_in
+        js_in = ["bridge", "details", self._sql_name.lower()] + js_in
         js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
         css_out = []
         for css in css_in:
