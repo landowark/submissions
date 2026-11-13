@@ -184,3 +184,20 @@ class Api(object):
         except Exception as e:
             logger.exception(f"{action} on {kind} {id} failed: {e}")
             return dict(ok=False, message=f"{action} failed: {e}", refresh=False)
+
+    @staticmethod
+    def _managables() -> list:
+        from backend.validators.pydant import PydAbstract, PydConcrete
+        return list(PydAbstract.get_managables()) + list(PydConcrete.get_managables())
+
+    @db_call
+    def list_managables(self) -> list:
+        return [cls.__name__.replace("Pyd", "") for cls in self._managables()]
+
+    @db_call
+    def open_manager(self, name: str) -> None:
+        from .manager import open_manager
+        object_type = next(cls for cls in self._managables() if cls.__name__ == f"Pyd{name}")
+        open_manager(self._ctx, object_type)
+
+    

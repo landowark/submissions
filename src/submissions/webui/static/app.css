@@ -1,6 +1,6 @@
 :root { --bg: #f5f5f5; --alt: #cfe2f3; --line: #d3d3d3; --sel: #0078d7; }
 body { margin: 0; font: 14px "Segoe UI", sans-serif; background: #fff; color: #222; }
-header { padding: 8px 16px; border-bottom: 1px solid var(--line); }
+header { padding: 8px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
 header h1 { font-size: 16px; margin: 0; }
 main { padding: 8px 16px; }
 table { border-collapse: collapse; width: 100%; background: var(--bg); border: 1px solid var(--line); }

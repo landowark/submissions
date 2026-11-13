@@ -14,6 +14,8 @@ if __name__ == '__main__':
     api._window = webview.create_window(
         f"Submissions App TNG (v{ctx.package.__version__})",
         url=str(static.joinpath("index.html")), js_api=api, width=1300, height=1000)
+    from webui.alerts import install as install_alerts
+    install_alerts(api._window)
     try:
         webview.start(gui="edgechromium", http_server=True, debug=not check_if_app())
     finally:

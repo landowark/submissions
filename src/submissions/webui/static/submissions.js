@@ -155,6 +155,13 @@ async function init() {
     document.getElementById('title').textContent = `Submissions App TNG (v${info.version}) - ${info.database}`;
     document.getElementById('prev').onclick = () => load(state.page - 1);
     document.getElementById('next').onclick = () => load(state.page + 1);
+    const manage = document.getElementById('manage');
+    for (const name of await pywebview.api.list_managables()) manage.add(new Option(name, name));
+    manage.onchange = async () => {
+      const name = manage.value;
+      manage.value = '';
+      if (name) await pywebview.api.open_manager(name);
+    };
     await load(1);
 }
 

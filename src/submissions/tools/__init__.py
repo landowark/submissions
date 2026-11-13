@@ -836,6 +836,25 @@ def under_development(func):
     return wrapper
 
 
+def _qt_alert_handler(alert: Alert) -> None:
+      alert.report().exec()
+
+
+# NOTE: How report_result shows alerts. Defaults to a Qt AlertPop; the web UI swaps it via set_alert_handler.
+alert_handler = _qt_alert_handler
+
+
+def set_alert_handler(handler) -> None:
+    """
+    Replaces how report_result shows alerts, e.g. with a pywebview window alert.
+
+    :param handler: Called with each Alert.
+    :type handler: Callable[[Alert], None]
+    """
+    global alert_handler
+    alert_handler = handler
+
+
 def report_result(func):
     """
     Decorator to display any reports returned from a function.
@@ -865,14 +884,14 @@ def report_result(func):
             results = []
         for result in results:
             try:
-                dlg = result.report()
                 if "testing" in args:
                     return report
-                else:
-                    dlg.exec()
+                alert_handler(result)
             except Exception as e:
                 logger.error(f"Problem reporting due to {e}")
                 logger.exception(result.msg)
+            logger.error(f"Problem reporting due to {e}")
+            logger.exception(result.msg)
         if output:
             logger.info(f"Report result being called by {func.__name__}")
             if is_list_etc(output):
