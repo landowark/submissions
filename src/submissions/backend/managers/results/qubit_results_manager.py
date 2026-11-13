@@ -22,10 +22,9 @@ class QubitManager(DefaultResultsManager):
 
     def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Workbook | Worksheet | None = None, ui=None):
         from . import QtResultsUI
-        self.procedure = procedure
-        self.ui = ui
         if input_object is None:
-            input_object = (self.ui or QtResultsUI()).choose_file(filetypes="CSV Files (*.csv)", parent=parent)
+            input_object = (ui or QtResultsUI()).choose_file(filetypes="CSV Files (*.csv)", parent=parent)
+        super().__init__(procedure=procedure, parent=parent, input_object=input_object, ui=ui)
         self.sample_matcher()
 
     def sample_matcher(self):
