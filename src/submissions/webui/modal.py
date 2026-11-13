@@ -9,7 +9,7 @@ import webview
 MODAL_BUTTONS = """
     <div style="padding: 10px 0; display: flex; gap: 8px; justify-content: flex-end;">
     <button type="button" onclick="pywebview.api.cancel()">Cancel</button>
-    <button type="button" onclick="this.disabled = true; pywebview.api.accept()">OK</button>
+    <button type="button" id="modal-ok" onclick="this.disabled = true; pywebview.api.accept()">OK</button>
     </div>
 """
 
@@ -43,12 +43,12 @@ def add_buttons(html: str) -> str:
     return html + MODAL_BUTTONS
 
 def exec_window(title: str, html: str, api: ModalApi, width: int = 900, height: int = 650) -> bool:
-      """
-      Shows a window and waits for OK (True), or Cancel / closing the window (False).
+    """
+    Shows a window and waits for OK (True), or Cancel / closing the window (False).
 
-      Only call this from a pywebview API call (a worker thread). On the GUI thread it would deadlock.
-      """
-      api._window = webview.create_window(title, html=html, js_api=api, width=width, height=height)
-      api._window.events.closed += lambda: api._done.set()
-      api._done.wait()
-      return api._accepted
+    Only call this from a pywebview API call (a worker thread). On the GUI thread it would deadlock.
+    """
+    api._window = webview.create_window(title, html=html, js_api=api, width=width, height=height)
+    api._window.events.closed += lambda: api._done.set()
+    api._done.wait()
+    return api._accepted

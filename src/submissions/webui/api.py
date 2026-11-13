@@ -13,11 +13,10 @@ from tools import is_power_user
 
 # NOTE: Right-click actions the web UI can run so far. The rest still need their Qt dialogs ported.
 WEB_ACTIONS = {
-      "submission": {"Delete", "Add Comment", "Show Details", "Add Run"},
-      "run": {"Delete", "Add Comment", "Show Details", "Export", "Edit"},
-      "procedure": {"Delete", "Add Comment", "Show Details", "Add Results"},
+        "submission": {"Delete", "Add Comment", "Show Details", "Add Run"},
+        "run": {"Delete", "Add Comment", "Show Details", "Export", "Edit", "Add Procedure"},
+        "procedure": {"Delete", "Add Comment", "Show Details", "Add Results", "Edit"},
     }
-
 
 def _iso(value) -> str:
     """
@@ -169,6 +168,16 @@ class Api(object):
                                           rsl_plate_number=dummy.rsl_plate_number.value, submission_id=obj.id,
                                           on_done=lambda: self._window.evaluate_js("load(state.page)"))
                       return dict(ok=True, message="", refresh=False)
+                case "Edit" if kind == "procedure":
+                    from .procedure import open_procedure_window
+                    open_procedure_window(self._ctx, procedure_id=obj.id,
+                                          on_done=lambda: self._window.evaluate_js("load(state.page)"))
+                    return dict(ok=True, message="", refresh=False)
+                case "Add Procedure":
+                    from .procedure import open_procedure_window
+                    open_procedure_window(self._ctx, run_id=obj.id, proceduretype_name=option,
+                                          on_done=lambda: self._window.evaluate_js("load(state.page)"))
+                    return dict(ok=True, message="", refresh=False)
                 case "Edit":
                     from .sample_checker import open_sample_checker
                     open_sample_checker(self._ctx, "Edit Run",

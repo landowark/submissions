@@ -140,29 +140,32 @@ for(let i = 0; i < checkboxes.length; i++) {
 
 var equipmentroles = document.getElementsByClassName("equipmentrole");
 
-
+function run_form_startup() {
+    equipment_json.forEach(equipment_startup);
+    Array.prototype.forEach.call(reagentRoles, reagentrole_startup);
+}
 
 window.addEventListener('load', function () {
-    if (typeof QWebChannel !== 'undefined') {
+    if (typeof QWebChannel !== 'undefined' && typeof qt !== 'undefined') {
         new QWebChannel(qt.webChannelTransport, function (channel) {
             // This callback runs *after* the connection is established
             backend = channel.objects.backend;
-
             if (backend) {
                 console.log("Backend channel established successfully.");
-                // NOW it is safe to run your startup logic
-                equipment_json.forEach(equipment_startup);
-                Array.prototype.forEach.call(reagentRoles, reagentrole_startup)
+                run_form_startup();
                 // Fallback: re-run startup shortly after to handle timing/race conditions
                 setTimeout(function(){
-                    try{ equipment_json.forEach(equipment_startup); Array.prototype.forEach.call(reagentRoles, reagentrole_startup); }catch(e){ console.warn('fallback startup failed', e); }
+                    try{ run_form_startup(); }catch(e){ console.warn('fallback startup failed', e); }
                 }, 250);
             } else {
                 console.error("Backend object not found in channel objects.");
             }
         });
+    } else if (window.pywebview && window.pywebview.api && window.pywebview.api.get_reagent_names) {
+        // NOTE: pywebview: backend is the bridge.js proxy.
+        run_form_startup();
     } else {
-        console.error("qwebchannel.js is not loaded.");
+        window.addEventListener('pywebviewready', run_form_startup);
     }
 });
 
