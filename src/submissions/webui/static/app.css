@@ -30,3 +30,5 @@ tr.depth-2 td.name { padding-left: 48px; }
 #chart-actions { margin: 8px 0; display: flex; gap: 8px; }
 #chart-plot { height: 70vh; }
 #chart-report { width: 100%; height: 75vh; border: 1px solid var(--line); }
+.header-actions { display: flex; gap: 8px; }
+body.dropping { outline: 3px dashed var(--sel); outline-offset: -6px; }

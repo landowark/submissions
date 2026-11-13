@@ -48,6 +48,7 @@ if __name__ == '__main__':
     api._window = webview.create_window(
         f"Submissions App TNG (v{ctx.package.__version__})",
         url=str(static.joinpath("index.html")), js_api=api, width=1300, height=1000)
+    api._window.events.loaded += api._bind_drop
     api._window.events.shown += lambda: _wv_logger.info("window shown")
     api._window.events.closed += lambda: _wv_logger.info("window closed")
     from webui.alerts import install as install_alerts

@@ -162,8 +162,17 @@ async function init() {
       manage.value = '';
       if (name) await pywebview.api.open_manager(name);
     };
+    document.getElementById('import').onclick = async () => {
+      const result = await pywebview.api.import_submission();
+      if (result?.message) status(result.message);
+    };
     await load(1);
 }
 
 if (window.pywebview?.api?.app_info) init();
 else window.addEventListener('pywebviewready', init);
+
+// NOTE: Drag-and-drop import. The drop itself is handled in Python (Api._on_drop), which gets the real file path.
+document.addEventListener('dragover', (e) => { e.preventDefault(); document.body.classList.add('dropping'); });
+document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) document.body.classList.remove('dropping'); });
+document.addEventListener('drop', () => document.body.classList.remove('dropping'));

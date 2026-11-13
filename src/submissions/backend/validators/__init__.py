@@ -32,6 +32,28 @@ class DefaultNamer(object):
         elif isinstance(filepath, Workbook):
             self.workbook = filepath
 
+def _qt_submissiontype_chooser(message: str):
+    """
+    Asks the user for a submission type with a Qt ObjectSelector.
+    """
+    from frontend.widgets import ObjectSelector
+    from backend.db.models import SubmissionType
+    dlg = ObjectSelector(title="Couldn't parse submission type.", message=message, obj_type=SubmissionType)
+    if dlg.exec():
+        return dlg.parse_form()
+    return None
+
+# NOTE: How ClientSubmissionNamer asks for a submission type it couldn't work out.
+# The web UI swaps it via set_submissiontype_chooser.
+submissiontype_chooser = _qt_submissiontype_chooser
+
+
+def set_submissiontype_chooser(chooser) -> None:
+    """
+    :param chooser: Called with a message; returns a SubmissionType or None.
+    """
+    global submissiontype_chooser
+    submissiontype_chooser = chooser
 
 class ClientSubmissionNamer(DefaultNamer):
 
@@ -68,12 +90,7 @@ class ClientSubmissionNamer(DefaultNamer):
             sub_type = self.get_subtype_from_regex()
         if not sub_type:
             logger.warning(f"Getting submissiontype from regex failed, asking user.")
-            from frontend.widgets import ObjectSelector
-            dlg = ObjectSelector(title="Couldn't parse submission type.",
-                                 message="Please select submission type from list below.",
-                                 obj_type=SubmissionType)
-            if dlg.exec():
-                sub_type = dlg.parse_form()
+            sub_type = submissiontype_chooser("Please select submission type from list below.")
         if not sub_type:
             logger.warning(f"Getting submissiontype from regex failed, using default submissiontype.")
             sub_type = SubmissionType.query(name="Default SubmissionType", limit=1)

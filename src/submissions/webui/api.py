@@ -10,6 +10,7 @@ from math import ceil
 from datetime import date, datetime
 from getpass import getuser
 from tools import is_power_user
+import json
 
 # NOTE: Right-click actions the web UI can run so far. The rest still need their Qt dialogs ported.
 WEB_ACTIONS = {
@@ -232,4 +233,45 @@ class Api(object):
     def print_report(self, filters: dict) -> None:
         from .charts import open_report_window
         open_report_window(filters)
-        
+
+    def import_submission(self) -> dict:
+          from pathlib import Path
+          result = self._window.create_file_dialog(webview.FileDialog.OPEN, file_types=("Excel Files (*.xlsx)",))
+          if not result:
+              return dict(ok=False, message="Import cancelled.")
+          return self._import_path(Path(result if isinstance(result, str) else result[0]))
+
+    def _import_path(self, path) -> dict:
+        from .submission_form import open_import_window
+        try:
+            open_import_window(self._ctx, path, on_done=lambda: self._window.evaluate_js("load(state.page)"))
+        except Exception as e:
+            logger.exception(f"Couldn't import {path}: {e}")
+            return dict(ok=False, message=f"Couldn't import {path.name}: {e}")
+        return dict(ok=True, message="")
+
+    def _bind_drop(self, window) -> None:
+          """
+          Lets an .xlsx be dropped onto the main window to import it, as the Qt submission form allowed.
+          pywebview only gives the dropped file's real path to drop handlers registered from Python.
+          """
+          from webview.dom import DOMEventHandler
+          window.dom.document.events.drop += DOMEventHandler(self._on_drop, prevent_default=True, stop_propagation=True)
+
+    def _on_drop(self, event: dict) -> None:
+        from pathlib import Path
+        from threading import Thread
+        files = event.get('dataTransfer', {}).get('files', [])
+        paths = [Path(f['pywebviewFullPath']) for f in files if f.get('pywebviewFullPath')]
+        path = next((p for p in paths if p.suffix.lower() == ".xlsx"), None)
+        if path is None:
+            self._window.evaluate_js("status('Drop an .xlsx submission form to import it.')")
+            return
+
+        def run():
+            result = self._import_path(path)
+            if result["message"]:
+                self._window.evaluate_js(f"status({json.dumps(result['message'])})")
+
+        # NOTE: Off the event thread, because opening the import window parses the whole file first.
+        Thread(target=run, daemon=True).start()
