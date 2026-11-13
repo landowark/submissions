@@ -7,7 +7,7 @@ from typing import List
 logger = getLogger(f"submissions.{__name__}")
 from copy import deepcopy
 from pathlib import Path
-from frontend.widgets.functions import select_open_file
+# from frontend.widgets.functions import select_open_file
 from tools import get_application_from_parent
 from backend.validators import pydant
 from backend.db.models import BaseClass
@@ -69,6 +69,7 @@ class DefaultManager(object):
             case _:
                 logger.warning(f"Unmatched input object: {type(self.input_object)}. Looking for file.")
                 if self.parent is not None:
+                    from frontend.widgets.functions import select_open_file
                     # TODO: Allow for multiple filters. For now, just look for xlsx.
                     self.input_object = select_open_file(filetypes="Excel Files (*.xlsx)", obj=get_application_from_parent(self.parent))
                     if self.input_object is not None:

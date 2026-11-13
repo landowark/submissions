@@ -3,7 +3,7 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from . import DefaultSettings
 from csv import writer as csvwriter
-from frontend.widgets.functions import select_save_file
+# from frontend.widgets.functions import select_save_file
 from tools import IndexDirection, convert_row_column_to_well
 
 
