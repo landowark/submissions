@@ -12,20 +12,20 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QCheckBox, QLabel, QWidget, QComboBox, QPushButton
 )
-from gql import gql, Client
-from gql.transport.exceptions import TransportConnectionFailed
-from gql.transport.aiohttp import AIOHTTPTransport
+# from gql import gql, Client
+# from gql.transport.exceptions import TransportConnectionFailed
+# from gql.transport.aiohttp import AIOHTTPTransport
 from backend.excel.reports import ChartReportMaker
 from tools import Report, report_result, clean_string
-from frontend.visualizations import KrakenFigure
+# from frontend.visualizations import KrakenFigure
 from .info_tab import InfoPane
-from gql.transport.requests import RequestsHTTPTransport
+# from gql.transport.requests import RequestsHTTPTransport
 from base64 import b64encode
 from re import search as rsearch
 from pandas import json_normalize as pd_json_normalize, to_numeric as pd_to_numeric
 from csv import DictReader as CSVDictReader
 from io import StringIO
-from requests import get as requests_get
+# from requests import get as requests_get
 from decimal import Decimal
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -89,6 +89,7 @@ class KrakenViewer(InfoPane):
     @classmethod
     def read_csv_from_url(cls, url):
         """Downloads a CSV from a URL and returns a list of dictionaries."""
+        from requests import get as requests_get
         try:
             response = requests_get(url)
             response.raise_for_status()  # Check for HTTP errors
@@ -137,6 +138,8 @@ class KrakenViewer(InfoPane):
         
 
     async def write_metadata(self, sample_dict, sql_sample):
+        from gql import gql, Client
+        from gql.transport.aiohttp import AIOHTTPTransport
         id = sample_dict['id']
         metadata = sample_dict.get("metadata", {})
         # NOTE: Mutate metadata here.
@@ -174,7 +177,8 @@ class KrakenViewer(InfoPane):
             logger.exception(f"Error running mutation: {e}")    
 
     def grab_data(self, project: str, start_date: str, end_date: str, metadata_only: bool = True):
-        
+        from gql import gql, Client
+        from gql.transport.requests import RequestsHTTPTransport
         PAGE_SIZE = 5  # Number of samples per request
         
 
@@ -336,6 +340,7 @@ class KrakenViewer(InfoPane):
         if not self.project:
             self.webview.setHtml("<html></html>")
             return
+        from gql.transport.exceptions import TransportConnectionFailed
         start_date = datetime.combine(self.start_date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%SZ")
         end_date = datetime.combine(self.end_date, datetime.max.time()).strftime("%Y-%m-%dT%H:%M:%SZ")
         try:
@@ -384,6 +389,7 @@ class KrakenViewer(InfoPane):
         Returns:
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
         """
+        from frontend.visualizations import KrakenFigure
         report = Report()
         # NOTE: set the mode_sub_type for kraken. Disabled in PCRControl
         months = self.diff_month(self.start_date, self.end_date)

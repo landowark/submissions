@@ -6,7 +6,6 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from .info_tab import PosNegPane
 from backend.excel.reports import ConcentrationMaker
-from frontend.visualizations.concentrations_chart import ConcentrationsChart
 
 
 class ConcentrationViewer(PosNegPane):
@@ -20,7 +19,7 @@ class ConcentrationViewer(PosNegPane):
         Returns:
             None
         """
-
+        from frontend.visualizations.concentrations_chart import ConcentrationsChart
         super().update_data()
         if not self.chart_settings:      # nothing to plot yet
             return

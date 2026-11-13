@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget, QGridLayout, QLabel, QTextEdit, QComboBox
 )
 from PIL.ImageFile import ImageFile
-from pyqtgraph import ImageView, setConfigOptions
+
 from numpy import flip as npflip, rot90 as nprot90, array as nparray
 from typing import Tuple, List, TYPE_CHECKING
 if TYPE_CHECKING:
@@ -31,6 +31,7 @@ class GelBox(QWidget):
         """
         Create widgets in ui
         """
+        from pyqtgraph import ImageView, setConfigOptions
         # NOTE: setting configuration options
         setConfigOptions(antialias=True)
         # NOTE: creating image view object

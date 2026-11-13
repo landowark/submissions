@@ -3,7 +3,6 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from frontend.widgets.info_tab import PosNegPane
 from backend.excel.reports import PCRMaker
-from frontend.visualizations.pcr_charts import PCRFigure
 
 
 class PCRViewer(PosNegPane):
@@ -15,6 +14,7 @@ class PCRViewer(PosNegPane):
         Sets data in the info pane
         
         """
+        from frontend.visualizations.pcr_charts import PCRFigure
         super().update_data()
         if not self.chart_settings:      # nothing to plot yet
             return
