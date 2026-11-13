@@ -26,36 +26,36 @@ def _date_sort_key(value) -> tuple:
     return (0, 0.0)
 
 
-def submission_row_data(submission) -> dict:
-    """
-    Lightweight projection of a ClientSubmission for the tree view.
+# def submission_row_data(submission) -> dict:
+#     """
+#     Lightweight projection of a ClientSubmission for the tree view.
 
-    Pulls ONLY the fields the tree renders - the top-level columns plus the
-    run/procedure names used for lazy child expansion. This deliberately avoids
-    ``ClientSubmission.to_pydantic().improved_dict``, which serialises every
-    sample association, contact, comment and cost through a recursive sanitiser
-    and full Pydantic validation, none of which the tree ever displays.
+#     Pulls ONLY the fields the tree renders - the top-level columns plus the
+#     run/procedure names used for lazy child expansion. This deliberately avoids
+#     ``ClientSubmission.to_pydantic().improved_dict``, which serialises every
+#     sample association, contact, comment and cost through a recursive sanitiser
+#     and full Pydantic validation, none of which the tree ever displays.
 
-    :param submission: A ClientSubmission instance.
-    :return: dict with submissiontype, submitter_plate_id, submitted_date,
-             clientlab, and run (list of {rsl_plate_number, procedure[names]}).
-    """
-    clientlab = getattr(submission, "clientlab", None)
-    runs = [
-        dict(
-            rsl_plate_number=run.rsl_plate_number,
-            procedure=[proc.name for proc in run.procedure],
-            approved=run.approved
-        )
-        for run in submission.run
-    ]
-    return dict(
-        submissiontype=submission.submissiontype_name,
-        submitter_plate_id=submission.submitter_plate_id,
-        submitted_date=submission.submitted_date,
-        clientlab=getattr(clientlab, "name", "") if clientlab is not None else "",
-        run=runs,
-    )
+#     :param submission: A ClientSubmission instance.
+#     :return: dict with submissiontype, submitter_plate_id, submitted_date,
+#              clientlab, and run (list of {rsl_plate_number, procedure[names]}).
+#     """
+#     clientlab = getattr(submission, "clientlab", None)
+#     runs = [
+#         dict(
+#             rsl_plate_number=run.rsl_plate_number,
+#             procedure=[proc.name for proc in run.procedure],
+#             approved=run.approved
+#         )
+#         for run in submission.run
+#     ]
+#     return dict(
+#         submissiontype=submission.submissiontype_name,
+#         submitter_plate_id=submission.submitter_plate_id,
+#         submitted_date=submission.submitted_date,
+#         clientlab=getattr(clientlab, "name", "") if clientlab is not None else "",
+#         run=runs,
+#     )
 
 
 class SubmissionsTree(QTreeView):
@@ -243,8 +243,8 @@ class SubmissionsTree(QTreeView):
         options = [selectinload(ClientSubmission._clientlab),
                    selectinload(ClientSubmission._run).selectinload(Run._procedure)]
         self.model.clear()
-        subs = [submission_row_data(item)
-                for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size, options=options)]
+        subs = [submission.row_data
+                for submission in ClientSubmission.query(chronologic=True, page=page, page_size=page_size, options=options)]
         sorted_subs = sorted(subs, key=lambda s: _date_sort_key(s.get('submitted_date')), reverse=True)
         self.model.add_top_level_submissions(sorted_subs)
         for ii in range(len(self.model.headers)):

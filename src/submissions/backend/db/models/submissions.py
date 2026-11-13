@@ -836,6 +836,37 @@ class ClientSubmission(BaseClass, LogMixin):
                         for result in proceduresampleassociation.results:
                             yield result
 
+    @property
+    def row_data(self) -> dict:
+        """
+        Lightweight projection of a ClientSubmission for the tree view.
+
+        Pulls ONLY the fields the tree renders - the top-level columns plus the
+        run/procedure names used for lazy child expansion. This deliberately avoids
+        ``ClientSubmission.to_pydantic().improved_dict``, which serialises every
+        sample association, contact, comment and cost through a recursive sanitiser
+        and full Pydantic validation, none of which the tree ever displays.
+
+        :param submission: A ClientSubmission instance.
+        :return: dict with submissiontype, submitter_plate_id, submitted_date,
+                clientlab, and run (list of {rsl_plate_number, procedure[names]}).
+        """
+        clientlab = getattr(self, "clientlab", None)
+        runs = [
+            dict(
+                rsl_plate_number=run.rsl_plate_number,
+                procedure=[proc.name for proc in run.procedure],
+                approved=run.approved
+            )
+            for run in self.run
+        ]
+        return dict(
+            submissiontype=self.submissiontype_name,
+            submitter_plate_id=self.submitter_plate_id,
+            submitted_date=self.submitted_date,
+            clientlab=getattr(clientlab, "name", "") if clientlab is not None else "",
+            run=runs,
+        )
         
 class Run(BaseClass, LogMixin):
     """
