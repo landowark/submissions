@@ -672,29 +672,14 @@ class ClientSubmission(BaseClass, LogMixin):
         :type obj: SubmissionsTree
         """
         from frontend.widgets.sample_checker import SampleChecker
-        from backend.validators.pydant import SourcedField
         samples = [assoc.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
         run = Run.construct_dummy_run(clientsubmission=self)
         logger.debug(f"Run: {run.rsl_plate_number}")
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, run=run)
         if checker.exec():
-            run.rsl_plate_number = SourcedField(value=checker.rsl_plate_number)
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             try:
-                # Rank the selected pydantic samples, then convert them back to SQL Sample
-                selected_samples = []
-                for iii, sample in enumerate(samples, start=1):
-                    if not sample.enabled:
-                        logger.info(f"Skipping disabled sample {sample.sample_id} at rank {iii}")
-                        continue
-                    else:
-                        sample = self.rank_sample(sample, iii)
-                        selected_samples.append(sample)
-                run.sample = [s for s in selected_samples]
-                run = run.to_sql()             
-                if isinstance(run, tuple):
-                    run = run[0]
-                run.save()
+                self.create_run(samples=samples, rsl_plate_number=checker.rsl_plate_number, run=run)
             finally:
                 QApplication.restoreOverrideCursor()
         else:
@@ -705,6 +690,37 @@ class ClientSubmission(BaseClass, LogMixin):
             obj.upsert_submission(self)
         else:
             obj.set_data()
+
+    def create_run(self, samples: list, rsl_plate_number: str, run=None) -> Run:
+        """
+        Creates and saves a run from this submission's enabled samples, without any UI.
+
+        :param samples: Pydantic sample associations; disabled ones are skipped.
+        :type samples: list
+        :param rsl_plate_number: Plate number for the new run.
+        :type rsl_plate_number: str
+        :param run: Dummy PydRun to fill in. Defaults to a new one from Run.construct_dummy_run.
+        :type run: PydRun | None
+        :return: The saved run.
+        :rtype: Run
+        """
+        from backend.validators.pydant import SourcedField
+        if run is None:
+            run = Run.construct_dummy_run(clientsubmission=self)
+        run.rsl_plate_number = SourcedField(value=rsl_plate_number)
+        # NOTE: Rank the selected pydantic samples, then convert them back to SQL Sample
+        selected_samples = []
+        for iii, sample in enumerate(samples, start=1):
+            if not sample.enabled:
+                logger.info(f"Skipping disabled sample {sample.sample_id} at rank {iii}")
+                continue
+            selected_samples.append(self.rank_sample(sample, iii))
+        run.sample = selected_samples
+        run = run.to_sql()
+        if isinstance(run, tuple):
+            run = run[0]
+        run.save()
+        return run
 
     def edit(self, obj: SubmissionFormContainer):
         """

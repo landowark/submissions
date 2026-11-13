@@ -401,7 +401,7 @@ def render_details_template(template: str | Template, css_in: List[str] | str = 
     css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
     if isinstance(js_in, str):
         js_in = [js_in]
-    js_in = ["details"] + js_in
+    js_in = ["bridge", "details"] + js_in
     js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
     if isinstance(template, str):
         template = f"{template}.html"

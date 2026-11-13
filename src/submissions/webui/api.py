@@ -12,7 +12,11 @@ from getpass import getuser
 from tools import is_power_user
 
 # NOTE: Right-click actions the web UI can run so far. The rest still need their Qt dialogs ported.
-WEB_ACTIONS = {"Delete", "Add Comment", "Export", "Show Details"}
+WEB_ACTIONS = {
+      "submission": {"Delete", "Add Comment", "Show Details", "Add Run"},
+      "run": {"Delete", "Add Comment", "Show Details", "Export", "Edit"},
+      "procedure": {"Delete", "Add Comment", "Show Details"},
+    }
 
 
 def _iso(value) -> str:
@@ -115,7 +119,7 @@ class Api(object):
                     options = None
             if options == []:
                 continue
-            menu.append(dict(label=key, enabled=key in WEB_ACTIONS, options=options))
+            menu.append(dict(label=key, enabled=key in WEB_ACTIONS[kind], options=options))
         return menu      
 
     @db_call
@@ -125,7 +129,7 @@ class Api(object):
 
         :return: {ok, message, refresh}
         """
-        if action not in WEB_ACTIONS:
+        if action not in WEB_ACTIONS[kind]:
             return dict(ok=False, message=f"'{action}' isn't available in the web UI yet.", refresh=False)
         try:
             obj = self._get(kind, id)
@@ -149,6 +153,25 @@ class Api(object):
                         return dict(ok=False, message="Export cancelled.", refresh=False)
                     workbook.save(filename=path)
                     return dict(ok=True, message=f"Saved {path}", refresh=False)
+                case "Show Details":
+                      from .details import open_details_window
+                      open_details_window(self._ctx, obj)
+                      return dict(ok=True, message="", refresh=False)
+                case "Add Run":
+                      from backend.db.models import Run
+                      from .sample_checker import open_sample_checker
+                      dummy = Run.construct_dummy_run(clientsubmission=obj)
+                      open_sample_checker(self._ctx, "Create Run",
+                                          samples=[assoc.to_pydantic() for assoc in obj.clientsubmissionsampleassociation],
+                                          rsl_plate_number=dummy.rsl_plate_number.value, submission_id=obj.id,
+                                          on_done=lambda: self._window.evaluate_js("load(state.page)"))
+                      return dict(ok=True, message="", refresh=False)
+                case "Edit":
+                    from .sample_checker import open_sample_checker
+                    open_sample_checker(self._ctx, "Edit Run",
+                                        samples=[sample.to_pydantic() for sample in obj.sample],
+                                        rsl_plate_number=obj.to_pydantic().rsl_plate_number.value)
+                    return dict(ok=True, message="", refresh=False)
         except Exception as e:
             logger.exception(f"{action} on {kind} {id} failed: {e}")
             return dict(ok=False, message=f"{action} failed: {e}", refresh=False)                  
