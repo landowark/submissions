@@ -2146,7 +2146,7 @@ class Procedure(BaseClass):
     def preprocessing(self, obj):
         return self.proceduretype.preprocessing_methods
 
-    def add_results(self, obj, resultstype_name: str):
+    def add_results(self, obj, resultstype_name: str, ui=None):
         """
         Add results for this procedure using a manager determined by resultstype_name.
 
@@ -2162,7 +2162,7 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydResults
         results_manager = getattr(results, f"{resultstype}Manager")
         # e.g. DiomniPCRManager
-        rs = results_manager(procedure=self.to_pydantic(), parent=obj)
+        rs = results_manager(procedure=self.to_pydantic(), parent=obj, ui=ui)
         # The general results info, like the run info from an exported Diomni PCR xlsx file.
         procedure_results = rs.procedure_to_pydantic()
         # Actual per sample results.

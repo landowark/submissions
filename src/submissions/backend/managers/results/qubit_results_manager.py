@@ -9,9 +9,9 @@ from pathlib import Path
 from backend.validators.pydant import PydProcedure
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
-from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
-from tools import get_application_from_parent
-from frontend.widgets.functions import select_open_file
+# from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
+# from tools import get_application_from_parent
+# from frontend.widgets.functions import select_open_file
 from backend.excel.parsers.results_parsers.qubit_results_parser import QubitSampleParser, QubitInfoParser
 from . import DefaultResultsManager
 
@@ -20,25 +20,19 @@ class QubitManager(DefaultResultsManager):
 
     resultstype = "Qubit"
 
-    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Workbook | Worksheet | None = None):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Workbook | Worksheet | None = None, ui=None):
+        from . import QtResultsUI
+        self.procedure = procedure
+        self.ui = ui
         if input_object is None:
-            input_object = select_open_file(filetypes="CSV Files (*.csv)", obj=get_application_from_parent(parent))
-        super().__init__(procedure=procedure, parent=parent, input_object=input_object)
+            input_object = (self.ui or QtResultsUI()).choose_file(filetypes="CSV Files (*.csv)", parent=parent)
         self.sample_matcher()
 
     def sample_matcher(self):
         sqli = self.procedure.sql_instance
-        dlg = ResultsSampleMatcher(
-            parent=None,
-            results_var_name="original_sample_conc.",
-            results=self.sample_parser.parsed_info,
-            samples=sqli.proceduresampleassociation,
-            procedure=sqli,
-            results_type="Qubit"
-        )
-        if dlg.exec():
-            for result in dlg.output:
-                result.save()
+        for result in self.ui.match_samples(procedure=sqli, results=list(self.sample_parser.parsed_info),
+                                              results_var_name="original_sample_conc.", results_type="Qubit"):
+            result.save()
 
     def procedure_to_pydantic(self) -> None:
         """

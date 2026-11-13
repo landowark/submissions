@@ -15,11 +15,14 @@ from tools import is_power_user
 WEB_ACTIONS = {
       "submission": {"Delete", "Add Comment", "Show Details", "Add Run"},
       "run": {"Delete", "Add Comment", "Show Details", "Export", "Edit"},
-      "procedure": {"Delete", "Add Comment", "Show Details"},
+      "procedure": {"Delete", "Add Comment", "Show Details", "Add Results"},
     }
 
 
 def _iso(value) -> str:
+    """
+    Returns time in iso format string.
+    """
     if isinstance(value, datetime):
         return value.date().isoformat()
     if isinstance(value, date):
@@ -172,6 +175,12 @@ class Api(object):
                                         samples=[sample.to_pydantic() for sample in obj.sample],
                                         rsl_plate_number=obj.to_pydantic().rsl_plate_number.value)
                     return dict(ok=True, message="", refresh=False)
+                case "Add Results":
+                    from .results import WebResultsUI, WEB_RESULTS_TYPES
+                    if option not in WEB_RESULTS_TYPES:
+                        return dict(ok=False, message=f"{option} results can't be added from the web UI yet.", refresh=False)
+                    obj.add_results(obj=None, resultstype_name=option, ui=WebResultsUI(self._window))
+                    return dict(ok=True, message=f"{option} results added.", refresh=False)
         except Exception as e:
             logger.exception(f"{action} on {kind} {id} failed: {e}")
-            return dict(ok=False, message=f"{action} failed: {e}", refresh=False)                  
+            return dict(ok=False, message=f"{action} failed: {e}", refresh=False)

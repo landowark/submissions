@@ -16,7 +16,7 @@ class GelManager(DefaultImageManager):
 
     resultstype = "Gel Box"
 
-    def __init__(self, procedure: PydProcedure, parent, resultstype: str | ResultsType, input_object: Path | str | Image | None = None):
+    def __init__(self, procedure: PydProcedure, parent, resultstype: str | ResultsType, input_object: Path | str | Image | None = None, ui=None):
         super().__init__(procedure, parent, input_object)
         if resultstype:
             self.resultstype = resultstype if isinstance(resultstype, str) else resultstype.name

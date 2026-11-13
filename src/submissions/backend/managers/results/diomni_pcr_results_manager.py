@@ -8,8 +8,8 @@ from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.excel.parsers.results_parsers.diomni_pcr_results_parser import DiomniPCRSampleParser, DiomniPCRInfoParser
-from tools import get_application_from_parent
-from frontend.widgets import select_open_file
+# from tools import get_application_from_parent
+# from frontend.widgets import select_open_file
 from . import DefaultResultsManager
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -20,10 +20,11 @@ class DiomniPCRManager(DefaultResultsManager):
 
     resultstype = "Diomni PCR"
 
-    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Workbook | Worksheet | None = None):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Workbook | Worksheet | None = None, ui=None):
+        from . import QtResultsUI
         if input_object is None:
-            input_object = select_open_file(filetypes="Excel Files (*.xlsx)", obj=get_application_from_parent(parent))
-        super().__init__(procedure=procedure, parent=parent, input_object=input_object)
+            input_object = (ui or QtResultsUI()).choose_file(filetypes="Excel Files (*.xlsx)", parent=parent)
+        super().__init__(procedure=procedure, parent=parent, input_object=input_object, ui=ui)
         
     def parse(self):
         self.info = {}

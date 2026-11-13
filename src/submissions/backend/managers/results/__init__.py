@@ -7,9 +7,9 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from .. import DefaultManager
 # from backend.db.models import Procedure
-from frontend.widgets import select_open_file
+# from frontend.widgets import select_open_file
 from pathlib import Path
-from frontend.widgets import ExcelSheetSelector
+# from frontend.widgets import ExcelSheetSelector
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image
@@ -17,15 +17,49 @@ from typing import Generator, List
 from backend.validators.pydant import PydResults, PydProcedure
 
 
+class QtResultsUI(object):
+      """
+      The dialogs the results managers need, shown with Qt. The web UI passes webui.results.WebResultsUI instead.
+      """
+
+      @staticmethod
+      def choose_file(filetypes: str, parent=None) -> Path | None:
+          from frontend.widgets import select_open_file
+          from tools import get_application_from_parent
+          return select_open_file(filetypes=filetypes, obj=get_application_from_parent(parent) if parent is not None else None)
+
+      @staticmethod
+      def choose_sheets(workbook: Workbook) -> List[Worksheet]:
+          from frontend.widgets import ExcelSheetSelector
+          dlg = ExcelSheetSelector(workbook=workbook)
+          if dlg.exec():
+              return dlg.get_selected_sheets()
+          return []
+
+      @staticmethod
+      def match_samples(procedure, results: list, results_var_name: str, results_type: str) -> list:
+          """
+          :return: Results objects to save, or [] if cancelled.
+          """
+          from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
+          dlg = ResultsSampleMatcher(parent=None, results_var_name=results_var_name, results=results,
+                                     samples=procedure.proceduresampleassociation, procedure=procedure,
+                                     results_type=results_type)
+          return dlg.output if dlg.exec() else []
+      
+
 class DefaultResultsManager(DefaultManager):
 
     _pyd_object = PydResults
 
-    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str ):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str, ui=None):
         self.procedure = procedure
+        self.ui = ui or QtResultsUI()
         input_object = Path(input_object) if isinstance(input_object, str) else input_object
         if not input_object or not input_object.exists():
-            input_object = select_open_file(title="Select Excel File", filetypes="Excel Files (*.xlsx)")
+            input_object = self.ui.choose_file(filetypes="Excel Files (*.xlsx)", parent=parent)
+        if input_object is None:
+            raise FileNotFoundError("No results file selected.")
         if input_object.suffix == ".csv":
             input_object, _ = self.csv2xlsx(input_object)
             # ws = wb.active
@@ -38,19 +72,16 @@ class DefaultResultsManager(DefaultManager):
         wb.file = input_object
         super().__init__(parent=parent, input_object=wb)
 
-    @classmethod
-    def get_sheets_for_parsing(cls, workbook: Workbook) -> List[Worksheet]:
+    def get_sheets_for_parsing(self, workbook: Workbook) -> List[Worksheet]:
         """
-        Returns a dict of sheet names to be parsed. Override in child class if specific sheets are required.
+        Returns the sheets to be parsed, chosen by the user. Override in child class if specific sheets are required.
         """
-        dlg = ExcelSheetSelector(workbook=workbook)
-        if dlg.exec():
-            selected_sheets = dlg.get_selected_sheets()
+        selected_sheets = self.ui.choose_sheets(workbook)
+        if selected_sheets:
             logger.info(f"Selected sheets: {selected_sheets}")
-            return selected_sheets
         else:
             logger.warning(f"No sheets selected, cancelling.")
-            return []
+        return selected_sheets
     
     @classmethod
     def deep_merge(cls, destination, source):
@@ -87,6 +118,7 @@ class DefaultImageManager(DefaultManager):
     def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Image | None):
         self.procedure = procedure
         if not input_object:
+            from frontend.widgets import select_open_file
             input_object = select_open_file(filetypes="Image Files (*.png *.jpg *.jpeg *.tif *.tiff)")
         input_object = Path(input_object) if isinstance(input_object, str) else input_object
         input_object = Image.open(input_object) if isinstance(input_object, (str, Path)) else input_object
