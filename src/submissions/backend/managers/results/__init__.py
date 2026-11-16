@@ -18,35 +18,46 @@ from backend.validators.pydant import PydResults, PydProcedure
 
 
 class QtResultsUI(object):
-      """
-      The dialogs the results managers need, shown with Qt. The web UI passes webui.results.WebResultsUI instead.
-      """
+    """
+    The dialogs the results managers need, shown with Qt. The web UI passes webui.results.WebResultsUI instead.
+    """
 
-      @staticmethod
-      def choose_file(filetypes: str, parent=None) -> Path | None:
-          from frontend.widgets import select_open_file
-          from tools import get_application_from_parent
-          return select_open_file(filetypes=filetypes, obj=get_application_from_parent(parent) if parent is not None else None)
+    @staticmethod
+    def choose_file(filetypes: str, parent=None) -> Path | None:
+        from frontend.widgets import select_open_file
+        from tools import get_application_from_parent
+        return select_open_file(filetypes=filetypes, obj=get_application_from_parent(parent) if parent is not None else None)
 
-      @staticmethod
-      def choose_sheets(workbook: Workbook) -> List[Worksheet]:
-          from frontend.widgets import ExcelSheetSelector
-          dlg = ExcelSheetSelector(workbook=workbook)
-          if dlg.exec():
-              return dlg.get_selected_sheets()
-          return []
+    @staticmethod
+    def choose_sheets(workbook: Workbook) -> List[Worksheet]:
+        from frontend.widgets import ExcelSheetSelector
+        dlg = ExcelSheetSelector(workbook=workbook)
+        if dlg.exec():
+            return dlg.get_selected_sheets()
+        return []
 
-      @staticmethod
-      def match_samples(procedure, results: list, results_var_name: str, results_type: str) -> list:
-          """
-          :return: Results objects to save, or [] if cancelled.
-          """
-          from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
-          dlg = ResultsSampleMatcher(parent=None, results_var_name=results_var_name, results=results,
-                                     samples=procedure.proceduresampleassociation, procedure=procedure,
-                                     results_type=results_type)
-          return dlg.output if dlg.exec() else []
-      
+    @staticmethod
+    def match_samples(procedure, results: list, results_var_name: str, results_type: str) -> list:
+        """
+        :return: Results objects to save, or [] if cancelled.
+        """
+        from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
+        dlg = ResultsSampleMatcher(parent=None, results_var_name=results_var_name, results=results,
+                                    samples=procedure.proceduresampleassociation, procedure=procedure,
+                                    results_type=results_type)
+        return dlg.output if dlg.exec() else []
+
+    @staticmethod
+    def gel_results(procedure, image, resultstype: str) -> dict | None:
+        """
+        :return: The controls form values, or None if cancelled.
+        """
+        from backend.excel.parsers.results_parsers import GelBoxParser
+        parser = GelBoxParser(procedure=procedure, img=image, resultstype=resultstype)
+        if parser.exec():
+            return parser.controls_form.parse_form()
+        return None
+    
 
 class DefaultResultsManager(DefaultManager):
 
@@ -115,11 +126,13 @@ class DefaultResultsManager(DefaultManager):
 
 class DefaultImageManager(DefaultManager):
 
-    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Image | None):
+    def __init__(self, procedure: PydProcedure, parent, input_object: Path | str | Image | None, ui=None):
         self.procedure = procedure
+        self.ui = ui or QtResultsUI()
         if not input_object:
-            from frontend.widgets import select_open_file
-            input_object = select_open_file(filetypes="Image Files (*.png *.jpg *.jpeg *.tif *.tiff)")
+            input_object = self.ui.choose_file(filetypes="Image Files (*.png *.jpg *.jpeg *.tif *.tiff)", parent=parent)
+        if input_object is None:
+            raise FileNotFoundError("No image selected.")
         input_object = Path(input_object) if isinstance(input_object, str) else input_object
         input_object = Image.open(input_object) if isinstance(input_object, (str, Path)) else input_object
         super().__init__(parent=parent, input_object=input_object)
@@ -129,4 +142,4 @@ from .diomni_pcr_results_manager import *
 from .qubit_results_manager import *
 from .gelbox_results_manager import *
 
-__all__ = ["DefaultResultsManager", "DiomniPCRManager", "QubitManager", "GelManager"]
+__all__ = ["DefaultResultsManager", "DiomniPCRManager", "QubitManager", "GelManager", "GelBoxManager"]

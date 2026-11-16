@@ -492,6 +492,32 @@ class BaseClass(Base):
         return query.limit(50).all()
 
     @classmethod
+    def results_to_df(cls, objects: list | None = None):
+        """
+        Convert model objects to a Pandas DataFrame, one row per object, from their details_dict
+        (minus its 'excluded' keys). Used by the search dialogs.
+
+        :param objects: Objects to convert. If None, queries all objects.
+        :type objects: list or None
+        :return: Pandas DataFrame with one row per object.
+        :rtype: :class:`pandas.DataFrame`
+        """
+        from pandas import DataFrame
+        if not objects:
+            try:
+                objects = cls.query()
+            except AttributeError:
+                objects = cls.query(page_size=0)
+        if not isinstance(objects, list):
+            objects = [objects] if objects is not None else []
+        records = []
+        for obj in objects:
+            dicto = obj.details_dict
+            excluded = dicto.get('excluded', [])
+            records.append({key: value for key, value in dicto.items() if key not in excluded})
+        return DataFrame.from_records(records)
+
+    @classmethod
     def _mapped_fields(cls) -> set[str]:
         """
         Names of columns, relationships and hybrid accessors on this model

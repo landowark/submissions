@@ -68,7 +68,7 @@ class SearchBox(QDialog):
             if self.sub_class.currentText() == "Any":
                 self.object_type = self.original_type
             else:
-                self.object_type = self.original_type.find_regular_subclass(self.sub_class.currentText())
+                self.object_type = self.original_type.find_subclasses(class_name=self.sub_class.currentText())
         for item in self.object_type.get_searchables():
             if item in [thing for thing in search_fields]:
                 continue

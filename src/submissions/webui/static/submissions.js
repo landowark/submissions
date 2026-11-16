@@ -166,6 +166,12 @@ async function init() {
       const result = await pywebview.api.import_submission();
       if (result?.message) status(result.message);
     };
+    const search = document.getElementById('search');
+    search.onchange = async () => {
+      const name = search.value;
+      search.value = '';
+      if (name) await pywebview.api.open_search(name);
+    };
     await load(1);
 }
 

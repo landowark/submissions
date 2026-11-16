@@ -906,7 +906,8 @@ class ClientSubmission(BaseClass, LogMixin):
             clientlab=getattr(clientlab, "name", "") if clientlab is not None else "",
             run=runs,
         )
-        
+
+
 class Run(BaseClass, LogMixin):
     """
     Represents a single analytical run associated with a client submission.
@@ -2379,6 +2380,13 @@ class Sample(BaseClass, LogMixin):
                    "clientsubmission", "run", "procedure"]
         df = df.loc[:, ~df.columns.isin(exclude)]
         return df
+
+    @classmethod
+    def results_to_df(cls, objects: list | None = None):
+        """
+        Search results for samples, using samples_to_df's column exclusions.
+        """
+        return cls.samples_to_df(sample_list=objects or [])
 
     def edit_from_search(self, obj: SearchResults, **kwargs):
         """

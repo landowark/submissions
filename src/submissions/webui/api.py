@@ -285,3 +285,9 @@ class Api(object):
 
         # NOTE: Off the event thread, because opening the import window parses the whole file first.
         Thread(target=run, daemon=True).start()
+
+    @db_call
+    def open_search(self, name: str) -> None:
+        from backend.db.models import Sample, ReagentLot
+        from .search import open_search_window
+        open_search_window(self._ctx, {"Sample": Sample, "Reagent Lot": ReagentLot}[name])
