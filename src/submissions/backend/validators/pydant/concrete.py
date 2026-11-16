@@ -738,25 +738,31 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
         equipment_of_interest: PydProcedureEquipmentAssociation = next((item for item in self.equipment if item.equipmentrole == equipmentrole), None)
-        equipment = Equipment.query(name=equipment)
+        equipment_name = equipment
+        equipment = Equipment.query(name=equipment_name)
+        if equipment is None:
+            logger.warning(f"No equipment named {equipment_name!r} for {equipmentrole}; ignoring.")
+            return
         if equipment_of_interest:
             eoi = self.equipment.pop(self.equipment.index(equipment_of_interest))
             eoi.equipment = equipment.to_pydantic()
         else:
             eoi = PydProcedureEquipmentAssociation(equipment=equipment.to_pydantic(), equipmentrole=equipmentrole, procedure=self)
         logger.debug(f"Attempting to query processversion with name {processversion}")
-        processversion = ProcessVersion.query(name=processversion, limit=1)
-        # NOTE Retrieves correct instance.
-        eoi.processversion = processversion.to_pydantic()
-        # NOTE Correct pydprocessverion
+        found = ProcessVersion.query(name=processversion, limit=1) if processversion else None
+        if found is None:
+            # NOTE: Happens when the equipment has no process versions, or before the process list has loaded.
+            logger.warning(f"No process version named {processversion!r} for {equipmentrole}; leaving it unset.")
+        eoi.processversion = found.to_pydantic() if found is not None else None
         out_tips = []
-        for tipslot in tips:
-            try:
-                # tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tipslot.split(" - ")]
-                tips = TipsLot.query(name=tipslot, limit=1)
-                out_tips.append(tips.to_pydantic())
-            except ValueError:
-                logger.warning(f"No tips info to unpack")
+        for tipslot in ([tips] if isinstance(tips, str) else tips or []):
+            if not tipslot:
+                continue
+            found_tips = TipsLot.query(name=tipslot, limit=1)
+            if found_tips is None:
+                logger.warning(f"No tips lot named {tipslot!r}; skipping.")
+                continue
+            out_tips.append(found_tips.to_pydantic())
         eoi.tipslot = out_tips
         if checked:
             self.equipment.append(eoi)

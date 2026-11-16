@@ -131,7 +131,7 @@ for(let i = 0; i < checkboxes.length; i++) {
             process.disabled = !checkboxes[i].checked;
             tips = document.getElementById(checkboxes[i].name + "_tips");
             tips.disabled = !checkboxes[i].checked;
-            backend.update_equipment(neighbour.name, neighbour.value, process.value, tips.value, checkboxes[i].checked);
+            backend.update_equipment(neighbour.name, neighbour.value, process.value, getSelectValues(tips), checkboxes[i].checked);
         } else if (neighbour.classList.contains("reagentrole")) {
             backend.update_reagent(neighbour.name, neighbour.value, checkboxes[i].checked);
         };
@@ -186,8 +186,8 @@ async function equipment_startup(role_name) {
     var eq_dropdown = document.getElementById(role_name);
     var proc_dropdown = document.getElementById(role_name + "_process");
     var tips_dropdown = document.getElementById(role_name + "_tips");
-    eq_dropdown.addEventListener("change", function(){ updateProcessChoices(role_name); updateBackend(role_name); });
-    proc_dropdown.addEventListener("change", function(){ updateTipChoices(role_name); updateBackend(role_name); });
+    eq_dropdown.addEventListener("change", async function(){ await updateProcessChoices(role_name); updateBackend(role_name); });
+    proc_dropdown.addEventListener("change", async function(){ await updateTipChoices(role_name); updateBackend(role_name); });
     tips_dropdown.addEventListener("change", function(){ updateBackend(role_name); });
     var selected = await backend.get_selected_equipment(role_name);
     await updateEquipmentChoices(role_name, selected);

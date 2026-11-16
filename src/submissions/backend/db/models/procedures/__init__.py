@@ -2432,6 +2432,13 @@ class Procedure(BaseClass):
                 self._misc_info['sample'] = self.sanitize_obj_for_json(self._misc_info['sample'])
             except TypeError:
                 del self._misc_info['sample']
+        # NOTE: Sample associations created for brand-new samples (e.g. controls added on the plate map) only reach
+        # the session through this procedure. SQLAlchemy 2.0 doesn't cascade backref-side additions, so add them
+        # explicitly or the commit skips them ("not in session, add operation ... will not proceed").
+        session = self.__database_session__
+        for assoc in self.proceduresampleassociation:
+            if assoc is not None and assoc not in session:
+                session.add(assoc)
         super().save()
         with self.run.__database_session__.no_autoflush:
             run_samples = [assoc.sample for assoc in self.run.runsampleassociation]

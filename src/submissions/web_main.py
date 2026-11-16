@@ -6,7 +6,10 @@ _crash_log.parent.mkdir(parents=True, exist_ok=True)
 faulthandler.enable(open(_crash_log, "a"))
 
 import sys
-from tools import ctx, check_if_app
+import logging
+from tools import ctx, check_if_app, CustomLogger
+# NOTE: Same logger setup as the Qt __main__.py. Without it, every submissions.* debug/info message is dropped.
+logging.setLoggerClass(CustomLogger)
 import webview
 from webui.api import Api
 from webui import idle

@@ -171,7 +171,6 @@ class ProcedureApi(object):
 
     @on_window_thread
     def rearrange_plate(self, sample_list: List[dict]) -> None:
-        logger.debug(pformat(sample_list))
         self._procedure.update_samples(sample_list=sample_list)
 
     def log(self, logtext: str) -> None:
@@ -300,12 +299,17 @@ class ProcedureApi(object):
         OK: saves the procedure, as Run.add_procedure / Procedure.edit do after exec().
         """
         try:
+            logger.info("Procedure samples before save: " + ", ".join(
+                  f"{getattr(a.sample, 'sample_id', a.sample)}@{a.row},{a.column} ctrl={getattr(a.sample, 'is_control', '?')}"
+                  for a in self._procedure.sample))
             sql = self._return_sql()
             if not self._edit and len(sql.sample) != len(self._procedure.sample):
                 raise ValueError(f"SQL object sample length {len(sql.sample)} did not equal "
                                 f"input sample length {len(self._procedure.sample)}")
             sql.update_last_useds()
             sql.save()
+            logger.info("Procedure samples in database: " + ", ".join(
+                  f"{a.sample.sample_id if a.sample else None}@{a.row},{a.column}" for a in sql.proceduresampleassociation))
         except Exception as e:
             logger.exception(f"Couldn't save procedure: {e}")
             message = json.dumps(f"Couldn't save procedure: {e}")
