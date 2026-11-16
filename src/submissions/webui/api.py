@@ -16,7 +16,7 @@ import json
 WEB_ACTIONS = {
         "submission": {"Delete", "Add Comment", "Show Details", "Add Run"},
         "run": {"Delete", "Add Comment", "Show Details", "Export", "Edit", "Add Procedure"},
-        "procedure": {"Delete", "Add Comment", "Show Details", "Add Results", "Edit"},
+        "procedure": {"Preprocessing", "Delete", "Add Comment", "Show Details", "Add Results", "Edit"},
     }
 
 def _iso(value) -> str:
@@ -191,6 +191,16 @@ class Api(object):
                         return dict(ok=False, message=f"{option} results can't be added from the web UI yet.", refresh=False)
                     obj.add_results(obj=None, resultstype_name=option, ui=WebResultsUI(self._window))
                     return dict(ok=True, message=f"{option} results added.", refresh=False)
+                case "Preprocessing":
+                    from .preprocessing import WebSettingsUI
+                    method = next((m for m in obj.proceduretype.preprocessing_methods if m.get("name") == option), None)
+                    if method is None:
+                        return dict(ok=False, message=f"Unknown preprocessing step: {option}", refresh=False)
+                    settings = method["function"](obj=None, procedure=obj.to_pydantic(),
+                                                  resultstype=method["results_type"], ui=WebSettingsUI(self._window))
+                    if settings.output_path:
+                        return dict(ok=True, message=f"Saved {settings.output_path}", refresh=False)
+                    return dict(ok=False, message=f"{option} cancelled.", refresh=False)
         except Exception as e:
             logger.exception(f"{action} on {kind} {id} failed: {e}")
             return dict(ok=False, message=f"{action} failed: {e}", refresh=False)

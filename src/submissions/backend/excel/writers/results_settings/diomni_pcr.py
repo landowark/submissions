@@ -50,6 +50,9 @@ class DiomniPCRSettings(DefaultSettings):
         """
         
         filepath = self.render_file_path(file_extension="csv")
+        if not filepath:
+            logger.info("Save cancelled.")
+            return
         toplines  = [
             ['*All Inputs are case sensitive.  For Example:  FAM is different from Fam', '', '', '', '', '', '', '', '', '', '', ''],
             ['*Do not change column header names and do not delete [Sample Setup]. Minimal columns needed are:  Well and Well Position', '', '', '', '', '', '', '', '', '', '', ''],
@@ -81,5 +84,6 @@ class DiomniPCRSettings(DefaultSettings):
             writer = csvwriter(f, delimiter=",")
             writer.writerows(toplines)
             writer.writerows(samples)
+        self.output_path = filepath
             
 __all__ = ["DiomniPCRSettings"]

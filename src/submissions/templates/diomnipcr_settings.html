@@ -155,7 +155,8 @@
 
         // Use the window.backend object registered in your QWebChannel
         if (window.backend && window.backend.update_settings) {
-            window.backend.update_settings(data);
+            //window.backend.update_settings(data);
+            return window.backend.update_settings(data);
         }
     }
 

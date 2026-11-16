@@ -36,7 +36,7 @@ FORM_SCRIPT = """
         if (!input.disabled && !input.readOnly) values[input.dataset.key] = input.value;
       }
       const samples = {};
-      for (const input of document.querySelectorAll('#samples input')) samples[input.dataset.rank] = input.value;
+      for (const input of document.querySelectorAll('#samples input')) samples[input.dataset.index] = input.value;
       const result = await pywebview.api.save(values, samples);
       if (result && !result.ok) { alert(result.message); button.disabled = false; }
     }
@@ -150,10 +150,10 @@ def _samples_html(samples: list[dict]) -> str:
     The sample id list from the old Sample Checker page, as editable inputs.
     """
     rows = "".join(
-        f'<div class="sample"><span>{int(sample["rank"]):02d}</span>'
-        f'<input type="text" data-rank="{sample["submission_rank"]}" '
-        f'value="{html_lib.escape(str(sample["sample_id"] or ""))}" oninput="markDuplicates()"></div>'
-        for sample in samples)
+          f'<div class="sample"><span>{sample["rank"]:02d}</span>'
+          f'<input type="text" data-index="{sample["index"]}" '
+          f'value="{html_lib.escape(sample["sample_id"])}" oninput="markDuplicates()"></div>'
+          for sample in samples)
     return (f'<section id="samples"><h3>Samples</h3><p>Take a moment to verify sample names.</p>{rows}</section>')
 
 def _form_page(title: str, fields: list[dict], samples: list[dict] | None = None) -> str:
@@ -247,11 +247,24 @@ class SubmissionFormApi(object):
         self._disable = ['submitter_plate_id']
         return self._form()
 
+    def _sample_rows(self) -> list[dict]:
+        """
+        One row per sample in the parsed submission, keyed by list position. At import the samples are
+        PydSamples, which have `rank` (not the association's `submission_rank`).
+        """
+        rows = []
+        for index, sample in enumerate(self._pyd.sample):
+            rank = getattr(sample, "rank", None)
+            rows.append(dict(index=index,
+                            rank=rank if isinstance(rank, int) and rank > 0 else index + 1,
+                            sample_id=str(sample.improved_dict.get("sample_id") or "")))
+        return rows
+
     def _form(self, with_samples: bool = False) -> tuple[str, str]:
         self._fields = form_fields(self._pyd, self._disable)
-        samples = format_sample_list(self._pyd.sample) if with_samples else None
+        samples = self._sample_rows() if with_samples else None
         # NOTE: Remember what was shown, so save() only writes back the ids the user changed.
-        self._sample_ids = {int(s["submission_rank"]): str(s["sample_id"] or "") for s in samples or []}
+        self._sample_ids = {row["index"]: row["sample_id"] for row in samples or []}
         title = "Edit Submission" if self._edit else "New Submission"
         return title, _form_page(title, self._fields, samples)
 
@@ -267,14 +280,11 @@ class SubmissionFormApi(object):
         """
         from backend.validators.pydant import PydSample
         try:
-            for rank, sample_id in (samples or {}).items():
-                if self._sample_ids.get(int(rank)) == sample_id:
+            for index, sample_id in (samples or {}).items():
+                index = int(index)
+                if self._sample_ids.get(index) == sample_id:
                     continue
-                sample = next((s for s in self._pyd.sample if int(rank) == s.submission_rank), None)
-                if sample is None:
-                    logger.error(f"Unable to find sample {rank}")
-                    continue
-                setattr(sample, "sample_id", sample_id)
+                setattr(self._pyd.sample[index], "sample_id", sample_id)
             kinds = {field["key"]: field["kind"] for field in self._fields}
             for key, value in values.items():
                 if key == "sample" or key not in kinds:
@@ -310,7 +320,6 @@ def _open(api: SubmissionFormApi, loader, *args) -> None:
     api._window = webview.create_window(title, html=html, js_api=api, width=1250, height=850)
     api._window.events.closed += api._thread.close
 
-
 def open_import_window(ctx, path: Path, on_done: Callable[[], None] | None = None) -> None:
     api = SubmissionFormApi(ctx, edit=False, on_done=on_done)
     _open(api, api._load_import, path)
@@ -318,7 +327,6 @@ def open_import_window(ctx, path: Path, on_done: Callable[[], None] | None = Non
 def open_import_window(ctx, path: Path, on_done: Callable[[], None] | None = None) -> None:
     api = SubmissionFormApi(ctx, edit=False, on_done=on_done)
     _open(api, api._load_import, path)
-
 
 def open_edit_window(ctx, submission_id: int, on_done: Callable[[], None] | None = None) -> None:
     api = SubmissionFormApi(ctx, edit=True, on_done=on_done)
