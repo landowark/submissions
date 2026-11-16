@@ -166,7 +166,8 @@ class DefaultKEYVALUEParser(DefaultParser):
         :returns: Pydantic Model
         :rtype: _pyd_object
         """
-        return self._pyd_object({k:v for k,v in self.parsed_info})
+        print(f"\nAttmepting to create {self.__class__} object with values {pformat(self.parsed_info)}\n")
+        return self._pyd_object(**{k:v for k,v in self.parsed_info})
 
 
 class DefaultTABLEParser(DefaultParser):

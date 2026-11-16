@@ -1,7 +1,8 @@
 """
 PyInstaller spec for the pywebview UI only (web_main.py). Leaves out the Qt frontend and Qt WebEngine.
 
-Build: pyinstaller .\\submissions_web.spec --noconfirm
+Build:  pyinstaller .\\submissions_web.spec --noconfirm --clean
+Deploy: copy dist\\<name>\\ and dist\\Submissions.cmd to the share; point shortcuts at Submissions.cmd.
 """
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ QT_FRONTEND = [
 UNUSED = ["tkinter", "matplotlib", "scipy", "IPython", "jupyter", "notebook", "pytest", "sphinx", "docutils",
         "pyarrow", "numba"]
 
-name = f"{__project__}_web_{__version__}"
+name = f"{__project__}{__version__}"
 
 a = Analysis(
     ['src\\submissions\\web_main.py'],
@@ -35,7 +36,7 @@ a = Analysis(
         *([("docs\\build", "files\\docs")] if Path("docs", "build").exists() else []),
     ],
     hiddenimports=["pyodbc", "webview.platforms.edgechromium", "webview.platforms.winforms", "clr",
-                     "gql", "gql.transport.requests"],
+                    "gql", "gql.transport.requests"],
     excludes=QT_FRONTEND + UNUSED,
     noarchive=False,
 )
@@ -50,7 +51,8 @@ exe = EXE(
       bootloader_ignore_signals=False,
       strip=False,
       upx=False,
-      console=True,
+      # NOTE: No console window. Crashes still land in %LOCALAPPDATA%\submissions_tng\crash.log (web_main.py).
+      console=False,
       disable_windowed_traceback=False,
       argv_emulation=False,
       target_arch=None,
@@ -60,6 +62,7 @@ exe = EXE(
 coll = COLLECT(exe, a.binaries, a.zipfiles, a.datas, strip=False, upx=False, upx_exclude=[], name=name)
 
 # NOTE: .NET (pythonnet/WebView2) refuses assemblies loaded from a network share unless the exe's config allows it.
+# The file must be named exactly after the exe, hence `name`.
 Path(DISTPATH, name, f"{name}.exe.config").write_text(
     '<?xml version="1.0" encoding="utf-8"?>\n'
     '<configuration>\n'

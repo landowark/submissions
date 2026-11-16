@@ -21,6 +21,7 @@ class Booleanize(Enum):
 
 
 def booleanize(value: int | bool | str | None, mode: Booleanize = Booleanize.BOOL) -> int | bool:
+    from . import SourcedField
     match value:
         case int() | bool():
             output = value
@@ -31,6 +32,10 @@ def booleanize(value: int | bool | str | None, mode: Booleanize = Booleanize.BOO
                 output = 0
             else:
                 raise ValueError(f"Cannot convert string {value} to booleanize")
+        case dict():
+            output = booleanize(value.get("value", None), mode=mode)
+        case SourcedField():
+            output = booleanize(value.value)
         case None:
             output = 0
         case _:
