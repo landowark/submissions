@@ -20,7 +20,7 @@ QT_FRONTEND = [
 UNUSED = ["tkinter", "matplotlib", "scipy", "IPython", "jupyter", "notebook", "pytest", "sphinx", "docutils",
         "pyarrow", "numba"]
 
-name = f"{__project__}{__version__}"
+name = f"{__project__}_{__version__}"
 
 a = Analysis(
     ['src\\submissions\\web_main.py'],
@@ -52,7 +52,7 @@ exe = EXE(
       strip=False,
       upx=False,
       # NOTE: No console window. Crashes still land in %LOCALAPPDATA%\submissions_tng\crash.log (web_main.py).
-      console=False,
+      console=True,
       disable_windowed_traceback=False,
       argv_emulation=False,
       target_arch=None,

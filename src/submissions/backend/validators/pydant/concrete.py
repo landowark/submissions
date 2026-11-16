@@ -744,6 +744,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             eoi.equipment = equipment.to_pydantic()
         else:
             eoi = PydProcedureEquipmentAssociation(equipment=equipment.to_pydantic(), equipmentrole=equipmentrole, procedure=self)
+        logger.debug(f"Attempting to query processversion with name {processversion}")
         processversion = ProcessVersion.query(name=processversion, limit=1)
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
