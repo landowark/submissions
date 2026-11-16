@@ -1580,17 +1580,22 @@ class Settings(BaseSettings, extra="allow"):
         """
         Runs teardown scripts.
         """
+        threads = []
         try:
             for script in self.teardown_scripts.values():
                 try:
                     logger.info(f"Running teardown script: {script.__name__}")
                     thread = Thread(target=script, args=(ctx,))
                     thread.start()
+                    threads.append(thread)
                 except AttributeError:
                     logger.exception(f"Couldn't run teardown script: {script}")
         except AttributeError:
             logger.exception(f"Couldn't run teardown scripts.")
         finally:
+            # NOTE: Let teardown scripts (e.g. a database backup) finish before the database is closed under them.
+            for thread in threads:
+                thread.join(timeout=60)
             self.close_database()
             
     @classmethod
