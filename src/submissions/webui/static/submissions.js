@@ -172,6 +172,18 @@ async function init() {
       search.value = '';
       if (name) await pywebview.api.open_search(name);
     };
+    document.getElementById('export').onclick = async () => {
+      const result = await pywebview.api.export_submissions();
+      if (result?.message) status(result.message);
+    };
+    const help = document.getElementById('help');
+    help.onchange = async () => {
+      const item = help.value;
+      help.value = '';
+      if (!item) return;
+      const result = await pywebview.api.help(item);
+      if (result?.message) status(result.message);
+    };
     await load(1);
 }
 

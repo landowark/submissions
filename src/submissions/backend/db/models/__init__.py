@@ -456,7 +456,9 @@ class BaseClass(Base):
                 continue
             if not isinstance(item[1], InstrumentedAttribute) and not isinstance(item[1], hybrid_property):
                 continue
-            if not isinstance(item[1].property, ColumnProperty):
+            # NOTE: getmembers returns the raw hybrid_property (no .property) when the hybrid's class-level
+            # expression raises, so it isn't a searchable column; skip it instead of failing.
+            if not isinstance(getattr(item[1], "property", None), ColumnProperty):
                 continue
             if len(item[1].foreign_keys) > 0:
                 continue

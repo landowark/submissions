@@ -291,3 +291,23 @@ class Api(object):
         from backend.db.models import Sample, ReagentLot
         from .search import open_search_window
         open_search_window(self._ctx, {"Sample": Sample, "Reagent Lot": ReagentLot}[name])
+
+    @db_call
+    def export_submissions(self) -> dict:
+        from .menu_tools import export_submissions
+        try:
+            return export_submissions(self._window)
+        except Exception as e:
+            logger.exception(f"Submissions to Excel failed: {e}")
+            return dict(ok=False, message=f"Submissions to Excel failed: {e}")
+
+    def help(self, item: str) -> dict:
+        from .menu_tools import open_about, open_docs, open_github
+        match item:
+            case "About":
+                open_about(self._ctx)
+            case "Docs":
+                return open_docs()
+            case "GitHub":
+                open_github(self._ctx)
+        return dict(ok=True, message="")

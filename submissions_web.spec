@@ -32,6 +32,7 @@ a = Analysis(
         ("src\\submissions\\webui\\static", "files\\webui\\static"),
         ("alembic.ini", "files"),
         ("src\\scripts\\*.py", "files\\scripts"),
+        *([("docs\\build", "files\\docs")] if Path("docs", "build").exists() else []),
     ],
     hiddenimports=["pyodbc", "webview.platforms.edgechromium", "webview.platforms.winforms", "clr",
                      "gql", "gql.transport.requests"],

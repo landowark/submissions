@@ -32,7 +32,14 @@ SEARCH_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>__TITLE
         const message = (text) => { document.getElementById('message').textContent = text; };
 
         async function buildFields() {
-            const names = await pywebview.api.fields(subclass());
+            let names;
+            try {
+                names = await pywebview.api.fields(subclass());
+            } catch (err) {
+                message(`Couldn't load search fields: ${err.message ?? err}`);
+                console.error(err);
+                return;
+            }
             document.getElementById('fields').replaceChildren(...names.map((name) => {
             const label = document.createElement('label');
             const input = document.createElement('input');

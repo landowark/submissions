@@ -1441,16 +1441,20 @@ class Run(BaseClass, LogMixin):
 
         :return: Pandas dataframe of runs sorted by 'id'.
         """
+        def as_list(result) -> list:
+            # NOTE: query() returns a single object (not a list) on exactly one match, None on none.
+            if result is None:
+                return []
+            return result if isinstance(result, list) else [result]
+
         if submissiontype:
             if isinstance(submissiontype, str):
                 submissiontype = [submissiontype]
-            query_out = []
-            for sub_type in submissiontype:
-                subs = cls.query(page_size=0, start_date=start_date, end_date=end_date, submissiontype=sub_type)
-                query_out.append(subs)
-            query_out = list(chain.from_iterable(query_out))
+            query_out = list(chain.from_iterable(
+                as_list(cls.query(page_size=0, start_date=start_date, end_date=end_date, submissiontype=sub_type))
+                for sub_type in submissiontype))
         else:
-            query_out = cls.query(page_size=0, start_date=start_date, end_date=end_date)
+            query_out = as_list(cls.query(page_size=0, start_date=start_date, end_date=end_date))
         records = []
         for sub in query_out:
             preparse = sub.details_dict
@@ -1465,6 +1469,8 @@ class Run(BaseClass, LogMixin):
                         output[k] = v
             records.append(output)
         df = DataFrame.from_records(records)
+        if df.empty:
+            return df
         df.sort_values(by="id", inplace=True)
         df.set_index("id", inplace=True)
         return df
