@@ -609,6 +609,10 @@ class ClientSubmission(BaseClass, LogMixin):
               query = query.options(*options)
         return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
+    @classproperty
+    def aliases(cls) -> List[str]:
+        return super().aliases + ['submission']
+
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
                           chronologic: bool = True, page: int = 1, page_size: int = 250) -> DataFrame:
@@ -2776,7 +2780,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
         :returns: List of names
         :rtype: List[str]
         """
-        return super().aliases + ["equipmentequipmentroleassociation"]
+        return super().aliases + ["sampleclientsubmissionassociation"]
 
     def add_comment(self, obj):
         """

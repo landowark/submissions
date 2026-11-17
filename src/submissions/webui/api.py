@@ -5,29 +5,16 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from functools import wraps
-import webview
+import webview, json
 from math import ceil
 from datetime import date, datetime
 from getpass import getuser
 from tools import is_power_user
-import json
+from typing import TYPE_CHECKING, List
+if TYPE_CHECKING:
+    from tools import Settings
+    from backend.validators.pydant import PydBaseClass
 
-# NOTE: Right-click actions the web UI can run so far. The rest still need their Qt dialogs ported.
-WEB_ACTIONS = {
-        "submission": {"Delete", "Add Comment", "Show Details", "Add Run"},
-        "run": {"Delete", "Add Comment", "Show Details", "Export", "Edit", "Add Procedure"},
-        "procedure": {"Preprocessing", "Delete", "Add Comment", "Show Details", "Add Results", "Edit"},
-    }
-
-def _iso(value) -> str:
-    """
-    Returns time in iso format string.
-    """
-    if isinstance(value, datetime):
-        return value.date().isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    return "" if value is None else str(value)
 
 def db_call(func):
     """
@@ -47,38 +34,100 @@ def db_call(func):
 
 class Api(object):
 
-    def __init__(self, ctx):
+    # NOTE: Right-click actions the web UI can run so far. The rest still need their Qt dialogs ported.
+    WEB_ACTIONS = {
+        "submission": {"Delete", "Add Comment", "Show Details", "Add Run"},
+        "run": {"Delete", "Add Comment", "Show Details", "Export", "Edit", "Add Procedure"},
+        "procedure": {"Preprocessing", "Delete", "Add Comment", "Show Details", "Add Results", "Edit"},
+    }
+
+    def __init__(self, ctx: Settings):
         # NOTE: Underscore names are not exposed to JS by pywebview.
         self._ctx = ctx
         self._window = None
 
     def app_info(self) -> dict:
+        """
+        Dictionary of application info
+        NOTE: Cannot be a property due to being called in JS.
+
+        :returns: dict(version=self._ctx.package.__version__, database=f"{self._ctx.database.path}/{self._ctx.database.name}")
+        :rtype: dict
+        """
         return dict(
             version=self._ctx.package.__version__,
             database=f"{self._ctx.database.path}/{self._ctx.database.name}",
         )
 
+    @staticmethod
+    def _iso(value) -> str:
+        """
+        Returns time in iso format string.
+
+        :returns: iso formatted string or ""
+        :rtype: str
+        """
+        if isinstance(value, datetime):
+            return value.date().isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        return "" if value is None else str(value)
+
     @db_call
     def submission_count(self) -> int:
+        """
+        Gets count of ClientSubmission objects.
+
+        :returns: self._ctx.database.session().query(func.count(ClientSubmission.id)).scalar()
+        :rtype: int
+        """
         from sqlalchemy import func
         from backend.db.models import ClientSubmission
         return self._ctx.database.session().query(func.count(ClientSubmission.id)).scalar()
 
     def choose_save_file(self, default_name: str, extension: str) -> str | None:
+        """
+        Select file save location from a dialog.
+
+        :param default_name: Default name constructed by program.
+        :type default_name: str
+        :param extension: File type suffix (e.g. 'xlsx', 'csv')
+        :type extension: str
+        :returns: Choosen filename
+        :rtype: str
+        """
         result = self._window.create_file_dialog(
             webview.FileDialog.SAVE, save_filename=f"{default_name}.{extension}",
             file_types=(f"{extension.upper()} files (*.{extension})",))
         return result if isinstance(result, str) else (result[0] if result else None)
 
     @staticmethod
-    def _model(kind: str):
-        from backend.db.models import ClientSubmission, Run, Procedure
-        return {"submission": ClientSubmission, "run": Run, "procedure": Procedure}[kind]
+    def _model(alias: str):
+        """
+        Gets a SqlAlchemy model by its alias.
 
-    def _get(self, kind: str, id: int):
-        obj = self._ctx.database.session().get(self._model(kind), int(id))
+        :param alias: Alias of the model of interest.
+        :type alias: str
+        :returns: BaseClass subclass with the alias.
+        :rtype: BaseClass 
+        """
+        from backend.db.models import BaseClass
+        return BaseClass.find_subclasses(class_alias=alias)
+        
+    def _get(self, alias: str, id: int):
+        """
+        Gets an instance of a BaseClass subclass by id.
+
+        :param alias: Alias of the model in question.
+        :type alias: str
+        :param id: Unique id of the instance of interest.
+        :type id: int
+        :returns: BaseClass instance with id.
+        :rtype: BaseClass
+        """
+        obj = self._ctx.database.session().get(self._model(alias), int(id))
         if obj is None:
-            raise LookupError(f"No {kind} with id {id}.")
+            raise LookupError(f"No {alias} with id {id}.")
         return obj
 
     @db_call
@@ -86,7 +135,12 @@ class Api(object):
         """
         One page of the submissions tree, newest first.
 
+        :param page: Page number.
+        :type page: int
+        :param page_size: Number of objects to fit on a page.
+        :type page_size: int
         :return: {total, page, pages, rows}
+        :rtype: dict
         """
         from sqlalchemy import func
         from sqlalchemy.orm import selectinload
@@ -97,18 +151,27 @@ class Api(object):
         rows = []
         for submission in ClientSubmission.query(chronologic=True, page=page, page_size=page_size, options=options):
             row = submission.row_data
-            row['submitted_date'] = _iso(row['submitted_date'])
+            row['submitted_date'] = self._iso(row['submitted_date'])
             rows.append(row)
+        import __main__
+        if hasattr(__main__, "mark") and not getattr(self, "_first_list_marked", False):
+            self._first_list_marked = True
+            __main__.mark("first page of submissions loaded")
         return dict(total=total, page=page, pages=max(1, ceil(total / page_size)), rows=rows)
 
     @db_call
-    def context_menu(self, kind: str, id: int) -> list:
+    def context_menu(self, alias: str, id: int) -> List[dict]:
         """
         Right-click menu for a tree row. Mirrors SubmissionsTree.contextMenuEvent.
 
+        :param alias: Alias of the model of interest.
+        :type alias: str
+        :param id: Unique id of the instance of interest
+        :type id: int 
         :return: [{label, enabled, options}], options being sub-menu names or None.
+        :rtype: List[dict]
         """
-        obj = self._get(kind, id)
+        obj = self._get(alias, id)
         menu = []
         for key in obj.custom_context_events.keys():
             match key.lower():
@@ -122,20 +185,31 @@ class Api(object):
                     options = None
             if options == []:
                 continue
-            menu.append(dict(label=key, enabled=key in WEB_ACTIONS[kind], options=options))
+            menu.append(dict(label=key, enabled=key in self.WEB_ACTIONS[alias], options=options))
         return menu      
 
     @db_call
-    def run_action(self, kind: str, id: int, action: str, option: str | None = None, text: str | None = None) -> dict:
+    def run_action(self, alias: str, id: int, action: str, option: str | None = None, text: str | None = None) -> dict:
         """
         Runs a right-click action.
 
+        :param alias: Alias of the model of interest.
+        :type alias: str
+        :param id: Unique id of the instance of interest
+        :type id: int 
+        :param action: Name of the action to run.
+        :type action: str
+        :param option: Additional param to pass to the action.
+        :type option: str
+        :param text: Text to include for a comment.
+        :type text: str
         :return: {ok, message, refresh}
+        :rtype: dict
         """
-        if action not in WEB_ACTIONS[kind]:
+        if action not in self.WEB_ACTIONS[alias]:
             return dict(ok=False, message=f"'{action}' isn't available in the web UI yet.", refresh=False)
         try:
-            obj = self._get(kind, id)
+            obj = self._get(alias, id)
             match action:
                 case "Delete":
                     if not is_power_user():
@@ -146,7 +220,7 @@ class Api(object):
                     if not text or not text.strip():
                         return dict(ok=False, message="Comment was empty.", refresh=False)
                     obj.comment = dict(user=getuser(), time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), text=text.strip())
-                    report = obj.save(original=False) if kind == "run" else obj.save()
+                    report = obj.save(original=False) if alias == "run" else obj.save()
                     problems = [result.msg for result in getattr(report, "results", [])]
                     return dict(ok=not problems, message="; ".join(problems) or "Comment added.", refresh=False)
                 case "Export":
@@ -169,7 +243,7 @@ class Api(object):
                                           rsl_plate_number=dummy.rsl_plate_number.value, submission_id=obj.id,
                                           on_done=lambda: self._window.evaluate_js("load(state.page)"))
                       return dict(ok=True, message="", refresh=False)
-                case "Edit" if kind == "procedure":
+                case "Edit" if alias == "procedure":
                     from .procedure import open_procedure_window
                     open_procedure_window(self._ctx, procedure_id=obj.id,
                                           on_done=lambda: self._window.evaluate_js("load(state.page)"))
@@ -202,23 +276,46 @@ class Api(object):
                         return dict(ok=True, message=f"Saved {settings.output_path}", refresh=False)
                     return dict(ok=False, message=f"{option} cancelled.", refresh=False)
         except Exception as e:
-            logger.exception(f"{action} on {kind} {id} failed: {e}")
+            logger.exception(f"{action} on {alias} {id} failed: {e}")
             return dict(ok=False, message=f"{action} failed: {e}", refresh=False)
 
     @staticmethod
-    def _managables() -> list:
+    def _managables() -> List[PydBaseClass]:
+        """
+        Gets list of Pydantic objects that can be managed from the webui.
+
+        :return: list(PydAbstract.get_managables()) + list(PydConcrete.get_managables())
+        :rtype: List[PydBaseClass]
+        """
         from backend.validators.pydant import PydAbstract, PydConcrete
         return list(PydAbstract.get_managables()) + list(PydConcrete.get_managables())
 
     @db_call
-    def list_managables(self) -> list:
+    def list_managables(self) -> List[str]:
+        """
+        Gets list of names of Pyd objects that can be managed from the webui.
+
+        :returns: [cls.__name__.replace("Pyd", "") for cls in self._managables()]
+        :rtype: List[str] 
+        """
         return [cls.__name__.replace("Pyd", "") for cls in self._managables()]
 
     @db_call
     def open_manager(self, name: str) -> None:
-        from .manager import open_manager
+        """
+        Creates a webui for managing objects of a named class.
+
+        :param name: Name of the pydantic class to manage.
+        :type name: str
+        """
+        # from .manager import open_manager
+        from .manager import ManagerApi
         object_type = next(cls for cls in self._managables() if cls.__name__ == f"Pyd{name}")
-        open_manager(self._ctx, object_type)
+        api = ManagerApi(self._ctx, object_type)
+        html = api._thread.run(api._page)
+        api._window = webview.create_window(f"Manage {api._sql_type.__name__}", html=html, js_api=api, width=1100, height=800)
+        api._window.events.closed += api._thread.close
+        self.open_manager(self._ctx, object_type)
 
     @db_call
     def chart_options(self, name: str) -> dict:
@@ -245,11 +342,17 @@ class Api(object):
         open_report_window(filters)
 
     def import_submission(self) -> dict:
-          from pathlib import Path
-          result = self._window.create_file_dialog(webview.FileDialog.OPEN, file_types=("Excel Files (*.xlsx)",))
-          if not result:
-              return dict(ok=False, message="Import cancelled.")
-          return self._import_path(Path(result if isinstance(result, str) else result[0]))
+        """
+        Begins import of a new ClientSubmission by setting a file path.
+
+        :returns: File path.
+        :rtype: dict
+        """
+        from pathlib import Path
+        result = self._window.create_file_dialog(webview.FileDialog.OPEN, file_types=("Excel Files (*.xlsx)",))
+        if not result:
+            return dict(ok=False, message="Import cancelled.")
+        return self._import_path(Path(result if isinstance(result, str) else result[0]))
 
     def _import_path(self, path) -> dict:
         from .submission_form import open_import_window
@@ -311,3 +414,13 @@ class Api(object):
             case "GitHub":
                 open_github(self._ctx)
         return dict(ok=True, message="")
+
+    # def open_manager(self, object_type: type) -> None:
+    #     """
+    #     Opens a manager window for a Pydantic class, as PydBaseClass.manage does.
+    #     """
+    #     from .manager import ManagerApi
+    #     api = ManagerApi(self._ctx, object_type)
+    #     html = api._thread.run(api._page)
+    #     api._window = webview.create_window(f"Manage {api._sql_type.__name__}", html=html, js_api=api, width=1100, height=800)
+    #     api._window.events.closed += api._thread.close

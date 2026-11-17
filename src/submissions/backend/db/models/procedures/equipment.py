@@ -1410,9 +1410,8 @@ class Tips(BaseClass):
         :return: Cost per tip in currency units.
         :rtype: float
         """
-        output = self._cost_per_tip if self._cost_per_tip else 0.00
-        if output < 0:
-            output = 0.00
+        output = self._cost_per_tip if self._cost_per_tip is not None else 0.00
+        logger.debug(output)
         return output
     
     @cost_per_tip.setter

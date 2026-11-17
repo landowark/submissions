@@ -94,11 +94,11 @@ class ManagerApi(object):
         pass
 
 
-def open_manager(ctx, object_type: type) -> None:
-    """
-    Opens a manager window for a Pydantic class, as PydBaseClass.manage does.
-    """
-    api = ManagerApi(ctx, object_type)
-    html = api._thread.run(api._page)
-    api._window = webview.create_window(f"Manage {api._sql_type.__name__}", html=html, js_api=api, width=1100, height=800)
-    api._window.events.closed += api._thread.close
+# def open_manager(ctx, object_type: type) -> None:
+#     """
+#     Opens a manager window for a Pydantic class, as PydBaseClass.manage does.
+#     """
+#     api = ManagerApi(ctx, object_type)
+#     html = api._thread.run(api._page)
+#     api._window = webview.create_window(f"Manage {api._sql_type.__name__}", html=html, js_api=api, width=1100, height=800)
+#     api._window.events.closed += api._thread.close

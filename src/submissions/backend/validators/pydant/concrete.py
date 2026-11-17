@@ -845,10 +845,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
             output['run'] = output['run'].name
-        if self.sql_instance.id is not None:
-            creation = False
-        else:
-            creation = True
+        creation = True
         output['platemap'] = self.make_procedure_platemap(creation=creation)
         try:
             output['info_results'] = {k: [item.improved_dict.get("result", {}) for item in v] for k, v in self.info_results.items()}
@@ -1505,7 +1502,7 @@ class PydProcedureSampleAssociation(PydConcrete):
         json_schema_extra = {
             'excluded': ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run', 'comment', "sampletype"
                                'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled', "submitted_date", "well_id", "procedure",
-                               "samplerunassociation"],
+                               "samplerunassociation", "abbreviation_name", "tooltip"],
             "key_value_order": ["procedure_rank", "sample_id"],
             "renderclass": "sample"
         }
@@ -1728,9 +1725,9 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            "excluded": ['excluded', 'clientsubmission', "name", "run",
-                         'enabled', "is_control", "procedure", "sample",
-                         "rank", 'results', 'sampleclientsubmissionassociation', 'samplerunassociation', 'sampleprocedureassociation', 'comment'
+            "excluded": ['excluded', 'clientsubmission', "name", "run", 'enabled', "is_control", "procedure", "sample",
+                         "rank", 'results', 'sampleclientsubmissionassociation', 'samplerunassociation', 'sampleprocedureassociation', 'comment',
+                         "abbreviation_name"
                          ],
             "key_value_order": ["submission_rank", "sample_id"],
             "renderclass": "sample"

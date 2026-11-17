@@ -14,9 +14,9 @@ from numpy import array as nparray, ndenumerate, sum as npsum
 from re import compile as rcompile, Pattern, IGNORECASE, VERBOSE, error as rerror
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
-from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, cast, func, select
+from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, cast, func, select, event
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, Query
+from sqlalchemy.orm import relationship, Query, object_session
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.mutable import MutableList
 from datetime import date, datetime, timedelta
@@ -2207,7 +2207,7 @@ class Procedure(BaseClass):
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.info("Edit!")
         procedure = self.construct_pyd_procedure_for_creation()   
-        dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
+        dlg = ProcedureCreation(parent=obj, procedure=procedure, creation=True)
         if dlg.exec():
             # Preserve existing procedure results while editing; the edit dialog
             # does not update results, so avoid re-binding the old list back onto
@@ -2432,13 +2432,6 @@ class Procedure(BaseClass):
                 self._misc_info['sample'] = self.sanitize_obj_for_json(self._misc_info['sample'])
             except TypeError:
                 del self._misc_info['sample']
-        # NOTE: Sample associations created for brand-new samples (e.g. controls added on the plate map) only reach
-        # the session through this procedure. SQLAlchemy 2.0 doesn't cascade backref-side additions, so add them
-        # explicitly or the commit skips them ("not in session, add operation ... will not proceed").
-        session = self.__database_session__
-        for assoc in self.proceduresampleassociation:
-            if assoc is not None and assoc not in session:
-                session.add(assoc)
         super().save()
         with self.run.__database_session__.no_autoflush:
             run_samples = [assoc.sample for assoc in self.run.runsampleassociation]
@@ -2515,7 +2508,19 @@ class Procedure(BaseClass):
         except AttributeError:
             return {}
 
-    
+@event.listens_for(Procedure.proceduresampleassociation, "append")
+def _add_new_sample_association(procedure, association, initiator):
+    """
+    Puts a sample association into the session as soon as it's attached to a procedure that's already in one.
+
+    SQLAlchemy 2.0 doesn't cascade backref-side additions, so an association for a brand-new sample (e.g. a control
+    added on the plate map) otherwise stays outside the session; the next commit warns "not in session, add operation
+    along 'Procedure.proceduresampleassociation' will not proceed" and drops it.
+    """
+    logger.info(f"sample association appended: {association}")
+    session = object_session(procedure)
+    if session is not None and association is not None and association not in session:
+        session.add(association)
 
 class Results(BaseClass):
     """

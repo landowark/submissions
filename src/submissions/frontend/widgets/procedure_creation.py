@@ -17,10 +17,10 @@ if TYPE_CHECKING:
 
 class ProcedureCreation(DefaultWebDialog):
 
-    def __init__(self, parent, procedure: PydProcedure, edit: bool = False):
+    def __init__(self, parent, procedure: PydProcedure, creation: bool = False):
         from backend.validators.pydant import PydProcedureType
         super().__init__(parent)
-        self.edit = edit
+        self.creation = creation
         self.run = procedure.run
         assert self.run is not None
         self.procedure = procedure
@@ -95,7 +95,7 @@ class ProcedureCreation(DefaultWebDialog):
             platemap=self.platemap,
             now = datetime.now(),
             # preprocessing_buttons = [item for item in self.preprocessing_functions.keys()],
-            edit=self.edit
+            creation=creation
         )
         self.webview.setHtml(html)
         
