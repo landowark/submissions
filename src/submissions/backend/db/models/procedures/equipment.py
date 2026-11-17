@@ -6,7 +6,7 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from re import Pattern, compile as rcompile, VERBOSE
-from sqlalchemy import JSON, Column, ForeignKeyConstraint, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, and_, cast, func, select, Table
+from sqlalchemy import JSON, Column, case, ForeignKeyConstraint, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, and_, cast, func, select, Table
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -1411,7 +1411,8 @@ class Tips(BaseClass):
         :rtype: float
         """
         output = self._cost_per_tip if self._cost_per_tip is not None else 0.00
-        logger.debug(output)
+        if output < 0:
+            output = 0.00
         return output
     
     @cost_per_tip.setter
@@ -1440,6 +1441,14 @@ class Tips(BaseClass):
                 logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.cost_per_tip")
                 return
         self._cost_per_tip = output
+
+    @cost_per_tip.expression
+    def cost_per_tip(cls):
+        return case(
+            (cls._cost_per_tip.is_(None), 0.00),
+            (cls._cost_per_tip < 0, 0.00),
+            else_=cls._cost_per_tip,
+        )
 
     @hybrid_property
     def process(self):

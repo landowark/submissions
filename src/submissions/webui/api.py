@@ -315,7 +315,7 @@ class Api(object):
         html = api._thread.run(api._page)
         api._window = webview.create_window(f"Manage {api._sql_type.__name__}", html=html, js_api=api, width=1100, height=800)
         api._window.events.closed += api._thread.close
-        self.open_manager(self._ctx, object_type)
+        # self.open_manager(self._ctx, object_type)
 
     @db_call
     def chart_options(self, name: str) -> dict:
