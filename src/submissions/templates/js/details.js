@@ -32,3 +32,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     
 });
+
+ // NOTE: Rich tooltips. Browsers show title="" text literally (Qt WebEngine rendered it as rich text), so any
+// title containing HTML is moved to data-tooltip and shown in a floating box instead.
+(function () {
+    var box = null;
+    var hasHtml = /<[a-z][\s\S]*>/i;
+
+    function tooltipElement(target) {
+        var el = target && target.closest ? target.closest('[title], [data-tooltip]') : null;
+        if (el && el.hasAttribute('title') && hasHtml.test(el.getAttribute('title'))) {
+            el.setAttribute('data-tooltip', el.getAttribute('title'));
+            el.removeAttribute('title');
+        }
+        return el && el.hasAttribute('data-tooltip') ? el : null;
+    }
+
+    function place(x, y) {
+        var r = box.getBoundingClientRect();
+        box.style.left = Math.max(4, Math.min(x + 14, window.innerWidth - r.width - 4)) + 'px';
+        box.style.top = Math.max(4, Math.min(y + 14, window.innerHeight - r.height - 4)) + 'px';
+    }
+
+    document.addEventListener('mouseover', function (e) {
+        var el = tooltipElement(e.target);
+        if (!el) { if (box) box.style.display = 'none'; return; }
+        if (!box) {
+            box = document.createElement('div');
+            box.className = 'rich-tooltip';
+            document.body.appendChild(box);
+        }
+        box.innerHTML = el.getAttribute('data-tooltip');
+        box.style.display = 'block';
+        place(e.clientX, e.clientY);
+    });
+    document.addEventListener('mousemove', function (e) {
+        if (box && box.style.display === 'block') place(e.clientX, e.clientY);
+    });
+    document.documentElement.addEventListener('mouseleave', function () {
+        if (box) box.style.display = 'none';
+    });
+})();

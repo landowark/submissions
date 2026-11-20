@@ -1307,6 +1307,7 @@ class Settings(BaseSettings, extra="allow"):
     directories: DotDict = Field(default_factory=DotDict)
     package: Any | None = None
     logging_enabled: bool = Field(default=False)
+    static: Path = Field(default=Path(__file__).parents[1].joinpath("webui", "static"), validate_default=True)
 
     def __getattr__(self, name: str) -> Any:
         # Use the public model_extra API
@@ -1391,6 +1392,13 @@ class Settings(BaseSettings, extra="allow"):
         else:
             raise ValidationError(f"Unsupported database model: {value}")
         return directories
+
+    @field_validator('static')
+    @classmethod
+    def enforce_static_directory(cls, value):
+        if check_if_app():
+            value = Path(sys._MEIPASS).joinpath("files", "webui", "static")
+        return value
 
     @field_validator("database", mode="before")
     @classmethod

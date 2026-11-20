@@ -24,38 +24,26 @@ mark("webview + webui imported")
 from webui import idle
 
 
-def close_other_windows(main) -> None:
-    """
-    Closing the main window quits the app, as in the Qt app. pywebview otherwise keeps running
-    until the last window is closed.
-    """
-    for window in list(webview.windows):
-        if window is not main:
-            try:
-                window.destroy()
-            except Exception:
-                pass
-
-
 if __name__ == '__main__':
-    if check_if_app():
-        static = Path(sys._MEIPASS).joinpath("files", "webui", "static")
-    else:
-        static = Path(__file__).parent.joinpath("webui", "static")
+    # if check_if_app():
+    #     static = Path(sys._MEIPASS).joinpath("files", "webui", "static")
+    # else:
+    #     static = Path(__file__).parent.joinpath("webui", "static")
     ctx.run_startup()
     mark("startup scripts started")
     api = Api(ctx)
-    api._window = webview.create_window(
-        f"Submissions App TNG (v{ctx.package.__version__})",
-        url=str(static.joinpath("index.html")), js_api=api, width=1300, height=1000)
-    api._window.events.loaded += api._bind_drop
-    api._window.events.closed += lambda: close_other_windows(api._window)
+    # api._window = webview.create_window(
+    #     f"Submissions App TNG (v{ctx.package.__version__})",
+    #     url=str(static.joinpath("index.html")), js_api=api, width=1300, height=1000)
+    # api._window.events.loaded += api._bind_drop
+    # api._window.events.closed += lambda: close_other_windows(api._window)
     mark("main window shown")
-    from webui.alerts import install as install_alerts
-    install_alerts(api._window)
-    mark("calling webview.start")
+    # from webui.alerts import install as install_alerts
+    # install_alerts(api._window)
+    
     try:
         webview.start(idle.start, gui="edgechromium", http_server=True, debug=not check_if_app())
+        mark("webview started")
     except Exception:
         # NOTE: Without this, the sys.exit in finally replaces the exception and the app quits silently.
         import traceback

@@ -44,7 +44,25 @@ class Api(object):
     def __init__(self, ctx: Settings):
         # NOTE: Underscore names are not exposed to JS by pywebview.
         self._ctx = ctx
-        self._window = None
+        # self._window = None
+        self._window = webview.create_window(
+            f"Submissions App TNG (v{ctx.package.__version__})",
+            url=str(ctx.static.joinpath("index.html")), js_api=self, width=1300, height=1000)
+        self._window.events.loaded += self._bind_drop
+        self._window.events.closed += lambda: self.close_other_windows()
+        self._install_alerts()
+
+    def close_other_windows(self) -> None:
+        """
+        Closing the main window quits the app, as in the Qt app. pywebview otherwise keeps running
+        until the last window is closed.
+        """
+        for window in list(webview.windows):
+            if window is not self:
+                try:
+                    window.destroy()
+                except Exception:
+                    pass
 
     def app_info(self) -> dict:
         """
@@ -58,6 +76,18 @@ class Api(object):
             version=self._ctx.package.__version__,
             database=f"{self._ctx.database.path}/{self._ctx.database.name}",
         )
+
+    def _install_alerts(self):
+        
+        """
+        Routes tools.report_result alerts to a JS alert in the focused window. Call before webview.start().
+        """
+        from tools import set_alert_handler
+        def show(alert) -> None:
+            window = webview.active_window() or self
+            message = json.dumps(f"{alert.status}: {alert.msg}")
+            window.evaluate_js(f"alert({message})")
+        set_alert_handler(show)
 
     @staticmethod
     def _iso(value) -> str:

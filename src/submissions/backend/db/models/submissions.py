@@ -2587,7 +2587,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
         """
         Gets the client submission associated with this client submission.
 
-        :return: self._clientsubmssion
+        :return: self._clientsubmission
         :rtype: ClientSubmission
         """
         return self._clientsubmission

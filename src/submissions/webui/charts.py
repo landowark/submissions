@@ -20,6 +20,17 @@ PRINT_BAR = """
 <style>@media print { #print-bar { display: none; } }</style>
 """
 
+class ChartMaker(object):
+
+    TITLES = {"irida":"Irida Controls", "pcr": "PCR Controls", "concentrations": "Concentrations", "turnaround": "Turnaround Times", "cost": "Cost Report"}
+    # NOTE: Results type behind each control-chart tab (InfoPane.results_type in the Qt app).
+    RESULTS_TYPES = {"pcr": "Diomni PCR", "concentrations": "Qubit"}
+
+    PRINT_BAR = """
+    <div id="print-bar" style="padding: 6px 0 10px;"><button type="button" onclick="window.print()">Save PDF / Print</button></div>
+    <style>@media print { #print-bar { display: none; } }</style>
+    """
+
 
 def _dates(filters: dict) -> tuple[datetime, datetime]:
     start = datetime.combine(date.fromisoformat(filters["start_date"]), datetime.min.time())
@@ -31,6 +42,7 @@ def _months(start: datetime, end: datetime) -> int:
     # NOTE: Same as InfoPane.diff_month.
     return abs((start.year - end.year) * 12 + start.month - end.month)
 
+
 def _names(result) -> list[str]:
     """
     Names from a BaseClass.query() result, which is a single object (not a list) on exactly one match.
@@ -40,6 +52,7 @@ def _names(result) -> list[str]:
     if not isinstance(result, list):
         result = [result]
     return [item.name for item in result]
+
 
 def filter_options(name: str) -> dict:
     """
@@ -64,6 +77,7 @@ def filter_options(name: str) -> dict:
             options["projects"] = [""]
             options["error"] = str(e)
     return options
+
 
 def _maker(name: str, filters: dict):
     """
@@ -96,7 +110,9 @@ def _maker(name: str, filters: dict):
         return ChartReportMaker(df=fig.df), {}
     raise ValueError(f"Unknown chart: {name}")
 
+
 _irida_cache: dict = {}
+
 
 def _kraken_figure(filters: dict):
     """
@@ -120,6 +136,7 @@ def _kraken_figure(filters: dict):
                     species_or_genus="Species" if metadata_only else "Genus")
     # NOTE: KrakenFigure adds columns to its dataframe, so give it a copy of the cached one.
     return KrakenFigure(df=df.copy(), settings=settings)
+
 
 def chart(name: str, filters: dict) -> dict:
     """
@@ -161,6 +178,7 @@ def chart(name: str, filters: dict) -> dict:
             start, end = _dates(filters)
             fig = TurnaroundChart(df=maker.df, settings=settings, modes=[], threshold=threshold, months=_months(start, end))
     return dict(figure=fig.to_json())  
+
 
 def save_data(name: str, filters: dict, choose_save_file: Callable[[str, str], str | None]) -> dict:
     maker, _ = _maker(name, filters)

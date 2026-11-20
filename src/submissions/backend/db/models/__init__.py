@@ -418,10 +418,18 @@ class BaseClass(Base):
         type_name = type_.__class__.__name__
         match type_name:
             case "hybrid_propertyProxy":
-                try:
-                    type_ = getattr(cls, type_.property.key)
-                except AttributeError:
-                    type_ = getattr(cls, f"_{field}") # Dicey workaround for hybrid_property with underscore
+                # NOTE: A hybrid whose class-level expression is a plain column has .property; one with a custom
+                # @expression (e.g. Tips.cost_per_tip, which returns a CASE) doesn't, so use its backing column.
+                key = getattr(getattr(type_, "property", None), "key", None)
+                found = None
+                for candidate in ([key] if key else []) + [f"_{field}"]:
+                    found = getattr(cls, candidate, None)
+                    if found is not None:
+                        break
+                if found is None:
+                    logger.warning(f"No backing column for hybrid {field} on {cls.__name__}; treating it as Invalid.")
+                    return "Invalid"
+                type_ = found
                 type_name = type_.__class__.__name__
                 if type_name == "InstrumentedAttribute":
                     type_name = handle_instrument_attr(type_=type_)

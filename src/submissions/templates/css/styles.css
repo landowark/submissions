@@ -289,3 +289,17 @@ ul.no-bullets {
     background-color: #0056b3;
 }
 
+.rich-tooltip {
+    position: fixed;
+    z-index: 1000;
+    display: none;
+    max-width: 360px;
+    padding: 6px 8px;
+    background: #ffffe1;
+    color: #000;
+    border: 1px solid #767676;
+    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    font-size: 12px;
+    line-height: 1.35;
+    pointer-events: none;
+}
