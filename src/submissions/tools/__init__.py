@@ -39,6 +39,7 @@ from functools import wraps
 from collections.abc import Iterable
 from enum import Enum
 import builtins, sys, re
+from ._css import css
 
 builtins.pformat = pformat
 
@@ -1249,6 +1250,9 @@ def sort_by_attr_or_key(items, field_path, reverse=False):
     return sorted(items, key=lambda item: resolve(item, field_path), reverse=reverse)
 
 
+
+
+
 class classproperty(property):
     """
     Allows for properties on classes as well as objects.
@@ -1485,6 +1489,12 @@ class Settings(BaseSettings, extra="allow"):
                 logger.exception(f"Error disposing database engine: {e}")
             finally:
                 self.database.engine = None
+
+    def load_css_file(self, filepath: Path | None = None):
+        if filepath is None:
+            filepath = self.static.joinpath("app.css")
+        with open(filepath, "r") as f:
+            return f.read()
 
     def set_from_db(self):
         if 'pytest' in sys.modules:

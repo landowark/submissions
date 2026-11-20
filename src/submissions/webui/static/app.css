@@ -31,4 +31,9 @@ tr.depth-2 td.name { padding-left: 48px; }
 #chart-plot { height: 70vh; }
 #chart-report { width: 100%; height: 75vh; border: 1px solid var(--line); }
 .header-actions { display: flex; gap: 8px; }
-body.dropping { outline: 3px dashed var(--sel); outline-offset: -6px; }
+body.dropping { outline: 3px dashed var(--sel); outline-offset: -6px }
+#fields { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px }
+#fields label { display: flex; flex-direction: column; font-weight: 600 }
+tbody tr:hover { background: #cfe2f3; cursor: default }
+#results { max-height: 75vh; overflow: auto}
+#message {color: #666}

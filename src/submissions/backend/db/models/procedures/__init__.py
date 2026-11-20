@@ -46,6 +46,19 @@ submissiontype_proceduretype = Table(
 )
 
 
+def validate_write_exclude(items: list[dict]) -> None:
+    for position, item in enumerate(items):
+        for key in ("name", "index", "active"):
+            if key not in item:
+                raise KeyError(f"Item {position} is missing key '{key}'")
+        if not isinstance(item["name"], str):
+            raise TypeError(f"Item {position}: 'name' must be str")
+        if not isinstance(item["index"], int) or isinstance(item["index"], bool):
+            raise TypeError(f"Item {position}: 'index' must be int")
+        if not isinstance(item["active"], bool):
+            raise TypeError(f"Item {position}: 'active' must be bool")
+
+
 class Discount(BaseClass):
     """
     Represents a discount applied to a procedure type for a client lab.
@@ -335,6 +348,7 @@ class SubmissionType(BaseClass):
                                  secondary=submissiontype_proceduretype)  #: Procedures associated with this submission type
     _info_sheets = Column(JSON, default=[])
     _sample_sheets = Column(JSON, default=[])
+    _write_exclude_order = Column(JSON, default=[])
     
 
     def __init__(self, *args, **kwargs):
@@ -690,6 +704,28 @@ class SubmissionType(BaseClass):
             for resultstype in proceduretype.resultstype:
                 yield dict(sheet=f"{proceduretype.name[:10]} {resultstype.name[:10]}", start_row=1)
 
+    @hybrid_property
+    def write_exclude_order(self) -> List[dict]:
+        return self._write_exclude_order or []
+
+    @write_exclude_order.setter
+    def write_exclude_order(self, value: List[dict]):
+        if value is None:
+            value = []
+        validate_write_exclude(value)
+        self._write_exclude_order = value
+    
+    @property
+    def entire_write_fields(self):
+        start = self.write_exclude_order
+        list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
+        list_ = [assoc.to_pydantic() for assoc in list_]
+        update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+        for ii, name in enumerate(update, start=len(start)+1):
+            if name not in (item['name'] for item in start):
+                start.append(dict(name=name, index=ii, active=False))
+        return sorted(start, key=lambda x: x['active'])
+        
 
 class ProcedureType(BaseClass):
     """
@@ -727,6 +763,7 @@ class ProcedureType(BaseClass):
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
     plate_cost = Column(FLOAT(2), default=0.00)
+    _write_exclude_order = Column(JSON, default=[])
 
     _procedure = relationship("Procedure",
                              back_populates="_proceduretype", cascade="all, delete-orphan")  #: Concrete control of this type.
@@ -1304,7 +1341,29 @@ class ProcedureType(BaseClass):
         # mode is an Enum, so we can use its value to access the corresponding attribute
         output = [thing for thing in [getattr(item, mode.value, None) for item in assoc] if thing]
         return output
-        
+
+    @hybrid_property
+    def write_exclude_order(self) -> List[dict]:
+        return self._write_exclude_order or []
+
+    @write_exclude_order.setter
+    def write_exclude_order(self, value):
+        if value is None:
+            value = []
+        validate_write_exclude(value)
+        self._write_exclude_order = value
+
+    @property
+    def entire_write_fields(self):
+        start = self.write_exclude_order
+        list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
+        list_ = [assoc.to_pydantic() for assoc in list_]
+        update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+        for ii, name in enumerate(update, start=len(start)+1):
+            if name not in (item['name'] for item in start):
+                start.append(dict(name=name, index=ii, active=False))
+        return sorted(start, key=lambda x: x['active'])
+
 
 class Procedure(BaseClass):
     """

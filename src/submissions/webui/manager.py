@@ -22,6 +22,7 @@ class ManagerApi(object):
         self._window = None
         self._thread = WindowThread(ctx)
         self._object_type = object_type
+        print(self._object_type)
         self._sql_type = BaseClass.find_subclasses(class_name=object_type.__name__.replace('Pyd', ''))
         self._pydant = None
 
@@ -37,8 +38,9 @@ class ManagerApi(object):
         else:
             objects = []
         object_list = [dict(name="", active=True), dict(name="--New--", active=True)] + objects
-        return render_details_template("managers/default_manager", js_in=['manager'],
-                                        object_name=self._sql_type.__name__, object_list=object_list)
+        # return render_details_template("managers/default_manager", js_in=['manager'],
+        #                                 object_name=self._sql_type.__name__, object_list=object_list)
+        
 
     @on_window_thread
     def update_selection(self, selection: str) -> str:

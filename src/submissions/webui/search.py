@@ -12,6 +12,7 @@ from markupsafe import Markup
 from pscript import py2js
 import webview
 from .api import db_call
+from tools import css
 
 # SEARCH_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>__TITLE__</title>
 #         <style>
@@ -99,24 +100,24 @@ from .api import db_call
 #             else window.addEventListener('pywebviewready', buildFields);
 #         </script></body></html>"""
 
-STYLE = {
-          "body": {"font": "14px 'Segoe UI', sans-serif", "margin": "12px"},
-          "#fields": {"display": "flex", "flex-wrap": "wrap", "gap": "10px", "margin-bottom": "10px"},
-          "#fields label": {"display": "flex", "flex-direction": "column", "font-weight": "600"},
-          "table": {"border-collapse": "collapse", "width": "100%"},
-          "th, td": {"border": "1px solid #ddd", "padding": "3px 6px", "text-align": "left", "white-space": "nowrap"},
-          "th": {"background": "#eee", "cursor": "pointer", "position": "sticky", "top": "0"},
-          "tbody tr:hover": {"background": "#cfe2f3", "cursor": "default"},
-          "#results": {"max-height": "75vh", "overflow": "auto"},
-          "#message": {"color": "#666"},
-        }
+# STYLE = {
+#           "body": {"font": "14px 'Segoe UI', sans-serif", "margin": "12px"},
+#           "#fields": {"display": "flex", "flex-wrap": "wrap", "gap": "10px", "margin-bottom": "10px"},
+#           "#fields label": {"display": "flex", "flex-direction": "column", "font-weight": "600"},
+#           "table": {"border-collapse": "collapse", "width": "100%"},
+#           "th, td": {"border": "1px solid #ddd", "padding": "3px 6px", "text-align": "left", "white-space": "nowrap"},
+#           "th": {"background": "#eee", "cursor": "pointer", "position": "sticky", "top": "0"},
+#           "tbody tr:hover": {"background": "#cfe2f3", "cursor": "default"},
+#           "#results": {"max-height": "75vh", "overflow": "auto"},
+#           "#message": {"color": "#666"},
+#         }
 
-def _css(rules: dict) -> str:
-    """
-    Turns {selector: {property: value}} into a stylesheet.
-    """
-    return "\n".join(selector + " { " + "; ".join(f"{key}: {value}" for key, value in props.items()) + " }"
-        for selector, props in rules.items())
+# def _css(rules: dict) -> str:
+#     """
+#     Turns {selector: {property: value}} into a stylesheet.
+#     """
+#     return "\n".join(selector + " { " + "; ".join(f"{key}: {value}" for key, value in props.items()) + " }"
+#         for selector, props in rules.items())
 
 def search_page_script():
     """
@@ -248,7 +249,8 @@ def search_page(title: str, subclasses: list[str]) -> str:
     if subclasses:
         subclass_select = h.label["Type ", h.select(id="subclass")[(h.option[name] for name in ["Any"] + subclasses)]]
     page = h.html[
-        h.head[h.meta(charset="utf-8"), h.title[title], h.style[Markup(_css(STYLE))]],
+        # h.head[h.meta(charset="utf-8"), h.title[title], h.style[Markup(_css(STYLE))]],
+        h.head[h.meta(charset="utf-8"), h.title[title], h.style[Markup(css)]],
         h.body[
             h.h2[title],
             subclass_select,
@@ -317,4 +319,3 @@ def open_search_window(ctx, object_type: type) -> None:
     title = f"Search {object_type.__name__}"
     subclasses = [cls.__name__ for cls in object_type.__subclasses__()]
     api._window = webview.create_window(title, html=search_page(title, subclasses), js_api=api, width=1000, height=750)
-

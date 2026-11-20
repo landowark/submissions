@@ -1024,7 +1024,7 @@ class PydClientSubmission(PydConcrete):
                          'clientsubmissionsampleassociation',
                          'endrow', 
                          "abbreviation",
-                         "full_batch_size", "name", "sql_instance", "new", "max_sample_rank"
+                         "full_batch_size", "name", "sql_instance", "new", "max_sample_rank", "file"
                          ],
             "recover": ['filepath', 'sample', 'csv', 'comment', 'equipment', 'run'],
             "key_value_order": ["submitter_plate_id",
@@ -1503,7 +1503,7 @@ class PydProcedureSampleAssociation(PydConcrete):
             'excluded': ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run', 'comment', "sampletype"
                                'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled', "submitted_date", "well_id", "procedure",
                                "samplerunassociation", "abbreviation_name", "tooltip"],
-            "key_value_order": ["procedure_rank", "sample_id"],
+            "key_value_order": ["procedure_rank", "sample_id", 'sample_type', "column", "row", "well"],
             "renderclass": "sample"
         }
     )
