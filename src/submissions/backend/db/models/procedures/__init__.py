@@ -706,22 +706,30 @@ class SubmissionType(BaseClass):
 
     @hybrid_property
     def write_exclude_order(self) -> List[dict]:
+        """
+        Export column order: the stored list, or defaults if none is stored.
+
+        NOTE: Kept cheap on purpose. details_dict reads every hybrid, so this runs on every to_pydantic() of this
+        procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
+        """
         start = self._write_exclude_order or []
         if not start:
-            # Set up some default values.
             from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
             keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
-            logger.debug("")
             start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
-        try:
-            list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
-        except NotImplementedError:
-            return start
-        list_ = [assoc.to_pydantic() for assoc in list_]
+        return sorted(start, key=lambda x: x['active'])
+
+    def discover_write_exclude_order(self) -> List[dict]:
+        """
+        The stored order plus, as inactive entries, every other field found on this type's submissions' samples.
+        Slow: converts every sample association of every client submission of this type.
+        """
+        start = list(self.write_exclude_order)
+        names = {item['name'] for item in start}
+        list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])]
         update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-        for ii, name in enumerate(update, start=len(start)+1):
-            if name not in (item['name'] for item in start):
-                start.append(dict(name=name, index=ii, active=False))
+        for ii, name in enumerate(update - names, start=len(start) + 1):
+            start.append(dict(name=name, index=ii, active=False))
         return sorted(start, key=lambda x: x['active'])
 
     @write_exclude_order.setter
@@ -1360,23 +1368,32 @@ class ProcedureType(BaseClass):
 
     @hybrid_property
     def write_exclude_order(self) -> List[dict]:
+        """
+        Export column order: the stored list, or defaults if none is stored.
+
+        NOTE: Kept cheap on purpose. details_dict reads every hybrid, so this runs on every to_pydantic() of this
+        procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
+        """
         start = self._write_exclude_order or []
         if not start:
-            # Set up some default values.
             from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
             keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
-            logger.debug(f"Setting start to {keys}")
             start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
-        try:
-            list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.proceduresampleassociation for sub in self._procedure])]
-            update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-        except NotImplementedError:
-            return start
-        # list_ = [assoc.to_pydantic() for assoc in list_]
-        # update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-        for ii, name in enumerate(update, start=len(start)+1):
-            if name not in (item['name'] for item in start):
-                start.append(dict(name=name, index=ii, active=False))
+        return sorted(start, key=lambda x: x['active'])
+
+    def discover_write_exclude_order(self) -> List[dict]:
+        """
+        The stored order plus, as inactive entries, every other field found on this type's procedures' samples.
+
+        Slow: converts every sample association of every procedure of this type. Call it where the full list is
+        actually needed (e.g. the manager's ordering widget), never from a property.
+        """
+        start = list(self.write_exclude_order)
+        names = {item['name'] for item in start}
+        list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.proceduresampleassociation for sub in self._procedure])]
+        update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+        for ii, name in enumerate(update - names, start=len(start) + 1):
+            start.append(dict(name=name, index=ii, active=False))
         return sorted(start, key=lambda x: x['active'])
 
     @write_exclude_order.setter
