@@ -706,7 +706,23 @@ class SubmissionType(BaseClass):
 
     @hybrid_property
     def write_exclude_order(self) -> List[dict]:
-        return self._write_exclude_order or []
+        start = self._write_exclude_order or []
+        if not start:
+            # Set up some default values.
+            from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
+            keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
+            logger.debug("")
+            start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        try:
+            list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
+        except NotImplementedError:
+            return start
+        list_ = [assoc.to_pydantic() for assoc in list_]
+        update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+        for ii, name in enumerate(update, start=len(start)+1):
+            if name not in (item['name'] for item in start):
+                start.append(dict(name=name, index=ii, active=False))
+        return sorted(start, key=lambda x: x['active'])
 
     @write_exclude_order.setter
     def write_exclude_order(self, value: List[dict]):
@@ -715,16 +731,16 @@ class SubmissionType(BaseClass):
         validate_write_exclude(value)
         self._write_exclude_order = value
     
-    @property
-    def entire_write_fields(self):
-        start = self.write_exclude_order
-        list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
-        list_ = [assoc.to_pydantic() for assoc in list_]
-        update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-        for ii, name in enumerate(update, start=len(start)+1):
-            if name not in (item['name'] for item in start):
-                start.append(dict(name=name, index=ii, active=False))
-        return sorted(start, key=lambda x: x['active'])
+    # @property
+    # def entire_write_fields(self):
+    #     start = self.write_exclude_order
+    #     list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
+    #     list_ = [assoc.to_pydantic() for assoc in list_]
+    #     update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+    #     for ii, name in enumerate(update, start=len(start)+1):
+    #         if name not in (item['name'] for item in start):
+    #             start.append(dict(name=name, index=ii, active=False))
+    #     return sorted(start, key=lambda x: x['active'])
         
 
 class ProcedureType(BaseClass):
@@ -1344,7 +1360,24 @@ class ProcedureType(BaseClass):
 
     @hybrid_property
     def write_exclude_order(self) -> List[dict]:
-        return self._write_exclude_order or []
+        start = self._write_exclude_order or []
+        if not start:
+            # Set up some default values.
+            from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
+            keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
+            logger.debug(f"Setting start to {keys}")
+            start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        try:
+            list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.proceduresampleassociation for sub in self._procedure])]
+            update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+        except NotImplementedError:
+            return start
+        # list_ = [assoc.to_pydantic() for assoc in list_]
+        # update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+        for ii, name in enumerate(update, start=len(start)+1):
+            if name not in (item['name'] for item in start):
+                start.append(dict(name=name, index=ii, active=False))
+        return sorted(start, key=lambda x: x['active'])
 
     @write_exclude_order.setter
     def write_exclude_order(self, value):
@@ -1353,16 +1386,16 @@ class ProcedureType(BaseClass):
         validate_write_exclude(value)
         self._write_exclude_order = value
 
-    @property
-    def entire_write_fields(self):
-        start = self.write_exclude_order
-        list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
-        list_ = [assoc.to_pydantic() for assoc in list_]
-        update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-        for ii, name in enumerate(update, start=len(start)+1):
-            if name not in (item['name'] for item in start):
-                start.append(dict(name=name, index=ii, active=False))
-        return sorted(start, key=lambda x: x['active'])
+    # @property
+    # def entire_write_fields(self):
+    #     start = self.write_exclude_order
+    #     list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
+    #     list_ = [assoc.to_pydantic() for assoc in list_]
+    #     update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+    #     for ii, name in enumerate(update, start=len(start)+1):
+    #         if name not in (item['name'] for item in start):
+    #             start.append(dict(name=name, index=ii, active=False))
+    #     return sorted(start, key=lambda x: x['active'])
 
 
 class Procedure(BaseClass):

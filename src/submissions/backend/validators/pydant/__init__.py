@@ -25,6 +25,7 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.associationproxy import _AssociationList
 from PyQt6.QtWidgets import QDialog
+import htpy as h
 
 T = TypeVar("T")
 
@@ -267,6 +268,19 @@ class ComputedInputField:
         return f"ComputedInputField(computed={self.computed})"
 
 
+class OrderInputField:
+    """
+    Marker placed in Annotated[..., OrderInputField()] to tag a Pydantic
+    field as an ordering dictionary (not to be confused with an OrderedDict)
+    """
+
+    def __init__(self, ordered: bool = True):
+        self.ordered = ordered
+
+    def __repr__(self) -> str:
+        return f"OrderInputField(ordered={self.ordered})"
+
+
 def _get_relationship_marker(field_info: FieldInfo) -> RelationshipField | None:
     """
     Return the RelationshipField marker from a FieldInfo's Annotated metadata,
@@ -384,7 +398,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             if field and field.default is not ...: # Check if a default exists
                 return field.get_default()
         return v
-    
+
     @model_validator(mode="before")
     @classmethod
     def _drop_orm_internal_keys(cls, data):
@@ -777,6 +791,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             type_ = getattr(cls._sql_class, field.lower().strip("_"))
         except AttributeError:
             return
+        except NotImplementedError as e:
+            logger.exception(f"Not implemented error getting {field} from {cls.__name__}: {e}")
+            return
         type_name = type_.__class__.__name__
         match type_name:
             case "hybrid_propertyProxy":
@@ -840,7 +857,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 logger.warning(f"Got unmatched type: {type_name} for field {field}.")
         return type_name
     
-    # Add this new helper method to PydBaseClass (place it before the form_dictionary property)
+    # This should remain before the form_dictionary
     def _compute_excluded_items(self, field: str) -> List[str]:
         """
         Determines which sub-items are to be excluded from a form dictionary.
@@ -1094,6 +1111,25 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             with open(js, "r") as f:
                 js_out.append(f.read())
         return self.details_template.render(css=css_out, js=js_out, **details)
+
+    def create_manager_form(self) -> str:
+        """
+        An object's form (manager_form.html / PydBaseClass.html_form). Association forms have no Submit button.
+        """
+        from webui.components import _plain, _label, _control
+        association = "association" in self.__class__.__name__.lower()
+        nodes = [h.br]
+        for item in self.form_dictionary:
+            if item["type"] != "SKIPPED":
+                nodes += [_label(item), h.br]
+            control = _control(item)
+            if control is not None:
+                nodes.append(control)
+            nodes += [h.br, h.br]
+        if not association:
+            nodes.append(h.button(type="button", onclick="backend.submit()")["Submit"])
+        return _plain(h.fragment[nodes])
+    
     
     @classmethod
     def clean_details_for_render(cls, dictionary: dict) -> dict:

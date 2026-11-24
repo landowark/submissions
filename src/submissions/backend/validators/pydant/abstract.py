@@ -8,7 +8,7 @@ from numpy import array as nparray, ndenumerate
 from datetime import timedelta
 from typing import Generator, List, TYPE_CHECKING, Literal, Annotated
 from pydantic import field_validator, Field
-from backend.validators.pydant import PydAbstract, RelationshipField
+from backend.validators.pydant import PydAbstract, RelationshipField, OrderInputField
 from backend.validators.shared import coerce_none_to_na, booleanize
 from tools import convert_well_to_row_column, IndexDirection, flatten_list, jinja_env, ResultsMode
 if TYPE_CHECKING:
@@ -110,6 +110,7 @@ class PydSubmissionType(PydAbstract):
     abbreviation: str = Field(default="CC", description="Shorthand to be used in naming convention (RSL-CC-YYYYMMMDD-1).")
     clientsubmission: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
     proceduretype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="ProcedureTypes this type uses.", repr=False)
+    write_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Fields to write on export", repr=False)
 
     @field_validator("file_name_template", mode="before")
     @classmethod
@@ -174,7 +175,6 @@ class PydSubmissionType(PydAbstract):
             return
         super().remove_relationship(field, value)
 
-    
 
 class PydProcedureTypeResultsTypeAssociation(PydAbstract):
 
@@ -209,6 +209,7 @@ class PydProcedureType(PydAbstract):
     resultstype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Results Types used by this type.", repr=False)
     equipmentrole: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Equipment roles used by this type.", repr=False)
     reagentrole: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Reagent roles used by this type.", repr=False)
+    write_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Fields to write on export", repr=False)
     
     @field_validator("submissiontype", "resultstype", "equipmentrole", "reagentrole", mode="before")
     @classmethod
@@ -251,7 +252,6 @@ class PydProcedureType(PydAbstract):
         :rtype: dict
         """
         return self.sql_instance.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
-        
 
     def construct_plate_map(self, sample_dicts: List[PydProcedureSampleAssociation], creation:bool=True, vw_modifier:float=1.0) -> str:
         """

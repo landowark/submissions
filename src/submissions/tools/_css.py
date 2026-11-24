@@ -6,7 +6,7 @@ STYLE = {
         "--sel": "#0078d7",
     },
     "body": {
-        "margin": "0",
+        "margin": "10px",
         "font": '14px "Segoe UI", sans-serif',
         "background": "#fff",
         "color": "#222",

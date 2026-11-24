@@ -339,9 +339,9 @@ class Api(object):
         :type name: str
         """
         # from .manager import open_manager
-        from .manager import ManagerApi
+        from .manager_page import ManagerForm
         object_type = next(cls for cls in self._managables() if cls.__name__ == f"Pyd{name}")
-        api = ManagerApi(self._ctx, object_type)
+        api = ManagerForm(self._ctx, object_type)
         html = api._thread.run(api._page)
         api._window = webview.create_window(f"Manage {api._sql_type.__name__}", html=html, js_api=api, width=1100, height=800)
         api._window.events.closed += api._thread.close

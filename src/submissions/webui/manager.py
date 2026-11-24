@@ -6,8 +6,6 @@ from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 import json
 from operator import itemgetter
-import webview
-from tools import render_details_template
 from .window_thread import WindowThread, on_window_thread
 
 
@@ -22,7 +20,6 @@ class ManagerApi(object):
         self._window = None
         self._thread = WindowThread(ctx)
         self._object_type = object_type
-        print(self._object_type)
         self._sql_type = BaseClass.find_subclasses(class_name=object_type.__name__.replace('Pyd', ''))
         self._pydant = None
 
@@ -40,7 +37,7 @@ class ManagerApi(object):
         object_list = [dict(name="", active=True), dict(name="--New--", active=True)] + objects
         # return render_details_template("managers/default_manager", js_in=['manager'],
         #                                 object_name=self._sql_type.__name__, object_list=object_list)
-        
+        return manager_page(self._sql_type.__name__, object_list=object_list)
 
     @on_window_thread
     def update_selection(self, selection: str) -> str:
@@ -55,7 +52,8 @@ class ManagerApi(object):
                 return ""
             self._pydant = sql_instance.to_pydantic()
             self._pydant.new = False
-        return self._pydant.html_form
+        # return self._pydant.html_form
+        return manager_form(self._pydant)
 
     @on_window_thread
     def update_instrumentedattribute(self, field: str, value: str) -> None:
@@ -66,7 +64,8 @@ class ManagerApi(object):
         # NOTE: manager.js passes the selected value too; the Qt slot ignored it.
         if self._pydant is None:
             raise AttributeError("No object selected. Unable to get association form.")
-        return self._pydant.get_association_class(field)().html_form
+        # return self._pydant.get_association_class(field)().html_form
+        return manager_form(self._pydant.get_association_class(field)())
 
     @on_window_thread
     def add_relationship(self, field: str, value: str, data: dict | None = None) -> None:
