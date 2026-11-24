@@ -321,10 +321,6 @@ def _get_order_marker(field_info: FieldInfo) -> OrderInputField | None:
             return OrderInputField()
     return None
 
-def _get_field_marker(field_info: FieldInfo):
-    annotation = field_info.annotation
-    
-
 
 class PydBaseClass(BaseModel):#, validate_assignment=True):
 
@@ -830,28 +826,37 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 type_ = found
                 type_name = type_.__class__.__name__
                 if type_name == "InstrumentedAttribute":
-                    type_ = type_.property
-                    type_name = type_.__class__.__name__
-                    if type_name == "_RelationshipDeclared":
-                        if type_.uselist:
-                            type_name = "RelationshipList"
+                    # type_ = type_.property
+                    # type_name = type_.__class__.__name__
+                    # if type_name == "_RelationshipDeclared":
+                    #     if type_.uselist:
+                    #         type_name = "RelationshipList"
+                    #     else:
+                    #         type_name = "RelationshipScalar"
+                    # else:
+                    try:
+                        field_info = cls.model_fields[field]
+                    except KeyError:
+                        return "Skipped"
+                    if field_info.metadata:
+                        type_name = field_info.metadata[0].__class__.__name__.replace("Field", "")
+                        if getattr(field_info.metadata[0], "uselist", False):
+                            type_name = type_name + "List"
                         else:
-                            type_name = "RelationshipScalar"
+                            type_name = type_name + "Scalar"
+                        return type_name
+                    annotation = field_info.annotation
+                    if isinstance(annotation, UnionType):
+                        type_name = annotation.__args__[0].__name__
                     else:
+                        # Try to get any field annotations as custom field type
                         try:
-                            annotation = cls.model_fields[field].annotation
+                            type_name = annotation.__name__
+                        except AttributeError:
+                            logger.error(f"Could not determine type name for field {field} on {cls.__name__} {cls.model_fields[field].annotation}")
+                            type_name = "Skipped"
                         except KeyError:
-                            return "Skipped"
-                        if isinstance(annotation, UnionType):
-                            type_name = annotation.__args__[0].__name__
-                        else:
-                            try:
-                                type_name = annotation.__name__
-                            except AttributeError:
-                                logger.error(f"Could not determine type name for field {field} on {cls.__name__} {cls.model_fields[field].annotation}")
-                                type_name = "Skipped"
-                            except KeyError:
-                                type_name = "Skipped"
+                            type_name = "Skipped"
                 if type_name == "ObjectAssociationProxyInstance":
                     if is_new:
                         logger.warning(f"AssociationProxyInstance field {field} on {cls.__name__} is being treated as Skipped for new instance.")
@@ -1148,7 +1153,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         if not association:
             nodes.append(h.button(type="button", onclick="backend.submit()")["Submit"])
         return _plain(h.fragment[nodes])
-    
     
     @classmethod
     def clean_details_for_render(cls, dictionary: dict) -> dict:
