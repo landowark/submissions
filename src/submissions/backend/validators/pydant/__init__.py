@@ -306,6 +306,25 @@ def _get_relationship_marker(field_info: FieldInfo) -> RelationshipField | None:
             return RelationshipField()
     return None
 
+def _get_order_marker(field_info: FieldInfo) -> OrderInputField | None:
+    """
+    Return the OrderInputField marker from a FieldInfo's Annotated metadata, or None if the field isn't tagged.
+    Pydantic v2 moves Annotated extras into field_info.metadata.
+    """
+    annotation = field_info.annotation
+    annotated = get_args(annotation)[1:] if get_origin(annotation) is Annotated else ()
+    for meta in (*annotated, *field_info.metadata):
+        if isinstance(meta, OrderInputField):
+            return meta
+        if meta is OrderInputField:                 # someone forgot the ()
+            logger.warning("OrderInputField used as a bare class; treating as OrderInputField(). Add the parentheses.")
+            return OrderInputField()
+    return None
+
+def _get_field_marker(field_info: FieldInfo):
+    annotation = field_info.annotation
+    
+
 
 class PydBaseClass(BaseModel):#, validate_assignment=True):
 
