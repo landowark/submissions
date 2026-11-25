@@ -23,4 +23,10 @@ def css_to_dict(file_path):
 
     return css_dict
 
-css = css_to_dict(ctx.static.joinpath("app.css"))
+STYLE = css_to_dict(ctx.static.joinpath("app.css"))
+css = "\n".join(
+    selector + " { " + "; ".join(
+        f"{key}: {value}" for key, value in props.items()
+    ) + " }"
+    for selector, props in STYLE.items()
+)

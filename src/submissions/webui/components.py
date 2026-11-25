@@ -39,8 +39,6 @@ def _options(values, **attrs):
     logger.debug(pformat(values))
     return (h.option(value=_text(value), **attrs)[_text(value)] for value in values or [])
 
-
-
 def _relationship_list(field: str, item: dict):
     return h.div(id=field, class_="dual-listbox-container relationshiplist")[
         h.div(class_="selected-list list-panel")[
