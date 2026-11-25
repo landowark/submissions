@@ -81,15 +81,15 @@ def _association_list(field: str, item: dict):
     ]
 
 def _active_name_cards(items: List[dict]):
-    print(items)
-    return (h.div(class_="order-list-item")[
+    return (h.li(class_="order-list-item", draggable=True)[
+        h.span(class_="handle")["☰"],
         h.input(type="checkbox", class_="order-check", id=f"{item['name']}-box", name=item['name'], checked=item['active']),
         h.span(class_="order-span")[item['name']]
     ] for item in items)
 
 def _order_active_list(field: str, item: dict):
     return h.div(id=field, class_="order-list-container")[
-        h.div(class_="list-panel", align="center")[
+        h.ul(class_="list-panel", align="center")[
             _active_name_cards(item['value'])
         ]
     ]

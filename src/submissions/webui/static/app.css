@@ -256,13 +256,11 @@ tbody tr:hover {
 .order-list-item {
         /*display: grid;
         align-items: center;*/
-        border: 1px solid black;
-        border-radius: 6px;
-        width: auto;
-        margin: 5px;
         display: flex;
+        border: 1px solid black;
+        width: auto;
+        margin-bottom: 8px;
         align-items: center;
-        justify-content: center;
         padding: 0.25rem 0.6rem;
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 0.75rem;
@@ -273,15 +271,16 @@ tbody tr:hover {
         border-radius: 6px; /* Use 9999px for a full pill shape */
         text-decoration: none;
         user-select: none;
+        cursor: grab;
         transition: background-color 0.15s ease, transform 0.1s ease;
 }
 
-.order-list-item.selected {
-        color: #22dae7;
+.order-list-item:active {
+        cursor: grabbing;
 }
 
 .order-check {
-    justify-self: start;
+    margin-right: 6px;
 }
 
 .order-span {
@@ -295,6 +294,11 @@ tbody tr:hover {
     width: fit-content;
     padding: 10px;
     margin: auto;
+}
+
+.handle {
+        margin-right: 6px;
+        color: #6b7280;
 }
 
 .data-link {
