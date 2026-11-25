@@ -952,7 +952,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 excluded = None
             tooltip = self.__class__.model_fields[field].description
             value = data.get(field, None)
-            if isinstance(value, list):
+            logger.debug(type_name)
+            if isinstance(value, list) and type_name.upper() != "ORDERINPUTSCALAR":
                 value = [value['name'] if isinstance(value, dict) and 'name' in value.keys() else value for value in value]
             if type_name is not None:
                 yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded, object_type=self._sql_name.lower())

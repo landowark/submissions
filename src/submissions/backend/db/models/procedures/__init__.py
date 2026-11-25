@@ -738,6 +738,12 @@ class SubmissionType(BaseClass):
             value = []
         validate_write_exclude(value)
         self._write_exclude_order = value
+
+    @write_exclude_order.expression
+    def write_exclude_order(cls):
+        # NOTE: On the class, return the backing column. The getter is for instances only: run on the class, its
+        # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
+        return cls._write_exclude_order
     
     # @property
     # def entire_write_fields(self):
@@ -1402,6 +1408,12 @@ class ProcedureType(BaseClass):
             value = []
         validate_write_exclude(value)
         self._write_exclude_order = value
+
+    @write_exclude_order.expression
+    def write_exclude_order(cls):
+        # NOTE: On the class, return the backing column. The getter is for instances only: run on the class, its
+        # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
+        return cls._write_exclude_order
 
     # @property
     # def entire_write_fields(self):

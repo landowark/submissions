@@ -9,8 +9,10 @@ from __future__ import annotations
 from datetime import date, datetime
 from operator import itemgetter
 import htpy as h
+from markupsafe import Markup
 from .window_thread import WindowThread, on_window_thread
 from .components import *
+from . import css
 
 
 class ManagerForm(object):
@@ -38,7 +40,7 @@ class ManagerForm(object):
         """
         object_name = self._sql_type.__name__
         page = h.html[
-            h.head[h.meta(charset="utf-8"), h.style[_asset("css", "styles")]],
+            h.head[h.meta(charset="utf-8"), h.style[Markup(css)]],
             h.body[
                 h.h2(id="ObjectName")[f"Manage {object_name}"],
                 h.select(id="initial_object", onchange="update_selection(this.value)")[
