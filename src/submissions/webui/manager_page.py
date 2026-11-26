@@ -10,9 +10,13 @@ from datetime import date, datetime
 from operator import itemgetter
 import htpy as h
 from markupsafe import Markup
+import json
+from logging import getLogger
+logger = getLogger(f"submissions.{__name__}")
 from .window_thread import WindowThread, on_window_thread
 from .components import *
 from . import css
+from .p_scripts.ordered_list import ORDER_LIST_JS
 
 
 class ManagerForm(object):
@@ -25,14 +29,14 @@ class ManagerForm(object):
         self._object_type = object_type
         self._sql_type = BaseClass.find_subclasses(class_name=object_type.__name__.replace('Pyd', ''))
         self._pydant = None
-        q = self._sql_type.query()
-        if q is not None:
-            objects = sorted(
-                [dict(name=item.name, active=item.is_active) for item in q if item.name != "Default SubmissionType"],
-                key=itemgetter("active"), reverse=True)
-        else:
-            objects = []
-        self.object_list = [dict(name="", active=True), dict(name="--New--", active=True)] + objects
+        # q = self._sql_type.query()
+        # if q is not None:
+        #     objects = sorted(
+        #         [dict(name=item.name, active=item.is_active) for item in q if item.name != "Default SubmissionType"],
+        #         key=itemgetter("active"), reverse=True)
+        # else:
+        #     objects = []
+        # self.object_list = [dict(name="", active=True), dict(name="--New--", active=True)] + objects
 
     def _page(self):
         """
@@ -42,18 +46,34 @@ class ManagerForm(object):
         page = h.html[
             h.head[h.meta(charset="utf-8"), h.style[Markup(css)]],
             h.body[
-                h.h2(id="ObjectName")[f"Manage {object_name}"],
-                h.select(id="initial_object", onchange="update_selection(this.value)")[
-                    (h.option(value=item["name"],
-                                style=None if item["active"] else "color:gray",
-                                title=None if item["active"] else "Inactive")[item["name"]]
-                        for item in self.object_list)
-                ],
+                # h.h2(id="ObjectName")[f"Manage {object_name}"],
+                # h.select(id="initial_object", onchange="update_selection(this.value)")[
+                #     (h.option(value=item["name"],
+                #                 style=None if item["active"] else "color:gray",
+                #                 title=None if item["active"] else "Inactive")[item["name"]]
+                #         for item in self.object_list)
+                # ],
+                h.select(id="initial_object", onchange="update_selection(this.value)")[Markup(self._picker_options())],
                 h.div(id="object_form"),
                 (h.script[_asset("js", name)] for name in ("bridge", "details", "manager")),
+                h.script[Markup(ORDER_LIST_JS)],
             ],
         ]
         return _plain(page)
+
+    def _picker_options(self) -> str:
+        """
+        The <option>s for #initial_object, rebuilt from the database so a newly saved object shows up.
+        """
+        q = self._sql_type.query()
+        objects = sorted(
+            [dict(name=item.name, active=item.is_active) for item in q if item.name != "Default SubmissionType"],
+            key=itemgetter("active"), reverse=True) if q is not None else []
+        object_list = [dict(name="", active=True), dict(name="--New--", active=True)] + objects
+        return _plain(h.fragment[(h.option(value=item["name"],
+                                            style=None if item["active"] else "color:gray",
+                                            title=None if item["active"] else "Inactive")[item["name"]]
+                                for item in object_list)])
 
     @on_window_thread
     def update_selection(self, selection: str) -> str:
@@ -92,11 +112,13 @@ class ManagerForm(object):
         self._pydant.remove_relationship(field, value)
 
     @on_window_thread
-    def submit(self) -> None:
+    def submit(self) -> str | None:
+        logger.debug(f"Converting to sql:\n{pformat(self._pydant.__dict__)}")
         try:
             sql_instance = self._pydant.to_sql()
             if isinstance(sql_instance, tuple):
                 sql_instance = sql_instance[0]
+            logger.debug(f"Output sql:\n{pformat(sql_instance.__dict__)}")
             sql_instance.save()
         except Exception as e:
             logger.exception(f"Couldn't save {self._sql_type.__name__}: {e}")
@@ -104,7 +126,9 @@ class ManagerForm(object):
             self._window.evaluate_js(f"alert({message})")
             return
         self._pydant = None
-        self._window.load_html(self._page())
+        # self._window.load_html(self._page())
+        self._pydant = None
+        return self._picker_options()
 
     def save_html(self) -> None:
         # NOTE: OmniManager.write_html is an empty stub, so this does nothing in the Qt app either.

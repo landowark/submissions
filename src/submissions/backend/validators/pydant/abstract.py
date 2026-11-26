@@ -5,7 +5,7 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from numpy import array as nparray, ndenumerate
-from datetime import timedelta
+from datetime import timedelta, date
 from typing import Generator, List, TYPE_CHECKING, Literal, Annotated
 from pydantic import field_validator, Field
 from backend.validators.pydant import PydAbstract, RelationshipField, OrderInputField
@@ -151,6 +151,18 @@ class PydSubmissionType(PydAbstract):
                 value = dict()
         return value
 
+    @field_validator("write_exclude_order")
+    @classmethod
+    def construct_weo(cls, value):
+        """
+        sources of weo: sql database (or default PydClientSubmissionSampleAssociation and PydSample Fields), all misc data keys in connected samples, 
+        """
+        if not value:
+            from .concrete import PydSample, PydClientSubmissionSampleAssociation
+            keys = list(set(list(PydSample.model_fields.keys()) + list(PydClientSubmissionSampleAssociation.model_fields.keys())))
+            value = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        return value
+
     def update_instrumentedattribute(self, key, value):
         """
         Updates all instrumented attributes to match the current state of the pydantic model.
@@ -175,6 +187,28 @@ class PydSubmissionType(PydAbstract):
             return
         super().remove_relationship(field, value)
 
+    @property
+    def form_dictionary(self) -> Generator[dict, None, None]:
+        """
+        Generates dictionaries to be used to fill jinja2 html form.
+
+        Returns:
+            Generator[dict, None, None]: Generator of Dict[field name, type name, value, tooltip text, excluded fields, sql object type name]
+        """
+        for d in super().form_dictionary:
+            match d['field']:
+                case "write_exclude_order":
+                    from backend.db.models import ClientSubmission
+                    start_ = date.today() - timedelta(days=90)
+                    submissions = ClientSubmission.query(start_date=start_, submissiontype=self.name)
+                    names = [item['name'] for item in d['value']]
+                    submissions_items = [p for p in set(flatten_list([item.misc_info.keys() for item in submissions])) if p not in names]
+                    d['value'] += [dict(name=item, active=True) for item in submissions_items]
+                    for ii, value in enumerate(d['value']):
+                        value['index'] = ii
+                case _:
+                    pass
+            yield d
 
 class PydProcedureTypeResultsTypeAssociation(PydAbstract):
 
@@ -223,6 +257,18 @@ class PydProcedureType(PydAbstract):
     def validate_submissiontype(cls, value) -> List[str]:
         if not value:
             value = ["Default SubmissionType"]
+        return value
+
+    @field_validator("write_exclude_order")
+    @classmethod
+    def construct_weo(cls, value):
+        """
+        sources of weo: sql database (or default PydClientSubmissionSampleAssociation and PydSample Fields), all misc data keys in connected samples, 
+        """
+        if not value:
+            from .concrete import PydSample, PydProcedureSampleAssociation
+            keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
+            value = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
         return value
 
     def remove_relationship(self, field: str, value: str):
@@ -338,6 +384,28 @@ class PydProcedureType(PydAbstract):
             # Horizontal: (Rows passed * columns per row) + current column
             return (row * self.plate_columns) + (column + 1)
 
+    @property
+    def form_dictionary(self) -> Generator[dict, None, None]:
+        """
+        Generates dictionaries to be used to fill jinja2 html form.
+
+        Returns:
+            Generator[dict, None, None]: Generator of Dict[field name, type name, value, tooltip text, excluded fields, sql object type name]
+        """
+        for d in super().form_dictionary:
+            match d['field']:
+                case "write_exclude_order":
+                    from backend.db.models import Procedure
+                    start_ = date.today() - timedelta(days=90)
+                    procedures = Procedure.query(start_date=start_, proceduretype=self.name)
+                    names = [item['name'] for item in d['value']]
+                    procedures_items = [p for p in set(flatten_list([item.misc_info.keys() for item in procedures])) if p not in names]
+                    d['value'] += [dict(name=item, active=True) for item in procedures_items]
+                    for ii, value in enumerate(d['value']):
+                        value['index'] = ii
+                case _:
+                    pass
+            yield d
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
 

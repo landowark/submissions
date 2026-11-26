@@ -713,24 +713,25 @@ class SubmissionType(BaseClass):
         procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
         """
         start = self._write_exclude_order or []
-        if not start:
-            from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
-            keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
-            start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
         return sorted(start, key=lambda x: x['active'])
+        # if not start:
+        #     from backend.validators.pydant import PydSubmissionSampleAssociation, PydSample
+        #     keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
+        #     start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        # return sorted(start, key=lambda x: x['active'])
 
-    def discover_write_exclude_order(self) -> List[dict]:
-        """
-        The stored order plus, as inactive entries, every other field found on this type's submissions' samples.
-        Slow: converts every sample association of every client submission of this type.
-        """
-        start = list(self.write_exclude_order)
-        names = {item['name'] for item in start}
-        list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])]
-        update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-        for ii, name in enumerate(update - names, start=len(start) + 1):
-            start.append(dict(name=name, index=ii, active=False))
-        return sorted(start, key=lambda x: x['active'])
+    # def discover_write_exclude_order(self) -> List[dict]:
+    #     """
+    #     The stored order plus, as inactive entries, every other field found on this type's submissions' samples.
+    #     Slow: converts every sample association of every client submission of this type.
+    #     """
+    #     start = list(self.write_exclude_order)
+    #     names = {item['name'] for item in start}
+    #     list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])]
+    #     update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+    #     for ii, name in enumerate(update - names, start=len(start) + 1):
+    #         start.append(dict(name=name, index=ii, active=False))
+    #     return sorted(start, key=lambda x: x['active'])
 
     @write_exclude_order.setter
     def write_exclude_order(self, value: List[dict]):
@@ -1381,26 +1382,26 @@ class ProcedureType(BaseClass):
         procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
         """
         start = self._write_exclude_order or []
-        if not start:
-            from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
-            keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
-            start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        # if not start:
+        #     from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
+        #     keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
+        #     start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
         return sorted(start, key=lambda x: x['active'])
 
-    def discover_write_exclude_order(self) -> List[dict]:
-        """
-        The stored order plus, as inactive entries, every other field found on this type's procedures' samples.
+    # def discover_write_exclude_order(self) -> List[dict]:
+    #     """
+    #     The stored order plus, as inactive entries, every other field found on this type's procedures' samples.
 
-        Slow: converts every sample association of every procedure of this type. Call it where the full list is
-        actually needed (e.g. the manager's ordering widget), never from a property.
-        """
-        start = list(self.write_exclude_order)
-        names = {item['name'] for item in start}
-        list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.proceduresampleassociation for sub in self._procedure])]
-        update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-        for ii, name in enumerate(update - names, start=len(start) + 1):
-            start.append(dict(name=name, index=ii, active=False))
-        return sorted(start, key=lambda x: x['active'])
+    #     Slow: converts every sample association of every procedure of this type. Call it where the full list is
+    #     actually needed (e.g. the manager's ordering widget), never from a property.
+    #     """
+    #     start = list(self.write_exclude_order)
+    #     names = {item['name'] for item in start}
+    #     list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.proceduresampleassociation for sub in self._procedure])]
+    #     update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
+    #     for ii, name in enumerate(update - names, start=len(start) + 1):
+    #         start.append(dict(name=name, index=ii, active=False))
+    #     return sorted(start, key=lambda x: x['active'])
 
     @write_exclude_order.setter
     def write_exclude_order(self, value):
@@ -2154,6 +2155,7 @@ class Procedure(BaseClass):
     def query(cls, 
               id: int | None = None,
               name: str | None = None,
+              proceduretype: str | ProcedureType | None = None,
               start_date: date | datetime | str | int | None = None,
               end_date: date | datetime | str | int | None = None, 
               limit: int = 0,
@@ -2179,12 +2181,28 @@ class Procedure(BaseClass):
             end_date = date.today()
         if end_date is not None and start_date is None:
             # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
-            start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
+            start_date = cls.__database_session__.query(cls, func.min(cls.started_date)).first()[1]
             logger.warning(f"End date with no start date, using first procedure date: {start_date}")
         if start_date is not None:
             start_date = cls.rectify_query_date(start_date, timefill=TimeFill.MIN)
             end_date = cls.rectify_query_date(end_date, timefill=TimeFill.MAX)
             query = query.filter(cls.started_date.between(start_date, end_date))
+        match proceduretype:
+            case list():
+                procedure_filters = []
+                for pt in proceduretype:
+                    if isinstance(pt, ProcedureType):
+                        procedure_filters.append(cls.proceduretype == pt)
+                    elif isinstance(st, str):
+                        procedure_filters.append(cls.proceduretype.name == pt)
+                if procedure_filters:
+                    query = query.filter(or_(*procedure_filters))
+            case ProcedureType():
+                query = query.filter(cls.proceduretype == proceduretype)
+            case str():
+                query = query.join(ProcedureType).filter(ProcedureType.name == proceduretype)
+            case _:
+                pass
         match id:
             case int():
                 query = query.filter(cls.id == id)
@@ -2500,7 +2518,6 @@ class Procedure(BaseClass):
         pyd.active_equipmentroles = [assoc.equipmentrole.name for assoc in self.procedureequipmentassociation]
         pyd.used_tips = {ass.equipmentrole.name: [tipslot.name for tipslot in ass.tipslot] for ass in self.procedureequipmentassociation} or {}
         return pyd
-
     @property
     def submissiontype(self):
         """

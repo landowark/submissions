@@ -299,6 +299,7 @@ tbody tr:hover {
 .handle {
         margin-right: 6px;
         color: #6b7280;
+        cursor: grab;
 }
 
 .data-link {

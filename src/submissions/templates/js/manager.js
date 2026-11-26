@@ -163,3 +163,11 @@ async function createAssociationForm(field, selectedValue) {
         backend.save_html()
     });
 }
+
+function submit_form() {
+    backend.submit().then(function(options) {
+        if (options === null) return;  // save failed; Python already showed the alert
+        document.getElementById('initial_object').innerHTML = options;
+        document.getElementById('object_form').innerHTML = '';
+    });
+}

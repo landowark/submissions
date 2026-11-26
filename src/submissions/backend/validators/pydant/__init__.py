@@ -1072,8 +1072,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         if attribute_type.upper() in ["INTEGER", "BOOL"]:
             mode = getattr(Booleanize, attribute_type.upper())
             value = booleanize(value, mode)
+        logger.debug(f"Attempting to set {key} to {value}")
         self.__setattr__(key, value)
         assert getattr(self, key) == value, f"Failed to set {key} to '{value}' for {self}"
+        logger.debug(pformat(self.__dict__))
 
     def revalidate(self):
         """
@@ -1152,7 +1154,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 nodes.append(control)
             nodes += [h.br, h.br]
         if not association:
-            nodes.append(h.button(type="button", onclick="backend.submit()")["Submit"])
+            nodes.append(h.button(type="button", onclick="submit_form()")["Submit"])
         return _plain(h.fragment[nodes])
     
     @classmethod

@@ -1033,7 +1033,7 @@ class BaseClass(Base):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
 
     @staticmethod
-    def rectify_query_date(input_date: datetime, timefill: TimeFill | None = None, strip: bool = True) -> str:
+    def rectify_query_date(input_date: datetime | str, timefill: TimeFill | None = None, strip: bool = True) -> str:
         """
         Convert input into a datetime string for querying purposes.
         
@@ -1054,8 +1054,8 @@ class BaseClass(Base):
         :rtype: str
         """
         from backend.validators.shared import parse_optional_datetime
-        if input_date.year <= 1970:
-            return "NA"
+        # if input_date.year <= 1970:
+        #     return "NA"
         output_date = parse_optional_datetime(value=input_date, timefill=timefill).isoformat(timespec="seconds")
         if strip:
             output_date = rsub(r"-\d{2}:\d{2}", "", output_date).replace("T", " ")

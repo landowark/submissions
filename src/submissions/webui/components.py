@@ -36,7 +36,6 @@ def _label(item: dict):
     ]
 
 def _options(values, **attrs):
-    logger.debug(pformat(values))
     return (h.option(value=_text(value), **attrs)[_text(value)] for value in values or [])
 
 def _relationship_list(field: str, item: dict):
@@ -81,7 +80,7 @@ def _association_list(field: str, item: dict):
     ]
 
 def _active_name_cards(items: List[dict]):
-    return (h.li(class_="order-list-item", draggable=True)[
+    return (h.li(class_="order-list-item", draggable="true")[
         h.span(class_="handle")["☰"],
         h.input(type="checkbox", class_="order-check", id=f"{item['name']}-box", name=item['name'], checked=item['active']),
         h.span(class_="order-span")[item['name']]
@@ -99,7 +98,6 @@ def _control(item: dict):
     The input for one form_dictionary entry, following manager_form.html. None for types it has no input for.
     """
     field, value = item["field"], item["value"]
-    print(f"{field} - {value}")
     match item["type"]:
         case "STR":
             kind = field if field in ("phone", "email") else "text"
