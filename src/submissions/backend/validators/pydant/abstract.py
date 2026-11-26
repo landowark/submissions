@@ -110,7 +110,9 @@ class PydSubmissionType(PydAbstract):
     abbreviation: str = Field(default="CC", description="Shorthand to be used in naming convention (RSL-CC-YYYYMMMDD-1).")
     clientsubmission: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, repr=False)
     proceduretype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="ProcedureTypes this type uses.", repr=False)
-    write_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Fields to write on export", repr=False)
+    info_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Info fields to write on export", repr=False)
+    sample_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Sample fields to write on export", repr=False)
+    
 
     @field_validator("file_name_template", mode="before")
     @classmethod
@@ -151,15 +153,27 @@ class PydSubmissionType(PydAbstract):
                 value = dict()
         return value
 
-    @field_validator("write_exclude_order")
+    @field_validator("sample_exclude_order")
     @classmethod
-    def construct_weo(cls, value):
+    def construct_seo(cls, value):
         """
         sources of weo: sql database (or default PydClientSubmissionSampleAssociation and PydSample Fields), all misc data keys in connected samples, 
         """
         if not value:
             from .concrete import PydSample, PydClientSubmissionSampleAssociation
             keys = list(set(list(PydSample.model_fields.keys()) + list(PydClientSubmissionSampleAssociation.model_fields.keys())))
+            value = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        return value
+
+    @field_validator("info_exclude_order")
+    @classmethod
+    def construct_ieo(cls, value):
+        """
+        sources of weo: sql database (or default PydClientSubmission Fields), all misc data keys in connected samples, 
+        """
+        if not value:
+            from .concrete import PydClientSubmission
+            keys = list(set(list(PydClientSubmission.model_fields.keys())))
             value = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
         return value
 
@@ -195,20 +209,30 @@ class PydSubmissionType(PydAbstract):
         Returns:
             Generator[dict, None, None]: Generator of Dict[field name, type name, value, tooltip text, excluded fields, sql object type name]
         """
+        from backend.db.models import ClientSubmission
+        start_ = date.today() - timedelta(days=30)
+        submissions = ClientSubmission.query(start_date=start_, submissiontype=self.name)
         for d in super().form_dictionary:
             match d['field']:
-                case "write_exclude_order":
-                    from backend.db.models import ClientSubmission
-                    start_ = date.today() - timedelta(days=90)
-                    submissions = ClientSubmission.query(start_date=start_, submissiontype=self.name)
+                case "info_exclude_order":
                     names = [item['name'] for item in d['value']]
-                    submissions_items = [p for p in set(flatten_list([item.misc_info.keys() for item in submissions])) if p not in names]
-                    d['value'] += [dict(name=item, active=True) for item in submissions_items]
+                    submissions_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in submissions])) if p not in names]
+                    d['value'] += [dict(name=item, active=True) for item in list(set(submissions_items))]
+                    for ii, value in enumerate(d['value']):
+                        value['index'] = ii
+                case "sample_exclude_order":
+                    names = [item['name'] for item in d['value']]
+                    assoc = flatten_list([sub.clientsubmissionsampleassociation for sub in submissions])
+                    submissions_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in assoc])) if p not in names]
+                    sample = flatten_list([sub.sample for sub in submissions])
+                    submissions_items += [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in sample])) if p not in names]
+                    d['value'] += [dict(name=item, active=True) for item in list(set(submissions_items))]
                     for ii, value in enumerate(d['value']):
                         value['index'] = ii
                 case _:
                     pass
             yield d
+
 
 class PydProcedureTypeResultsTypeAssociation(PydAbstract):
 
@@ -243,7 +267,8 @@ class PydProcedureType(PydAbstract):
     resultstype: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Results Types used by this type.", repr=False)
     equipmentrole: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Equipment roles used by this type.", repr=False)
     reagentrole: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Reagent roles used by this type.", repr=False)
-    write_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Fields to write on export", repr=False)
+    info_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Info fields to write on export", repr=False)
+    sample_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Sample fields to write on export", repr=False)
     
     @field_validator("submissiontype", "resultstype", "equipmentrole", "reagentrole", mode="before")
     @classmethod
@@ -259,9 +284,21 @@ class PydProcedureType(PydAbstract):
             value = ["Default SubmissionType"]
         return value
 
-    @field_validator("write_exclude_order")
+    @field_validator("info_exclude_order")
     @classmethod
-    def construct_weo(cls, value):
+    def construct_ieo(cls, value):
+        """
+        sources of weo: sql database (or default PydProcedure Fields), all misc data keys in connected samples, 
+        """
+        if not value:
+            from .concrete import PydProcedure
+            keys = list(set(list(PydProcedure.model_fields.keys())))
+            value = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        return value
+
+    @field_validator("sample_exclude_order")
+    @classmethod
+    def construct_seo(cls, value):
         """
         sources of weo: sql database (or default PydClientSubmissionSampleAssociation and PydSample Fields), all misc data keys in connected samples, 
         """
@@ -392,20 +429,30 @@ class PydProcedureType(PydAbstract):
         Returns:
             Generator[dict, None, None]: Generator of Dict[field name, type name, value, tooltip text, excluded fields, sql object type name]
         """
+        from backend.db.models import Procedure
+        start_ = date.today() - timedelta(days=30)
+        procedures = Procedure.query(start_date=start_, proceduretype=self.name)
         for d in super().form_dictionary:
             match d['field']:
-                case "write_exclude_order":
-                    from backend.db.models import Procedure
-                    start_ = date.today() - timedelta(days=90)
-                    procedures = Procedure.query(start_date=start_, proceduretype=self.name)
+                case "info_exclude_order":
                     names = [item['name'] for item in d['value']]
-                    procedures_items = [p for p in set(flatten_list([item.misc_info.keys() for item in procedures])) if p not in names]
-                    d['value'] += [dict(name=item, active=True) for item in procedures_items]
+                    procedures_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in procedures])) if p not in names]
+                    d['value'] += [dict(name=item, active=True) for item in list(set(procedures_items))]
+                    for ii, value in enumerate(d['value']):
+                        value['index'] = ii
+                case "sample_exclude_order":
+                    names = [item['name'] for item in d['value']]
+                    assoc = flatten_list([sub.proceduresampleassociation for sub in procedures])
+                    procedures_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in assoc])) if p not in names]
+                    sample = flatten_list([sub.sample for sub in procedures])
+                    procedures_items += [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in sample])) if p not in names]
+                    d['value'] += [dict(name=item, active=True) for item in list(set(procedures_items))]
                     for ii, value in enumerate(d['value']):
                         value['index'] = ii
                 case _:
                     pass
             yield d
+
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
 

@@ -29,7 +29,7 @@ from backend.validators.shared import parse_optional_datetime, vet_comment, bool
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run, ClientSubmission, Sample, ProcedureSampleAssociation
     from backend.validators.pydant import (
-        PydProcedure, PydResults, PydResultsType, PydClientLab, PydProcedureType, PydClientSubmission,
+        PydProcedure, PydResults, PydResultsType, PydClientLab, PydProcedureType, PydProcedure,
         PydEquipmentRole, PydReagentRole, PydProcedureTypeEquipmentRoleAssociation, PydProcedureReagentLotAssociation, 
         PydEquipment, PydProcedureEquipmentAssociation, PydSample, PydProcedureSampleAssociation, PydRun
     )
@@ -348,7 +348,8 @@ class SubmissionType(BaseClass):
                                  secondary=submissiontype_proceduretype)  #: Procedures associated with this submission type
     _info_sheets = Column(JSON, default=[])
     _sample_sheets = Column(JSON, default=[])
-    _write_exclude_order = Column(JSON, default=[])
+    _sample_exclude_order = Column(JSON, default=[])
+    _info_exclude_order = Column(JSON, default=[])
     
 
     def __init__(self, *args, **kwargs):
@@ -403,7 +404,7 @@ class SubmissionType(BaseClass):
         return self._clientsubmission
 
     @clientsubmission.setter
-    def clientsubmission(self, value: List[str | dict | ClientSubmission | PydClientSubmission]):
+    def clientsubmission(self, value: List[str | dict | ClientSubmission | PydProcedure]):
         """
         Set the clientsubmission by parsing an input value.
 
@@ -411,7 +412,7 @@ class SubmissionType(BaseClass):
         :type value: List[str | dict | ClientSubmission | PydClientSubmission]
         :raises ValueError: If the name value is not in the expected format.
         """
-        from backend.validators.pydant import PydClientSubmission
+        from backend.validators.pydant import PydProcedure
         from backend.db.models.submissions import ClientSubmission
         if value is None:
             return
@@ -424,7 +425,7 @@ class SubmissionType(BaseClass):
                     output = ClientSubmission.query(name=item, limit=1)
                 case dict():
                     output = ClientSubmission.query_or_create(**item)
-                case PydClientSubmission():
+                case PydProcedure():
                     output = item.to_sql(update=False)
                 case ClientSubmission():
                     output = item
@@ -705,58 +706,70 @@ class SubmissionType(BaseClass):
                 yield dict(sheet=f"{proceduretype.name[:10]} {resultstype.name[:10]}", start_row=1)
 
     @hybrid_property
-    def write_exclude_order(self) -> List[dict]:
+    def sample_exclude_order(self) -> List[dict]:
         """
         Export column order: the stored list, or defaults if none is stored.
 
         NOTE: Kept cheap on purpose. details_dict reads every hybrid, so this runs on every to_pydantic() of this
         procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
         """
-        start = self._write_exclude_order or []
-        return sorted(start, key=lambda x: x['active'])
-        # if not start:
-        #     from backend.validators.pydant import PydSubmissionSampleAssociation, PydSample
-        #     keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
-        #     start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
-        # return sorted(start, key=lambda x: x['active'])
+        start = self._sample_exclude_order or []
+        return sorted(start, key=lambda x: x['active'], reverse=True)
 
-    # def discover_write_exclude_order(self) -> List[dict]:
-    #     """
-    #     The stored order plus, as inactive entries, every other field found on this type's submissions' samples.
-    #     Slow: converts every sample association of every client submission of this type.
-    #     """
-    #     start = list(self.write_exclude_order)
-    #     names = {item['name'] for item in start}
-    #     list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])]
-    #     update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-    #     for ii, name in enumerate(update - names, start=len(start) + 1):
-    #         start.append(dict(name=name, index=ii, active=False))
-    #     return sorted(start, key=lambda x: x['active'])
-
-    @write_exclude_order.setter
-    def write_exclude_order(self, value: List[dict]):
+    @sample_exclude_order.setter
+    def sample_exclude_order(self, value: List[dict]):
         if value is None:
             value = []
         validate_write_exclude(value)
-        self._write_exclude_order = value
+        self._sample_exclude_order = value
 
-    @write_exclude_order.expression
-    def write_exclude_order(cls):
+    @sample_exclude_order.expression
+    def sample_exclude_order(cls):
         # NOTE: On the class, return the backing column. The getter is for instances only: run on the class, its
         # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
-        return cls._write_exclude_order
+        return cls._sample_exclude_order
     
-    # @property
-    # def entire_write_fields(self):
-    #     start = self.write_exclude_order
-    #     list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
-    #     list_ = [assoc.to_pydantic() for assoc in list_]
-    #     update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-    #     for ii, name in enumerate(update, start=len(start)+1):
-    #         if name not in (item['name'] for item in start):
-    #             start.append(dict(name=name, index=ii, active=False))
-    #     return sorted(start, key=lambda x: x['active'])
-        
+    @hybrid_property
+    def info_exclude_order(self) -> List[dict]:
+        """
+        Export column order: the stored list, or defaults if none is stored.
+
+        NOTE: Kept cheap on purpose. details_dict reads every hybrid, so this runs on every to_pydantic() of this
+        procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
+        """
+        start = self._info_exclude_order or []
+        return sorted(start, key=lambda x: x['active'], reverse=True)
+
+    @info_exclude_order.setter
+    def info_exclude_order(self, value):
+        if value is None:
+            value = []
+        validate_write_exclude(value)
+        self._info_exclude_order = value
+
+    @info_exclude_order.expression
+    def info_exclude_order(cls):
+        # NOTE: On the class, return the backing column. The getter is for instances only: run on the class, its
+        # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
+        return cls._info_exclude_order
+
+    @property
+    def info_exclude(self) -> List[str]:
+        return [item['name'] for item in self.info_exclude_order if not item['active']]
+
+    @property
+    def info_order(self) -> List[str]:
+        prelim = [item for item in self.info_exclude_order if item['active']]
+        return [item['name'] for item in  sorted(prelim, key=lambda x: x['index'])]
+
+    @property
+    def sample_exclude(self) -> List[str]:
+        return [item['name'] for item in self.sample_exclude_order if not item['active']]
+
+    @property
+    def sample_order(self) -> List[str]:
+        prelim = [item for item in self.sample_exclude_order if item['active']]
+        return [item['name'] for item in  sorted(prelim, key=lambda x: x['index'])]
 
 class ProcedureType(BaseClass):
     """
@@ -794,7 +807,8 @@ class ProcedureType(BaseClass):
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
     plate_cost = Column(FLOAT(2), default=0.00)
-    _write_exclude_order = Column(JSON, default=[])
+    _sample_exclude_order = Column(JSON, default=[])
+    _info_exclude_order = Column(JSON, default=[])
 
     _procedure = relationship("Procedure",
                              back_populates="_proceduretype", cascade="all, delete-orphan")  #: Concrete control of this type.
@@ -1374,59 +1388,70 @@ class ProcedureType(BaseClass):
         return output
 
     @hybrid_property
-    def write_exclude_order(self) -> List[dict]:
+    def sample_exclude_order(self) -> List[dict]:
         """
         Export column order: the stored list, or defaults if none is stored.
 
         NOTE: Kept cheap on purpose. details_dict reads every hybrid, so this runs on every to_pydantic() of this
         procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
         """
-        start = self._write_exclude_order or []
-        # if not start:
-        #     from backend.validators.pydant import PydProcedureSampleAssociation, PydSample
-        #     keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
-        #     start = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
-        return sorted(start, key=lambda x: x['active'])
+        start = self._sample_exclude_order or []
+        return sorted(start, key=lambda x: x['active'], reverse=True)
 
-    # def discover_write_exclude_order(self) -> List[dict]:
-    #     """
-    #     The stored order plus, as inactive entries, every other field found on this type's procedures' samples.
-
-    #     Slow: converts every sample association of every procedure of this type. Call it where the full list is
-    #     actually needed (e.g. the manager's ordering widget), never from a property.
-    #     """
-    #     start = list(self.write_exclude_order)
-    #     names = {item['name'] for item in start}
-    #     list_ = [assoc.to_pydantic() for assoc in flatten_list([sub.proceduresampleassociation for sub in self._procedure])]
-    #     update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-    #     for ii, name in enumerate(update - names, start=len(start) + 1):
-    #         start.append(dict(name=name, index=ii, active=False))
-    #     return sorted(start, key=lambda x: x['active'])
-
-    @write_exclude_order.setter
-    def write_exclude_order(self, value):
+    @sample_exclude_order.setter
+    def sample_exclude_order(self, value):
         if value is None:
             value = []
         validate_write_exclude(value)
-        self._write_exclude_order = value
+        self._sample_exclude_order = value
 
-    @write_exclude_order.expression
-    def write_exclude_order(cls):
+    @sample_exclude_order.expression
+    def sample_exclude_order(cls):
         # NOTE: On the class, return the backing column. The getter is for instances only: run on the class, its
         # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
-        return cls._write_exclude_order
+        return cls._sample_exclude_order
 
-    # @property
-    # def entire_write_fields(self):
-    #     start = self.write_exclude_order
-    #     list_ = flatten_list([sub.clientsubmissionsampleassociation for sub in self.clientsubmission])
-    #     list_ = [assoc.to_pydantic() for assoc in list_]
-    #     update = set(flatten_list([list(item.improved_dict.keys()) for item in list_]))
-    #     for ii, name in enumerate(update, start=len(start)+1):
-    #         if name not in (item['name'] for item in start):
-    #             start.append(dict(name=name, index=ii, active=False))
-    #     return sorted(start, key=lambda x: x['active'])
+    @hybrid_property
+    def info_exclude_order(self) -> List[dict]:
+        """
+        Export column order: the stored list, or defaults if none is stored.
 
+        NOTE: Kept cheap on purpose. details_dict reads every hybrid, so this runs on every to_pydantic() of this
+        procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
+        """
+        start = self._info_exclude_order or []
+        return sorted(start, key=lambda x: x['active'], reverse=True)
+
+    @info_exclude_order.setter
+    def info_exclude_order(self, value):
+        if value is None:
+            value = []
+        validate_write_exclude(value)
+        self._info_exclude_order = value
+
+    @info_exclude_order.expression
+    def info_exclude_order(cls):
+        # NOTE: On the class, return the backing column. The getter is for instances only: run on the class, its
+        # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
+        return cls._info_exclude_order
+
+    @property
+    def info_exclude(self) -> List[str]:
+        return [item['name'] for item in self.info_exclude_order if not item['active']]
+
+    @property
+    def info_order(self) -> List[str]:
+        prelim = [item for item in self.info_exclude_order if item['active']]
+        return [item['name'] for item in  sorted(prelim, key=lambda x: x['index'])]
+
+    @property
+    def sample_exclude(self) -> List[str]:
+        return [item['name'] for item in self.sample_exclude_order if not item['active']]
+
+    @property
+    def sample_order(self) -> List[str]:
+        prelim = [item for item in self.sample_exclude_order if item['active']]
+        return [item['name'] for item in  sorted(prelim, key=lambda x: x['index'])]
 
 class Procedure(BaseClass):
     """
@@ -2645,6 +2670,26 @@ class Procedure(BaseClass):
             return self.proceduretype.load_resultstypeassoc_settings(resultstype=resultstype, mode=mode)
         except AttributeError:
             return {}
+
+    @property
+    def parent_type(self):
+        return self.proceduretype
+
+    @property
+    def info_exclude(self) -> List[str]:
+        return self.parent_type.info_exclude
+
+    @property
+    def info_order(self) -> List[str]:
+        return self.parent_type.info_order
+
+    @property
+    def sample_exclude(self) -> List[str]:
+        return self.parent_type.sample_exclude
+
+    @property
+    def sample_order(self) -> List[str]:
+        return self.parent_type.sample_order
 
 @event.listens_for(Procedure.proceduresampleassociation, "append")
 def _add_new_sample_association(procedure, association, initiator):

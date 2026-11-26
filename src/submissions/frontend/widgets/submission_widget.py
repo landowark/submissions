@@ -12,7 +12,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from .functions import select_open_file, select_save_file
 from pathlib import Path
 from tools import Report, Alert, AlertStatus, main_form_style, report_result, get_application_from_parent
-from backend.validators import PydClientSubmission, PydSample, SourcedField
+from backend.validators import PydProcedure, PydSample, SourcedField
 from backend.db.models import (
     ClientLab
 )
@@ -139,7 +139,7 @@ class SubmissionFormContainer(QWidget):
         self.samples = [assoc.sample.to_pydantic() for assoc in clientsubmission.clientsubmissionsampleassociation]
         self.missing_info = []
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=clientsubmission)
-        self.pydclientsubmission: PydClientSubmission = self.clientsubmission_manager.to_pydantic()
+        self.pydclientsubmission: PydProcedure = self.clientsubmission_manager.to_pydantic()
         self.form = self.pydclientsubmission.to_form(parent=self, disable=['submitter_plate_id'])
         self.layout().addWidget(self.form)
         
@@ -178,7 +178,7 @@ class SubmissionFormContainer(QWidget):
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
         self.pydclientsubmission = self.clientsubmission_manager.to_pydantic()
         try:
-            assert isinstance(self.pydclientsubmission, PydClientSubmission)
+            assert isinstance(self.pydclientsubmission, PydProcedure)
         except AssertionError as e:
             logger.error(f"Got wrong type for {self.pydclientsubmission}: {type(self.pydclientsubmission)}")
             raise e
@@ -196,7 +196,7 @@ class SubmissionFormContainer(QWidget):
     
 class SubmissionFormWidget(QWidget):
     
-    def __init__(self, parent: QWidget, pyd: PydClientSubmission, disable: list | None = None) -> None:
+    def __init__(self, parent: QWidget, pyd: PydProcedure, disable: list | None = None) -> None:
         super().__init__(parent)
         from backend.db.models import SubmissionType
         if disable is None:
@@ -514,7 +514,7 @@ class SubmissionFormWidget(QWidget):
 
 class ClientSubmissionFormWidget(SubmissionFormWidget):
 
-    def __init__(self, parent: QWidget, clientsubmission: PydClientSubmission, samples: List = [],
+    def __init__(self, parent: QWidget, clientsubmission: PydProcedure, samples: List = [],
                  disable: list | None = None) -> None:
         super().__init__(parent, pyd=clientsubmission, disable=disable)
         try:

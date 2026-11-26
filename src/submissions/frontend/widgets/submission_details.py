@@ -26,7 +26,7 @@ class SubmissionDetails(QDialog):
     """
 
     def __init__(self, parent, object_: 
-                 pydant.PydClientSubmission |
+                 pydant.PydProcedure |
                  pydant.PydRun |
                  pydant.PydProcedure |
                  pydant.PydSample,

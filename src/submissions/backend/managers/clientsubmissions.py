@@ -15,15 +15,15 @@ from backend.excel.parsers import clientsubmission_parser
 from backend.excel.writers import clientsubmission_writer 
 if TYPE_CHECKING:
     from backend.db.models import SubmissionType, ClientSubmission
-    from backend.validators.pydant import PydClientSubmission, PydProcedure, PydRun
+    from backend.validators.pydant import PydProcedure, PydProcedure, PydRun
 
 
 class DefaultClientSubmissionManager(DefaultManager):
    
     def __init__(self, parent, submissiontype: SubmissionType | str | None = None,
-                 input_object: Path | str | ClientSubmission | PydClientSubmission | None = None, **kwargs):
+                 input_object: Path | str | ClientSubmission | PydProcedure | None = None, **kwargs):
         from backend.db.models import SubmissionType, ClientSubmission
-        from backend.validators.pydant import PydClientSubmission
+        from backend.validators.pydant import PydProcedure
         # NOTE: So the submissiontype schtick is mostly for a future incident in which I have to scrape 
         # specialized excel sheets.
         f = None
@@ -39,7 +39,7 @@ class DefaultClientSubmissionManager(DefaultManager):
                 self.namer = ClientSubmissionNamer(filepath=input_object)
             case _ if isinstance(input_object, ClientSubmission):
                 self.namer = input_object
-            case _ if isinstance(input_object, PydClientSubmission):
+            case _ if isinstance(input_object, PydProcedure):
                 self.namer = input_object
             case _:
                 logger.warning(f"Skipping submission type")
@@ -156,9 +156,13 @@ class DefaultClientSubmissionManager(DefaultManager):
         return self.clientsubmission
     
     def write(self, workbook: Workbook) -> Workbook:
-        self.info_writer = clientsubmission_writer.ClientSubmissionInfoWriter(pydant_obj=self.pyd)
+        self.info_writer = clientsubmission_writer.ClientSubmissionInfoWriter(
+                pydant_obj=self.pyd, exclude=self.info_exclude, order=self.info_order
+            )
         workbook = self.info_writer.write_to_workbook(workbook)
-        self.sample_writer = clientsubmission_writer.ClientSubmissionSampleWriter(pydant_obj=self.pyd)
+        self.sample_writer = clientsubmission_writer.ClientSubmissionSampleWriter(
+                pydant_obj=self.pyd, exclude=self.sample_exclude, order=self.sample_order
+            )
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.info_writer.worksheet.max_row + 1)
         return workbook
 

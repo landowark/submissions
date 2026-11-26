@@ -855,7 +855,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output['reagent'] = sort_by_attr_or_key(output['reagent'], "reagentrole")
         except KeyError as e:
             pass
-        return output
+        return sort_dict_by_list(output, self.sql_instance.parent_type.info_order)
 
     def reorder_proceduretype_by_procedure(self):
         proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
@@ -1143,7 +1143,7 @@ class PydClientSubmission(PydConcrete):
     # ────────────────────────────────────────────────────────────────────────
  
     @model_validator(mode="after")
-    def _validate_submission_category(self) -> "PydClientSubmission":
+    def _validate_submission_category(self) -> "PydProcedure":
         valid = {"Research", "Diagnostic", "Surveillance", "Validation"}
         if self.submission_category.value not in valid:
             fallback = self.submissiontype.value or "NA"
@@ -1156,7 +1156,7 @@ class PydClientSubmission(PydConcrete):
 
 
     @model_validator(mode="after")
-    def _generate_plate_id(self) -> "PydClientSubmission":
+    def _generate_plate_id(self) -> "PydProcedure":
         if self.submitter_plate_id.value not in (None, "None", "NA"):
             object.__setattr__(
                 self, "submitter_plate_id",
@@ -1239,7 +1239,7 @@ class PydClientSubmission(PydConcrete):
             output['contact_email'] = output['contact']['email']
         except TypeError:
             pass
-        return sort_dict_by_list(output, self.class_config.key_value_order)
+        return sort_dict_by_list(output, self.sql_instance.parent_type.info_order)
 
     @property
     def filename_template(self):
@@ -1275,10 +1275,26 @@ class PydClientSubmission(PydConcrete):
                 continue
             self.comment.append(comment)
 
+    @property
+    def info_exclude(self) -> List[str]:
+        return self.sql_instance.info_exclude
+
+    @property
+    def info_order(self) -> List[str]:
+        return self.sql_instance.info_order
+
+    @property
+    def sample_exclude(self) -> List[str]:
+        return self.sql_instance.sample_exclude
+
+    @property
+    def sample_order(self) -> List[str]:
+        return self.sql_instance.sample_order
+
 
 class PydRun(PydConcrete):
 
-    clientsubmission: Annotated[PydClientSubmission | str | None, RelationshipField(uselist=False)] = Field(default=None, repr=False)
+    clientsubmission: Annotated[PydProcedure | str | None, RelationshipField(uselist=False)] = Field(default=None, repr=False)
     rsl_plate_number:  SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     started_date:      SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=datetime.now(), missing=True))
     completed_date:    SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=None, missing=True))
@@ -1717,7 +1733,7 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
     row: int = Field(default=0)
     column: int = Field(default=0)
     submission_rank: int = Field(default=0)  #: Location in sample list
-    clientsubmission: Annotated[str | dict |  PydClientSubmission, RelationshipField(uselist=False)] = Field(default="NA")
+    clientsubmission: Annotated[str | dict |  PydProcedure, RelationshipField(uselist=False)] = Field(default="NA")
     sample: Annotated[str | dict | PydSample, RelationshipField(uselist=False)] = Field(default="NA")
     enabled: bool = Field(default=True)
     comment: list | None = Field(default_factory=list, repr=False)
@@ -1745,5 +1761,5 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
 
 
 __all__ = ["PydResults", "PydReagentLot", "PydDiscount", "PydSample", "PydEquipment", "PydContact", "PydClientLab", 
-           "PydProcessVersion", "PydProcedure", "PydClientSubmission", "PydRun", "PydTipsLot", "PydProcedureSampleAssociation",
+           "PydProcessVersion", "PydClientSubmission", "PydProcedure", "PydRun", "PydTipsLot", "PydProcedureSampleAssociation",
             "PydProcedureEquipmentAssociation", "PydProcedureReagentLotAssociation", "PydClientSubmissionSampleAssociation"]

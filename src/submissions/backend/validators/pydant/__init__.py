@@ -712,6 +712,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             if class_attr is None:
                 continue
             if isinstance(class_attr, hybrid_property):
+                # NOTE: Ordering fields (OrderInputField) are stored through a hybrid's setter, so write those;
+                # skip every other hybrid as before. The list's position is the order, so renumber index from it.
+                if _get_order_marker(self.__class__.model_fields[k]) is not None and class_attr.fset is not None:
+                    v = [dict(item, index=ii) for ii, item in enumerate(v)]
+                    if getattr(self.sql_instance, k) != v:
+                        setattr(self.sql_instance, k, v)
                 continue
             if hasattr(class_attr, "property"):
                 class_attr = class_attr.property
@@ -1310,5 +1316,5 @@ __all__ = ["SourcedField", "PydReagent", "PydTips", "PydReagentRole", "PydEquipm
            "PydProcedureType", "PydProcedureTypeReagentRoleAssociation", "PydProcedureTypeEquipmentRoleAssociation", 
            "PydEquipmentRoleEquipmentAssociation", "PydReagentRoleReagentAssociation",
            "PydResults", "PydReagentLot", "PydDiscount", "PydSample", "PydEquipment", "PydContact", "PydClientLab", 
-           "PydProcessVersion", "PydProcedure", "PydClientSubmission", "PydRun", "PydTipsLot", "PydProcedureSampleAssociation",
+           "PydProcessVersion", "PydProcedure", "PydProcedure", "PydRun", "PydTipsLot", "PydProcedureSampleAssociation",
            "PydProcedureEquipmentAssociation", "PydProcedureReagentLotAssociation", "PydClientSubmissionSampleAssociation"]

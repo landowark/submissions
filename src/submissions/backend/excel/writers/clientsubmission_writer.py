@@ -11,7 +11,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from . import DefaultKEYVALUEWriter, DefaultTABLEWriter
 from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
-    from backend.validators.pydant import PydClientSubmission, PydClientSubmissionSampleAssociation
+    from backend.validators.pydant import PydProcedure, PydClientSubmissionSampleAssociation
 
 
 class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
@@ -67,8 +67,8 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
         self.submissiontype = pydant_obj.submissiontype
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.pydant_obj = self.pad_submission_samples_to_length()
-        self.excluded = self.pydant_obj[0].class_config.excluded
-        self.key_value_order = self.pydant_obj[0].class_config.key_value_order
+        # self.excluded = self.pydant_obj[0].class_config.excluded
+        # self.key_value_order = self.pydant_obj[0].class_config.key_value_order
 
     # def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
     #                       start_row: int | None = None, *args, **kwargs) -> Workbook:

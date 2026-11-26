@@ -117,6 +117,23 @@ class DefaultManager(object):
             case _:
                 raise TypeError(f"Invalid type for worksheet retrieval: {type(sheet)}")
 
+    @property
+    def info_exclude(self) -> List[str]:
+        return self.pyd.info_exclude
+
+    @property
+    def info_order(self) -> List[str]:
+        return self.pyd.info_order
+
+    @property
+    def sample_exclude(self) -> List[str]:
+        return self.pyd.sample_exclude
+
+    @property
+    def sample_order(self) -> List[str]:
+        return self.pyd.sample_order
+
+
 
 from .clientsubmissions import *
 from .procedures import *

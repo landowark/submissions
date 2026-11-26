@@ -127,8 +127,8 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.sheet = f"{self.proceduretype.name[:20]} Quality"
         self.pydant_obj = self.pad_procedure_samples_to_length()
-        self.excluded = self.pydant_obj[0].class_config.excluded
-        self.key_value_order = self.pydant_obj[0].class_config.key_value_order
+        # self.excluded = self.pydant_obj[0].class_config.excluded
+        # self.key_value_order = self.pydant_obj[0].class_config.key_value_order
         
     def write_to_workbook(self, workbook: Workbook, start_row: int = 1, *args, **kwargs) -> Workbook:
         """

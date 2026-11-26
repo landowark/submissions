@@ -83,7 +83,7 @@ def form_fields(pyd, disable: list) -> list[dict]:
     One entry per form field, following SubmissionFormWidget.InfoItem.set_widget.
     """
     from backend.db.models import ClientSubmission, ClientLab, SubmissionType
-    excluded = list(pyd.class_config.excluded) + ["sample_count"]
+    excluded = pyd.class_config.excluded + ["sample_count"]
     submission_type = SubmissionType.query(name=pyd.submissiontype.get('value'))
     fields = []
     for key in pyd.__class__.model_fields.keys():

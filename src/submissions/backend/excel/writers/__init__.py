@@ -154,14 +154,14 @@ class DefaultKEYVALUEWriter(DefaultWriter):
     :ivar pydantic_object: Object to be written to file.
     """
     
-    def __init__(self, pydant_obj, *args, **kwargs):
+    def __init__(self, pydant_obj, exclude: list | None = None, order: list | None = None, *args, **kwargs):
         """
         :param pydant_obj: Object to be written to file.
         :type pydant_obj: PydBaseClass
         """
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-        self.excluded = pydant_obj.class_config.excluded
-        self.key_value_order = pydant_obj.class_config.key_value_order
+        self.excluded = exclude or []
+        self.key_value_order = order or []
         logger.debug(f"Creating fill dictionary for {self.pydant_obj}")
         fill_dictionary = {k: v for k, v in self.pydant_obj.improved_dict.items() if k not in self.excluded}
         self.fill_dictionary = sort_dict_by_list(fill_dictionary, self.key_value_order)
@@ -182,7 +182,8 @@ class DefaultKEYVALUEWriter(DefaultWriter):
     #     return any([item['sheet'] == sheet for item in locations])
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int = 1, *args, **kwargs) -> Workbook:
+                          start_row: int = 1, 
+                          *args, **kwargs) -> Workbook:
         """
         Write to a named sheet of a provided workbook. Will create new sheet if named one doesn't exist.
 
@@ -223,7 +224,7 @@ class DefaultTABLEWriter(DefaultWriter):
     :ivar pydantic_object: Object to be written to file.
     """
 
-    def __init__(self, pydant_obj, actual_objs_type: str | None = None, *args, **kwargs):
+    def __init__(self, pydant_obj, actual_objs_type: str | None = None, exclude: list | None = None, order: list | None = None, *args, **kwargs):
         """
         :param pydant_obj: Object to be written to file.
         :type pydant_obj: PydBaseClass
@@ -232,16 +233,18 @@ class DefaultTABLEWriter(DefaultWriter):
         """
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.pydant_obj = getattr(self.pydant_obj, actual_objs_type) if actual_objs_type else self.pydant_obj
-        try:
-            self.excluded = self.pydant_obj[0].class_config.excluded if isinstance(self.pydant_obj, list) else self.pydant_obj.class_config.excluded
-        except (IndexError, AttributeError, TypeError) as e:
-            logger.exception(f"Error occurred while initializing TABLE writer: {e}")
-            self.excluded = []
-        try:
-            self.key_value_order = self.pydant_obj[0].class_config.key_value_order if isinstance(self.pydant_obj, list) else self.pydant_obj.class_config.key_value_order
-        except (IndexError, AttributeError, TypeError) as e:
-            logger.exception(f"Error occurred while initializing TABLE writer: {e}")
-            self.key_value_order = []
+        # try:
+        #     self.excluded = self.pydant_obj[0].class_config.excluded if isinstance(self.pydant_obj, list) else self.pydant_obj.class_config.excluded
+        # except (IndexError, AttributeError, TypeError) as e:
+        #     logger.exception(f"Error occurred while initializing TABLE writer: {e}")
+        #     self.excluded = []
+        self.excluded = exclude or []
+        # try:
+        #     self.key_value_order = self.pydant_obj[0].class_config.key_value_order if isinstance(self.pydant_obj, list) else self.pydant_obj.class_config.key_value_order
+        # except (IndexError, AttributeError, TypeError) as e:
+        #     logger.exception(f"Error occurred while initializing TABLE writer: {e}")
+        #     self.key_value_order = []
+        self.key_value_order = order or []
 
     # def get_row_count(self, start_row: int = 1):
     #     list_df = DataFrame([item for item in self.worksheet.values][start_row - 1:])
@@ -322,9 +325,9 @@ class DefaultTABLEWriter(DefaultWriter):
         header_list = list(set(flatten_list([item.fields for item in self.pydant_obj])))
         class_config = self.pydant_obj[0].class_config
         for item in class_config.key_value_order:
-            if item in [header for header in header_list if header not in class_config.excluded]:
+            if item in [header for header in header_list if header not in self.excluded]:
                 output.append(header_list.pop(header_list.index(item)))
-        return output + sorted([item for item in header_list if item not in class_config.excluded])
+        return output + sorted([item for item in header_list if item not in self.excluded])
 
     def postwrite(self, worksheet: Worksheet) -> Worksheet:
         """

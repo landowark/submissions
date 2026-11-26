@@ -37,7 +37,7 @@ from pathlib import Path
 if TYPE_CHECKING:
     from submissions.backend.db.models.procedures import ProcedureType, Procedure, Results
     from backend.validators.pydant import (
-        PydSample, PydClientSubmission, PydProcedureSampleAssociation, 
+        PydSample, PydProcedure, PydProcedureSampleAssociation, 
         PydSubmissionType, SourcedField, PydContact, PydRun, PydClientLab,
         PydClientSubmissionSampleAssociation, PydResults
     )
@@ -753,7 +753,7 @@ class ClientSubmission(BaseClass, LogMixin):
             self.comment = comment
             self.save()
 
-    def to_pydantic(self, filepath: Path | str | None = None, **kwargs) -> PydClientSubmission:
+    def to_pydantic(self, filepath: Path | str | None = None, **kwargs) -> PydProcedure:
         """
         Convert this submission into a PydClientSubmission.
 
@@ -911,6 +911,25 @@ class ClientSubmission(BaseClass, LogMixin):
             run=runs,
         )
 
+    @property
+    def parent_type(self):
+        return self.submissiontype
+
+    @property
+    def info_exclude(self) -> List[str]:
+        return self.parent_type.info_exclude
+
+    @property
+    def info_order(self) -> List[str]:
+        return self.parent_type.info_order
+
+    @property
+    def sample_exclude(self) -> List[str]:
+        return self.parent_type.sample_exclude
+
+    @property
+    def sample_order(self) -> List[str]:
+        return self.parent_type.sample_order
 
 class Run(BaseClass, LogMixin):
     """
@@ -1107,20 +1126,20 @@ class Run(BaseClass, LogMixin):
         return self._clientsubmission
 
     @clientsubmission.setter
-    def clientsubmission(self, value: str | dict | PydClientSubmission | ClientSubmission):
+    def clientsubmission(self, value: str | dict | PydProcedure | ClientSubmission):
         """
         Set the parent submission for this run by parsing an input value.
 
         :param value: Input value.
         :type value: str | dict | PydClientSubmission | ClientSubmission
         """
-        from backend.validators.pydant import PydClientSubmission
+        from backend.validators.pydant import PydProcedure
         match value:
             case str():
                 output = ClientSubmission.query(name=value, limit=1)
             case dict():
                 output = ClientSubmission.query_or_create(**value)
-            case PydClientSubmission():
+            case PydProcedure():
                 output = value.to_sql(update=False)
             case ClientSubmission():
                 output = value
@@ -2594,13 +2613,13 @@ class ClientSubmissionSampleAssociation(BaseClass):
 
     @clientsubmission.setter
     def clientsubmission(self, value):
-        from backend.validators.pydant import PydClientSubmission
+        from backend.validators.pydant import PydProcedure
         match value:
             case str():
                 output = ClientSubmission.query(name=value, limit=1)
             case dict():
                 output = ClientSubmission.query_or_create(**value)
-            case PydClientSubmission():
+            case PydProcedure():
                 output = value.to_sql(update=False)
             case ClientSubmission():
                 output = value

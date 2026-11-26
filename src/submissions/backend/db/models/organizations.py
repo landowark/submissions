@@ -20,7 +20,7 @@ from tools import check_authorization, setup_lookup
 from typing import List, TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.db.models import ClientSubmission
-    from backend.validators.pydant import PydClientSubmission, PydContact
+    from backend.validators.pydant import PydProcedure, PydContact
 
 
 # NOTE: table containing clientlab/contact relationship
@@ -115,7 +115,7 @@ class ClientLab(BaseClass):
         return self._clientsubmission
 
     @clientsubmission.setter
-    def clientsubmission(self, value: List[str | dict | PydClientSubmission | ClientSubmission]):
+    def clientsubmission(self, value: List[str | dict | PydProcedure | ClientSubmission]):
         """
         Set client submissions for this client lab.
 
@@ -125,7 +125,7 @@ class ClientLab(BaseClass):
         :type value: List[str | dict | PydClientSubmission | ClientSubmission] 
         :raises ValueError: If value cannot be resolved to a valid ClientSubmission
         """
-        from backend.validators.pydant import PydClientSubmission
+        from backend.validators.pydant import PydProcedure
         from backend.db.models import ClientSubmission
         if value is None:
             value = []
@@ -137,7 +137,7 @@ class ClientLab(BaseClass):
                     output = ClientSubmission.query(name=item, limit=1)
                 case dict():
                     output = ClientSubmission.query_or_create(**item)
-                case PydClientSubmission():
+                case PydProcedure():
                     output = item.to_sql(update=False)
                 case ClientSubmission():
                     output = item
@@ -382,7 +382,7 @@ class Contact(BaseClass):
         return self._clientsubmission
 
     @clientsubmission.setter
-    def clientsubmission(self, value: List[str | dict | PydClientSubmission | ClientSubmission]):
+    def clientsubmission(self, value: List[str | dict | PydProcedure | ClientSubmission]):
         """
         Set client submissions for this contact.
 
@@ -392,7 +392,7 @@ class Contact(BaseClass):
         :type value: List[str | dict | PydClientSubmission | ClientSubmission]
         :raises ValueError: If value cannot be resolved to a valid ClientSubmission
         """
-        from backend.validators.pydant import PydClientSubmission
+        from backend.validators.pydant import PydProcedure
         from backend.db.models import ClientSubmission
         if value is None:
             value = []
@@ -404,7 +404,7 @@ class Contact(BaseClass):
                     output = ClientSubmission.query(name=item, limit=1)
                 case dict():
                     output = ClientSubmission.query_or_create(**item)
-                case PydClientSubmission():
+                case PydProcedure():
                     output = item.to_sql(update=False)
                 case ClientSubmission():
                     output = item
