@@ -66,9 +66,53 @@ class DefaultProcedureManager(DefaultManager):
                 self.pyd.results = [result.to_pydantic() for result in input_object.results]
 
     @property
-    def _pyd_object(self):
-        from backend.validators.pydant import PydProcedure
-        return PydProcedure
+    def reagent_exclude(self) -> List[str]:
+        return self.pyd.reagent_exclude
+
+    @property
+    def reagent_order(self) -> List[str]:
+        return self.pyd.reagent_order
+
+    @property
+    def equipment_exclude(self) -> List[str]:
+        return self.pyd.equipment_exclude
+
+    @property
+    def equipment_order(self) -> List[str]:
+        return self.pyd.equipment_order
+
+    # def _order_names(self, field: str, active: bool) -> list[str]:
+    #     """
+    #     Names from the procedure type's stored order list (info_exclude_order / sample_exclude_order).
+    #     active=False gives the excluded names; active=True gives the kept names in their saved order.
+    #     """
+    #     items = getattr(self.proceduretype, field, None) or []
+    #     chosen = [item for item in items if bool(item.get("active")) == active]
+    #     if active:
+    #         chosen = sorted(chosen, key=lambda item: item.get("index", 0))
+    #     return [item["name"] for item in chosen]
+
+    # # NOTE: Override DefaultManager's versions, which read self.pyd: PydProcedure has no info_exclude etc.
+    # @property
+    # def info_exclude(self) -> list[str]:
+    #     return self._order_names("info_exclude_order", active=False)
+
+    # @property
+    # def info_order(self) -> list[str]:
+    #     return self._order_names("info_exclude_order", active=True)
+
+    # @property
+    # def sample_exclude(self) -> list[str]:
+    #     return self._order_names("sample_exclude_order", active=False)
+
+    # @property
+    # def sample_order(self) -> list[str]:
+    #     return self._order_names("sample_exclude_order", active=True)
+
+    # @property
+    # def _pyd_object(self):
+    #     from backend.validators.pydant import PydProcedure
+    #     return PydProcedure
 
     def _resolve_operator(self, operation: Literal['parse', 'write'], role: str) -> type:
         """
@@ -106,13 +150,13 @@ class DefaultProcedureManager(DefaultManager):
 
     def write(self, workbook: Workbook) -> Workbook:
         from backend.db import Results
-        self.info_writer = self._resolve_operator("write", "info")(pydant_obj=self.pyd)
+        self.info_writer = self._resolve_operator("write", "info")(pydant_obj=self.pyd, exclude=self.info_exclude, order=self.info_order)
         workbook = self.info_writer.write_to_workbook(workbook)
         self.reagent_writer = self._resolve_operator("write", "reagent")(pydant_obj=self.pyd)
         workbook = self.reagent_writer.write_to_workbook(workbook, start_row=self.info_writer.end_row)
         self.equipment_writer = self._resolve_operator("write", "equipment")(pydant_obj=self.pyd)
         workbook = self.equipment_writer.write_to_workbook(workbook, start_row=self.reagent_writer.end_row)
-        self.sample_writer = self._resolve_operator("write", "sample")(pydant_obj=self.pyd, proceduretype=self.proceduretype)
+        self.sample_writer = self._resolve_operator("write", "sample")(pydant_obj=self.pyd, proceduretype=self.proceduretype, exclude=self.sample_exclude, order=self.sample_order)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.equipment_writer.end_row)
         # # TODO: Find way to group results by result_type.
         self.result_writers = []

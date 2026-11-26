@@ -234,8 +234,10 @@ class PydSubmissionType(PydAbstract):
                 case _:
                     yield d
                     continue
-            names = {item['name'] for item in d['value']}
-            d['value'] += [dict(name=name, active=True) for name in sorted(found - names)]
+            seen = set()
+            # NOTE: Collapse names saved more than once (first one wins, in its stored place), then add new keys.
+            d['value'] = [item for item in d['value'] if not (item['name'] in seen or seen.add(item['name']))]
+            d['value'] += [dict(name=name, active=True) for name in sorted(found - seen)]
             for ii, value in enumerate(d['value']):
                 value['index'] = ii
             yield d
@@ -276,7 +278,9 @@ class PydProcedureType(PydAbstract):
     reagentrole: Annotated[List[str | dict], RelationshipField(uselist=True)] = Field(default_factory=list, description="Reagent roles used by this type.", repr=False)
     info_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Info fields to write on export", repr=False)
     sample_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Sample fields to write on export", repr=False)
-    
+    reagent_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Reagent fields to write on export", repr=False)
+    equipment_exclude_order: Annotated[List[dict], OrderInputField(ordered=True)] = Field(default_factory=list, description="Equipment fields to write on export", repr=False)
+
     @field_validator("submissiontype", "resultstype", "equipmentrole", "reagentrole", mode="before")
     @classmethod
     def validate_lists(cls, value) -> List[str]:
@@ -312,6 +316,30 @@ class PydProcedureType(PydAbstract):
         if not value:
             from .concrete import PydSample, PydProcedureSampleAssociation
             keys = list(set(list(PydSample.model_fields.keys()) + list(PydProcedureSampleAssociation.model_fields.keys())))
+            value = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        return value
+
+    @field_validator("reagent_exclude_order")
+    @classmethod
+    def construct_reo(cls, value):
+        """
+        sources of weo: sql database (or default PydProcedureReagentLotAssociation and PydSample Fields), all misc data keys in connected samples, 
+        """
+        if not value:
+            from .concrete import PydReagentLot, PydProcedureReagentLotAssociation
+            keys = list(set(list(PydReagentLot.model_fields.keys()) + list(PydProcedureReagentLotAssociation.model_fields.keys())))
+            value = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
+        return value
+
+    @field_validator("equipment_exclude_order")
+    @classmethod
+    def construct_eeo(cls, value):
+        """
+        sources of weo: sql database (or default PydProcedureReagentLotAssociation and PydSample Fields), all misc data keys in connected samples, 
+        """
+        if not value:
+            from .concrete import PydEquipment, PydProcedureEquipmentAssociation
+            keys = list(set(list(PydEquipment.model_fields.keys()) + list(PydProcedureEquipmentAssociation.model_fields.keys())))
             value = [dict(name=k, active=True, index=ii) for ii, k in enumerate(keys) if k not in ['sql_instance']]
         return value
 
@@ -453,6 +481,24 @@ class PydProcedureType(PydAbstract):
                     procedures_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in assoc])) if p not in names]
                     sample = flatten_list([sub.sample for sub in procedures])
                     procedures_items += [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in sample])) if p not in names]
+                    d['value'] += [dict(name=item, active=True) for item in list(set(procedures_items))]
+                    for ii, value in enumerate(d['value']):
+                        value['index'] = ii
+                case "reagent_exclude_order":
+                    names = [item['name'] for item in d['value']]
+                    assoc = flatten_list([sub.procedurereagentlotassociation for sub in procedures])
+                    procedures_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in assoc])) if p not in names]
+                    reagentlot = flatten_list([sub.reagentlot for sub in procedures])
+                    procedures_items += [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in reagentlot])) if p not in names]
+                    d['value'] += [dict(name=item, active=True) for item in list(set(procedures_items))]
+                    for ii, value in enumerate(d['value']):
+                        value['index'] = ii
+                case "equipment_exclude_order":
+                    names = [item['name'] for item in d['value']]
+                    assoc = flatten_list([sub.procedureequipmentassociation for sub in procedures])
+                    procedures_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in assoc])) if p not in names]
+                    equipment = flatten_list([sub.equipment for sub in procedures])
+                    procedures_items += [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in equipment])) if p not in names]
                     d['value'] += [dict(name=item, active=True) for item in list(set(procedures_items))]
                     for ii, value in enumerate(d['value']):
                         value['index'] = ii

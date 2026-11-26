@@ -809,6 +809,8 @@ class ProcedureType(BaseClass):
     plate_cost = Column(FLOAT(2), default=0.00)
     _sample_exclude_order = Column(JSON, default=[])
     _info_exclude_order = Column(JSON, default=[])
+    _reagent_exclude_order = Column(JSON, default=[])
+    _equipment_exclude_order = Column(JSON, default=[])
 
     _procedure = relationship("Procedure",
                              back_populates="_proceduretype", cascade="all, delete-orphan")  #: Concrete control of this type.
@@ -1435,6 +1437,54 @@ class ProcedureType(BaseClass):
         # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
         return cls._info_exclude_order
 
+    @hybrid_property
+    def reagent_exclude_order(self) -> List[dict]:
+        """
+        Export column order: the stored list, or defaults if none is stored.
+
+        NOTE: Kept cheap on purpose. details_dict reads every hybrid, so this runs on every to_pydantic() of this
+        procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
+        """
+        start = self._reagent_exclude_order or []
+        return sorted(start, key=lambda x: x['active'], reverse=True)
+
+    @reagent_exclude_order.setter
+    def reagent_exclude_order(self, value):
+        if value is None:
+            value = []
+        validate_write_exclude(value)
+        self._reagent_exclude_order = value
+
+    @reagent_exclude_order.expression
+    def reagent_exclude_order(cls):
+        # NOTE: On the class, return the backing column. The getter is for instances only: run on the class, its
+        # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
+        return cls._reagent_exclude_order
+
+    @hybrid_property
+    def equipment_exclude_order(self) -> List[dict]:
+        """
+        Export column order: the stored list, or defaults if none is stored.
+
+        NOTE: Kept cheap on purpose. details_dict reads every hybrid, so this runs on every to_pydantic() of this
+        procedure type. Finding extra fields on existing samples is in discover_write_exclude_order().
+        """
+        start = self._equipment_exclude_order or []
+        return sorted(start, key=lambda x: x['active'], reverse=True)
+
+    @equipment_exclude_order.setter
+    def equipment_exclude_order(self, value):
+        if value is None:
+            value = []
+        validate_write_exclude(value)
+        self._equipment_exclude_order = value
+
+    @equipment_exclude_order.expression
+    def equipment_exclude_order(cls):
+        # NOTE: On the class, return the backing column. The getter is for instances only: run on the class, its
+        # sorted() walks the JSON column by index forever (column[0], column[1], ... never end).
+        return cls._equipment_exclude_order
+
     @property
     def info_exclude(self) -> List[str]:
         return [item['name'] for item in self.info_exclude_order if not item['active']]
@@ -1452,6 +1502,25 @@ class ProcedureType(BaseClass):
     def sample_order(self) -> List[str]:
         prelim = [item for item in self.sample_exclude_order if item['active']]
         return [item['name'] for item in  sorted(prelim, key=lambda x: x['index'])]
+
+    @property
+    def reagent_exclude(self) -> List[str]:
+        return [item['name'] for item in self.reagent_exclude_order if not item['active']]
+
+    @property
+    def reagent_order(self) -> List[str]:
+        prelim = [item for item in self.reagent_exclude_order if item['active']]
+        return [item['name'] for item in  sorted(prelim, key=lambda x: x['index'])]
+
+    @property
+    def equipment_exclude(self) -> List[str]:
+        return [item['name'] for item in self.equipment_exclude_order if not item['active']]
+
+    @property
+    def equipment_order(self) -> List[str]:
+        prelim = [item for item in self.equipment_exclude_order if item['active']]
+        return [item['name'] for item in  sorted(prelim, key=lambda x: x['index'])]
+    
 
 class Procedure(BaseClass):
     """
@@ -2690,6 +2759,22 @@ class Procedure(BaseClass):
     @property
     def sample_order(self) -> List[str]:
         return self.parent_type.sample_order
+
+    @property
+    def reagent_exclude(self) -> List[str]:
+        return self.parent_type.reagent_exclude
+
+    @property
+    def reagent_order(self) -> List[str]:
+        return self.parent_type.reagent_order
+
+    @property
+    def equipment_exclude(self) -> List[str]:
+        return self.parent_type.equipment_exclude
+
+    @property
+    def equipment_order(self) -> List[str]:
+        return self.parent_type.equipment_order
 
 @event.listens_for(Procedure.proceduresampleassociation, "append")
 def _add_new_sample_association(procedure, association, initiator):

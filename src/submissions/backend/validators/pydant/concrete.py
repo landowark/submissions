@@ -999,6 +999,38 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def used_reagentlots(self) -> List[str]:
         return [item.name for item in self.sql_instance.reagentlot]
 
+    @property
+    def info_exclude(self) -> List[str]:
+        return self.sql_instance.info_exclude
+
+    @property
+    def info_order(self) -> List[str]:
+        return self.sql_instance.info_order
+
+    @property
+    def sample_exclude(self) -> List[str]:
+        return self.sql_instance.sample_exclude
+
+    @property
+    def sample_order(self) -> List[str]:
+        return self.sql_instance.sample_order
+
+    @property
+    def reagent_exclude(self) -> List[str]:
+        return self.sql_instance.reagent_exclude
+
+    @property
+    def reagent_order(self) -> List[str]:
+        return self.sql_instance.reagent_order
+
+    @property
+    def equipment_exclude(self) -> List[str]:
+        return self.sql_instance.equipment_exclude
+
+    @property
+    def equipment_order(self) -> List[str]:
+        return self.sql_instance.equipment_order
+    
     
 class PydClientSubmission(PydConcrete):
 
@@ -1143,7 +1175,7 @@ class PydClientSubmission(PydConcrete):
     # ────────────────────────────────────────────────────────────────────────
  
     @model_validator(mode="after")
-    def _validate_submission_category(self) -> "PydProcedure":
+    def _validate_submission_category(self) -> "PydClientSubmission":
         valid = {"Research", "Diagnostic", "Surveillance", "Validation"}
         if self.submission_category.value not in valid:
             fallback = self.submissiontype.value or "NA"
@@ -1156,7 +1188,7 @@ class PydClientSubmission(PydConcrete):
 
 
     @model_validator(mode="after")
-    def _generate_plate_id(self) -> "PydProcedure":
+    def _generate_plate_id(self) -> "PydClientSubmission":
         if self.submitter_plate_id.value not in (None, "None", "NA"):
             object.__setattr__(
                 self, "submitter_plate_id",
@@ -1294,7 +1326,7 @@ class PydClientSubmission(PydConcrete):
 
 class PydRun(PydConcrete):
 
-    clientsubmission: Annotated[PydProcedure | str | None, RelationshipField(uselist=False)] = Field(default=None, repr=False)
+    clientsubmission: Annotated[PydClientSubmission | str | None, RelationshipField(uselist=False)] = Field(default=None, repr=False)
     rsl_plate_number:  SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     started_date:      SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=datetime.now(), missing=True))
     completed_date:    SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=None, missing=True))
