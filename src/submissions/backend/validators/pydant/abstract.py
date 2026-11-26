@@ -212,25 +212,32 @@ class PydSubmissionType(PydAbstract):
         from backend.db.models import ClientSubmission
         start_ = date.today() - timedelta(days=30)
         submissions = ClientSubmission.query(start_date=start_, submissiontype=self.name)
+
+        def data_keys(objects) -> set[str]:
+            # NOTE: Only the free-form data keys (misc_info). The model's own fields come from the validators above;
+            # improved_dict would also add every relationship (procedure, run, sampleprocedureassociation, ...).
+            keys = set()
+            for obj in objects:
+                for key in (obj.misc_info or {}):
+                    if not key.startswith("_") and key.count("_") <= 4:
+                        keys.add(key)
+            return keys
+
         for d in super().form_dictionary:
             match d['field']:
                 case "info_exclude_order":
-                    names = [item['name'] for item in d['value']]
-                    submissions_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in submissions])) if p not in names]
-                    d['value'] += [dict(name=item, active=True) for item in list(set(submissions_items))]
-                    for ii, value in enumerate(d['value']):
-                        value['index'] = ii
+                    found = data_keys(submissions)
                 case "sample_exclude_order":
-                    names = [item['name'] for item in d['value']]
                     assoc = flatten_list([sub.clientsubmissionsampleassociation for sub in submissions])
-                    submissions_items = [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in assoc])) if p not in names]
                     sample = flatten_list([sub.sample for sub in submissions])
-                    submissions_items += [p for p in set(flatten_list([item.to_pydantic().improved_dict.keys() for item in sample])) if p not in names]
-                    d['value'] += [dict(name=item, active=True) for item in list(set(submissions_items))]
-                    for ii, value in enumerate(d['value']):
-                        value['index'] = ii
+                    found = data_keys(assoc) | data_keys(sample)
                 case _:
-                    pass
+                    yield d
+                    continue
+            names = {item['name'] for item in d['value']}
+            d['value'] += [dict(name=name, active=True) for name in sorted(found - names)]
+            for ii, value in enumerate(d['value']):
+                value['index'] = ii
             yield d
 
 
