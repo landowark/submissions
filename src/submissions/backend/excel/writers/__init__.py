@@ -283,7 +283,7 @@ class DefaultTABLEWriter(DefaultWriter):
         # start_row = self.start_row
         if records is None:
             records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
-        df = DataFrame(records)[self.sorted_header_row]
+        df = DataFrame(records)[self.sorted_header_row(records)]
         df.replace("", npnan, inplace=True)
 
         # Serialize list-valued columns so relationship fields like tipslot are preserved
@@ -313,21 +313,34 @@ class DefaultTABLEWriter(DefaultWriter):
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
 
-    @property
-    def sorted_header_row(self) -> List[str]:
-        """
-        Sorts table header row based on the key_value_order from the pydant_obj class_config.
+    # @property
+    # def sorted_header_row(self) -> List[str]:
+    #     """
+    #     Sorts table header row based on the key_value_order from the pydant_obj class_config.
 
-        :returns: List of key_value_order strings plus an alphabetical list of remaining fields.
-        :rtype: List[str]
+    #     :returns: List of key_value_order strings plus an alphabetical list of remaining fields.
+    #     :rtype: List[str]
+    #     """
+    #     output = []
+    #     header_list = list(set(flatten_list([item.fields for item in self.pydant_obj])))
+    #     class_config = self.pydant_obj[0].class_config
+    #     for item in class_config.key_value_order:
+    #         if item in [header for header in header_list if header not in self.excluded]:
+    #             output.append(header_list.pop(header_list.index(item)))
+    #     return output + sorted([item for item in header_list if item not in self.excluded])
+
+    
+    def sorted_header_row(self, records) -> List[str]:
         """
-        output = []
-        header_list = list(set(flatten_list([item.fields for item in self.pydant_obj])))
-        class_config = self.pydant_obj[0].class_config
-        for item in class_config.key_value_order:
-            if item in [header for header in header_list if header not in self.excluded]:
-                output.append(header_list.pop(header_list.index(item)))
-        return output + sorted([item for item in header_list if item not in self.excluded])
+        Columns from the records (so equipment fields count), in the saved equipment order, then the rest A-Z.
+        NOTE: Uses self.key_value_order (the order passed in), not class_config.key_value_order.
+        """
+        headers = []
+        for record in records:
+            headers += [key for key in record if key not in headers]
+        kept = [header for header in headers if header not in self.excluded]
+        ordered = [header for header in self.key_value_order if header in kept]
+        return ordered 
 
     def postwrite(self, worksheet: Worksheet) -> Worksheet:
         """
