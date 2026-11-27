@@ -54,6 +54,8 @@ class ProcedureReagentWriter(DefaultTABLEWriter):
     :ivar pydantic_object: Object to be written to file.
     """
 
+    linked = ("reagentlot", "ReagentLot")
+
     def __init__(self, pydant_obj: PydProcedure, *args, **kwargs):
         """
         :param pydant_obj: Object to be written to file.
@@ -86,6 +88,9 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
     :ivar pydantic_object: Object to be written to file.
     """
+
+    linked = ("equipment", "Equipment")
+
     def __init__(self, pydant_obj: PydProcedure, *args, **kwargs):
         """
         :param pydant_obj: Object to be written to file.
@@ -118,6 +123,9 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
 
     :ivar pydantic_object: Object to be written to file.
     """
+
+    linked = ("sample", "Sample")
+
     def __init__(self, pydant_obj: PydProcedure, *args, **kwargs):
         """
         :param pydant_obj: Object to be written to file.

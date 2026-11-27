@@ -224,6 +224,8 @@ class DefaultTABLEWriter(DefaultWriter):
     :ivar pydantic_object: Object to be written to file.
     """
 
+    linked: tuple[str, str] | None = None
+
     def __init__(self, pydant_obj, actual_objs_type: str | None = None, exclude: list | None = None, order: list | None = None, *args, **kwargs):
         """
         :param pydant_obj: Object to be written to file.
@@ -282,8 +284,9 @@ class DefaultTABLEWriter(DefaultWriter):
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         # start_row = self.start_row
         if records is None:
-            records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
-        df = DataFrame(records)[self.sorted_header_row(records)]
+            records = self.build_records()
+        self._records = records
+        df = DataFrame(records)[self.sorted_header_row]
         df.replace("", npnan, inplace=True)
 
         # Serialize list-valued columns so relationship fields like tipslot are preserved
@@ -329,18 +332,72 @@ class DefaultTABLEWriter(DefaultWriter):
     #             output.append(header_list.pop(header_list.index(item)))
     #     return output + sorted([item for item in header_list if item not in self.excluded])
 
-    
-    def sorted_header_row(self, records) -> List[str]:
+    def linked_object(self, item, record: dict):
         """
-        Columns from the records (so equipment fields count), in the saved equipment order, then the rest A-Z.
-        NOTE: Uses self.key_value_order (the order passed in), not class_config.key_value_order.
+        The SQL object a row links to (see `linked`): the row's own sql_instance link if it has one, else a lookup
+        by the name in the row. None if there's no link or it can't be found.
         """
+        if self.linked is None:
+            return None
+        from backend.db import models
+        key, class_name = self.linked
+        sql_class = getattr(models, class_name)
+        found = getattr(getattr(item, "sql_instance", None), key, None)
+        if isinstance(found, sql_class):
+            return found
+        # NOTE: Some associations' to_pydantic (e.g. ProcedureEquipmentAssociation) don't pass sql_instance.
+        name = record.get(key)
+        if not name:
+            return None
+        try:
+            found = sql_class.query(name=name, limit=1)
+        except TypeError:
+            return None
+        return found if isinstance(found, sql_class) else None
+
+    def build_records(self) -> List[dict]:
+        """
+        One dict per row: the row's improved_dict, plus any fields of its linked object (model fields and misc_info)
+        that the row doesn't already have, so they can be chosen in the type's *_exclude_order lists.
+        """
+        records = []
+        for item in self.pydant_obj:
+            record = dict(getattr(item, "improved_dict", {}) or {})
+            linked = self.linked_object(item, record)
+            if linked is not None:
+                missing = [key for key in linked.pydantic_model().model_fields
+                            if key not in record and key not in ("sql_instance", "new")]
+                if missing:
+                    linked_pyd = linked.to_pydantic()
+                    for key in missing:
+                        record[key] = linked_pyd.filter_field(key)
+                for key, value in (linked.misc_info or {}).items():
+                    if key not in record and not key.startswith("_") and "sql_instance" not in key:
+                        record[key] = value
+            records.append(record)
+        return records
+
+    @property
+    def sorted_header_row(self) -> List[str]:
+        """
+        Columns found in the rows: those in the saved order first (the order passed in, else the class_config
+        key_value_order), then the rest A-Z. Excluded names are left out.
+
+        :returns: List of key_value_order strings plus an alphabetical list of remaining fields.
+        :rtype: List[str]
+        """
+        records = getattr(self, "_records", None)
+        if records is None:
+            records = self.build_records()
         headers = []
         for record in records:
             headers += [key for key in record if key not in headers]
         kept = [header for header in headers if header not in self.excluded]
-        ordered = [header for header in self.key_value_order if header in kept]
-        return ordered 
+        order = self.key_value_order
+        if not order and len(self.pydant_obj):
+            order = getattr(getattr(self.pydant_obj[0], "class_config", None), "key_value_order", []) or []
+        ordered = [header for header in order if header in kept]
+        return ordered + sorted(header for header in kept if header not in ordered)
 
     def postwrite(self, worksheet: Worksheet) -> Worksheet:
         """
