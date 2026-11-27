@@ -478,7 +478,7 @@ def main_page_script():
 
     async def init():
         info = await window.pywebview.api.app_info()
-        document.getElementById("title").textContent = "Submissions App TNG (v" + info.version + ") - " + info.database
+        document.getElementById("title").textContent = "Submissions App TNG (v" + info.version + ")"
         document.getElementById("prev").onclick = previous_page
         document.getElementById("next").onclick = next_page
         manage = document.getElementById("manage")

@@ -50,16 +50,16 @@ class Api(object):
         self._ctx = ctx
         # self._window = None
         self._window = webview.create_window(
-            f"Submissions App TNG (v{ctx.package.__version__})",
-            # url=str(ctx.static.joinpath("index.html")), js_api=self, width=1300, height=1000)
-            html=self._page(), js_api=self, width=1300, height=1000)
+            f"Submissions App TNG (v{ctx.package.__version__}) - {ctx.database.path}/{ctx.database.name}",
+            url=self._app(), js_api=self, width=1300, height=1000)
+            # html=self._app(), js_api=self, width=1300, height=1000)
         self._window.events.loaded += self._bind_drop
         self._window.events.closed += lambda: self.close_other_windows()
         self._install_alerts()
 
     def _page(self):
         page = h.html[
-            h.head[h.meta(charset="utf-8"), h.style[Markup(css)]],
+            h.head[h.meta(charset="utf-8"), h.style[Markup(css)], h.title],
             h.body[h.header[
                     h.h1(id="title")["Loading"],
                     h.div(class_="header-actions")[
@@ -114,12 +114,10 @@ class Api(object):
                 ],
                 h.ul(id="context-menu", class_="menu", hidden=True),
                 h.div(id="status", hidden=True),
-                # h.script(src="submissions.js"),
-                # h.script(src="charts.js")
-                h.script[Markup(MAIN_PAGE_JS)]
+                h.script(src="main.js")
             ]
         ]
-        return _plain(page)
+        return page.__str__()
 
     def _app(self):
         """

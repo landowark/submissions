@@ -12,6 +12,11 @@ body {
     color: #222;
 }
 
+
+fieldset { border: 1px solid #ccc; margin-bottom: 12px; }
+fieldset label { display: block; } 
+#types { max-height: 220px; overflow: auto; }
+
 header {
     padding: 8px 16px;
     border-bottom: 1px solid var(--line);

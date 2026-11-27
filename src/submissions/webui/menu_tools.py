@@ -4,41 +4,65 @@ Menu tools for the web UI: Submissions to Excel, About, Docs and GitHub (from fr
 from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
-import html as html_lib
-import json
-import sys
-import webbrowser
+import html as html_lib, sys, webbrowser, webview, htpy as h
 from datetime import date, timedelta
 from pathlib import Path
-import webview
 from .charts import _names
 from .modal import ModalApi, exec_window
+from markupsafe import Markup
+from .components import *
+from . import css
 
-DATE_TYPE_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>Submissions to Excel</title>
-        <style>
-        body { font: 14px "Segoe UI", sans-serif; margin: 16px; }
-        fieldset { border: 1px solid #ccc; margin-bottom: 12px; }
-        fieldset label { display: block; }
-        #types { max-height: 220px; overflow: auto; }
-        </style></head><body>
-        <fieldset><legend>Dates</legend>
-        <label>From <input type="date" id="start" value="__START__"></label>
-        <label>To <input type="date" id="end" value="__END__"></label>
-        </fieldset>
-        <fieldset id="types"><legend>Submission Type</legend>__TYPES__</fieldset>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-        <button type="button" onclick="pywebview.api.cancel()">Cancel</button>
-        <button type="button" onclick="this.disabled = true; pywebview.api.finish(values())">OK</button>
-        </div>
-        <script>
-        function values() {
-            return {
-            start_date: document.getElementById('start').value,
-            end_date: document.getElementById('end').value,
-            submissiontype: [...document.querySelectorAll('#types input:checked')].map((box) => box.value),
-            };
-        }
-        </script></body></html>"""
+
+# DATE_TYPE_PAGE = """<!doctype html><html><head><meta charset="utf-8"><title>Submissions to Excel</title>
+#         <style>
+#         body { font: 14px "Segoe UI", sans-serif; margin: 16px; }
+#         fieldset { border: 1px solid #ccc; margin-bottom: 12px; }
+#         fieldset label { display: block; }
+#         #types { max-height: 220px; overflow: auto; }
+#         </style></head><body>
+#         <fieldset><legend>Dates</legend>
+#         <label>From <input type="date" id="start" value="__START__"></label>
+#         <label>To <input type="date" id="end" value="__END__"></label>
+#         </fieldset>
+#         <fieldset id="types"><legend>Submission Type</legend>__TYPES__</fieldset>
+#         <div style="display: flex; gap: 8px; justify-content: flex-end;">
+#         <button type="button" onclick="pywebview.api.cancel()">Cancel</button>
+#         <button type="button" onclick="this.disabled = true; pywebview.api.finish(values())">OK</button>
+#         </div>
+#         <script>
+#         function values() {
+#             return {
+#             start_date: document.getElementById('start').value,
+#             end_date: document.getElementById('end').value,
+#             submissiontype: [...document.querySelectorAll('#types input:checked')].map((box) => box.value),
+#             };
+#         }
+#         </script></body></html>"""
+
+DATE_TYPE_PAGE = h.html[
+    h.head[h.meta(charset="utf-8"), h.style[Markup(css)], h.title["Submissions to Excel"]],
+    h.body[
+        _date_range_picker(),
+        h.fieldset(id="types")[
+            h.legend["Submission Type"], 
+            "__TYPES__"
+        ],
+        h.div(style="display: flex; gap: 8px; justify-content: flex-end;")[
+            h.button(type="button", onclick="pywebview.api.cancel()")["Cancel"],
+            h.button(type="button", onclick="this.disabled = true; pywebview.api.finish(values()")["OK"]
+        ],
+        h.script["""
+            function values() {
+                return {
+                    start_date: document.getElementById('start').value,
+                    end_date: document.getElementById('end').value,
+                    submissiontype: [...document.querySelectorAll('#types input:checked')].map((box) => box.value),
+                };
+            }
+        """]
+    ]
+]
 
 
 class DateTypeApi(ModalApi):
@@ -62,11 +86,9 @@ def export_submissions(window) -> dict:
     """
     from pandas import ExcelWriter
     from backend.db.models import Run, SubmissionType
-    today = date.today()
     types = "".join(f'<label><input type="checkbox" value="{html_lib.escape(name)}" checked> {html_lib.escape(name)}</label>'
                     for name in _names(SubmissionType.query()))
-    page = (DATE_TYPE_PAGE.replace("__START__", (today - timedelta(days=180)).isoformat())
-            .replace("__END__", today.isoformat()).replace("__TYPES__", types))
+    page = (_plain(DATE_TYPE_PAGE).replace("__TYPES__", types))
     api = DateTypeApi()
     if not exec_window("Submissions to Excel", page, api, width=520, height=520):
         return dict(ok=False, message="Export cancelled.")

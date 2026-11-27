@@ -1171,7 +1171,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             nodes[order_slot:order_slot] = [h.div(class_="order-row")[order_columns], h.br]
         if not association:
             nodes.append(h.button(type="button", onclick="submit_form()")["Submit"])
-        return _plain(h.fragment[nodes])
+        return h.fragment[nodes].__str__()
     
     @classmethod
     def clean_details_for_render(cls, dictionary: dict) -> dict:

@@ -8,7 +8,7 @@ logger = getLogger(f"submissions.{__name__}")
 from pathlib import Path
 from markupsafe import Markup
 import htpy as h
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 CHANGE = "instumentedattribute_change(this.id, this.value)"
 
@@ -93,6 +93,18 @@ def _order_active_list(field: str, item: dict):
         ]
     ]
 
+
+def _date_range_picker(start_date=None, end_date=None):
+    if not start_date:
+        start_date = (date.today() - timedelta(days=180)).isoformat()
+    if not end_date:
+        end_date = date.today().isoformat()
+    return h.fieldset[
+                h.legend["Dates"],
+                h.label["From ", h.input(type="date", id="start", value=start_date)],
+                h.label["To ", h.input(type="date", id="end", value=end_date)]
+            ]
+
 def _control(item: dict):
     """
     The input for one form_dictionary entry, following manager_form.html. None for types it has no input for.
@@ -130,4 +142,4 @@ def _control(item: dict):
     return None
 
 __all__ = ["_plain", "_asset", "_text", "_label", "_options", "_relationship_list", "_association_list", "_control",
-           "_active_name_cards", "_order_active_list"]
+           "_active_name_cards", "_order_active_list", "_date_range_picker"]

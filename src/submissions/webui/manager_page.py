@@ -6,7 +6,6 @@ Element ids and classes match the templates exactly, so templates/js/manager.js 
 The templates stay as they are for the Qt OmniManager.
 """
 from __future__ import annotations
-from datetime import date, datetime
 from operator import itemgetter
 import htpy as h
 from markupsafe import Markup

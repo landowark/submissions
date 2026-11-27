@@ -152,9 +152,9 @@ class DefaultProcedureManager(DefaultManager):
         from backend.db import Results
         self.info_writer = self._resolve_operator("write", "info")(pydant_obj=self.pyd, exclude=self.info_exclude, order=self.info_order)
         workbook = self.info_writer.write_to_workbook(workbook)
-        self.reagent_writer = self._resolve_operator("write", "reagent")(pydant_obj=self.pyd)
+        self.reagent_writer = self._resolve_operator("write", "reagent")(pydant_obj=self.pyd, exclude=self.reagent_exclude, order=self.reagent_order)
         workbook = self.reagent_writer.write_to_workbook(workbook, start_row=self.info_writer.end_row)
-        self.equipment_writer = self._resolve_operator("write", "equipment")(pydant_obj=self.pyd)
+        self.equipment_writer = self._resolve_operator("write", "equipment")(pydant_obj=self.pyd, exclude=self.equipment_exclude, order=self.equipment_order)
         workbook = self.equipment_writer.write_to_workbook(workbook, start_row=self.reagent_writer.end_row)
         self.sample_writer = self._resolve_operator("write", "sample")(pydant_obj=self.pyd, proceduretype=self.proceduretype, exclude=self.sample_exclude, order=self.sample_order)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.equipment_writer.end_row)
