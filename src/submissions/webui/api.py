@@ -51,7 +51,7 @@ class Api(object):
         self._window = webview.create_window(
             f"Submissions App TNG (v{ctx.package.__version__})",
             # url=str(ctx.static.joinpath("index.html")), js_api=self, width=1300, height=1000)
-            html=_plain(self._page), js_api=self, width=1300, height=1000)
+            html=self._page(), js_api=self, width=1300, height=1000)
         self._window.events.loaded += self._bind_drop
         self._window.events.closed += lambda: self.close_other_windows()
         self._install_alerts()
@@ -79,12 +79,12 @@ class Api(object):
                     ]
                 ],
                 h.nav(id="tabs")[
-                    h.button(type=button, class_="active", data-tab="submissions")["Submissions"],
-                    h.button(type=button, data-tab="irida")["Irida Controls"],
-                    h.button(type=button, data-tab="pcr")["PCR Controls"],
-                    h.button(type=button, data-tab="concentrations")["Concentrations"],
-                    h.button(type=button, data-tab="cost")["Cost Report"],
-                    h.button(type=button, data-tab="turnaround")["Turnaround Times"]
+                    h.button(type="button", data_tab="submissions", class_="active")["Submissions"],
+                    h.button(type="button", data_tab="irida")["Irida Controls"],
+                    h.button(type="button", data_tab="pcr")["PCR Controls"],
+                    h.button(type="button", data_tab="concentrations")["Concentrations"],
+                    h.button(type="button", data_tab="cost")["Cost Report"],
+                    h.button(type="button", data_tab="turnaround")["Turnaround Times"]
                 ],
                 h.main(id="tab-submissions")[
                     h.table(id="submissions")[h.thead[h.tr[
@@ -93,31 +93,31 @@ class Api(object):
                         h.th["Client Lab"],
                         h.th["Submitted Date"]
                         ]],
-                        h.tbody[]],
+                        h.tbody],
                     h.nav(id="pager")[
                         h.button(id="prev")["&lsaquo; Previous"],
-                        h.span(id="page-label")[],
+                        h.span(id="page-label"),
                         h.button(id="next")["Next &rsaquo;"]
                     ]
                 ],
-                h.main(id="tab-chart" hidden=True)[
-                    h.div(id="chart-filters")[],
+                h.main(id="tab-chart", hidden=True)[
+                    h.div(id="chart-filters"),
                     h.div(id="chart-actions")[
-                        h.button(type="button" id="chart-save-png")["Save Chart"],
-                        h.button(type="button" id="chart-save-data")["Save Data"],
-                        h.button(type="button" id="chart-print" hidden=True)["Save PDF"]
+                        h.button(type="button", id="chart-save-png")["Save Chart"],
+                        h.button(type="button", id="chart-save-data")["Save Data"],
+                        h.button(type="button", id="chart-print", hidden=True)["Save PDF"]
                     ],
-                    h.p(id="chart-message", hidden=True)[],
-                    h.div(id="chart-plot")[],
-                    h.iframe(id="chart-report", hidden=True)[]
+                    h.p(id="chart-message", hidden=True),
+                    h.div(id="chart-plot"),
+                    h.iframe(id="chart-report", hidden=True)
                 ],
-                h.ul(id="context-menu", class_="menu", hidden=True)[],
-                h.div(id="status", hidden=True)[]
-                h.script(src="submissions.js")[],
-                h.script(src="charts.js")[]
+                h.ul(id="context-menu", class_="menu", hidden=True),
+                h.div(id="status", hidden=True),
+                h.script(src="submissions.js"),
+                h.script(src="charts.js")
             ]
         ]
-        return page
+        return _plain(page)
 
     def close_other_windows(self) -> None:
         """
