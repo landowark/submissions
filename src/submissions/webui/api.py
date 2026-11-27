@@ -5,12 +5,15 @@ from __future__ import annotations
 from logging import getLogger
 logger = getLogger(f"submissions.{__name__}")
 from functools import wraps
-import webview, json
+import webview, json, htpy as h
 from math import ceil
 from datetime import date, datetime
 from getpass import getuser
 from tools import is_power_user
 from typing import TYPE_CHECKING, List
+from markupsafe import Markup
+from .components import *
+from . import css
 if TYPE_CHECKING:
     from tools import Settings
     from backend.validators.pydant import PydBaseClass
@@ -47,10 +50,74 @@ class Api(object):
         # self._window = None
         self._window = webview.create_window(
             f"Submissions App TNG (v{ctx.package.__version__})",
-            url=str(ctx.static.joinpath("index.html")), js_api=self, width=1300, height=1000)
+            # url=str(ctx.static.joinpath("index.html")), js_api=self, width=1300, height=1000)
+            html=_plain(self._page), js_api=self, width=1300, height=1000)
         self._window.events.loaded += self._bind_drop
         self._window.events.closed += lambda: self.close_other_windows()
         self._install_alerts()
+
+    def _page(self):
+        page = h.html[
+            h.head[h.meta(charset="utf-8"), h.style[Markup(css)]],
+            h.body[h.header[
+                    h.h1(id="title")["Loading"],
+                    h.div(class_="header-actions")[
+                        h.button(type="button", id="import")["Import Submission"],
+                        h.button(type="button", id="export")["Submissions to Excel"],
+                        h.select(id="search")[
+                            h.option(value="")["Search…"],
+                            h.option["Sample"],
+                            h.option['Reagent Lot']
+                        ],
+                        h.select(id="manage")[h.option(value="")["Manage…"]],
+                        h.select(id="help")[
+                            h.option(value="")['Help…'],
+                            h.option["About"],
+                            h.option['Docs'],
+                            h.option["GitHub"]
+                        ]
+                    ]
+                ],
+                h.nav(id="tabs")[
+                    h.button(type=button, class_="active", data-tab="submissions")["Submissions"],
+                    h.button(type=button, data-tab="irida")["Irida Controls"],
+                    h.button(type=button, data-tab="pcr")["PCR Controls"],
+                    h.button(type=button, data-tab="concentrations")["Concentrations"],
+                    h.button(type=button, data-tab="cost")["Cost Report"],
+                    h.button(type=button, data-tab="turnaround")["Turnaround Times"]
+                ],
+                h.main(id="tab-submissions")[
+                    h.table(id="submissions")[h.thead[h.tr[
+                        h.th["Name"],
+                        h.th["Submission Type"], 
+                        h.th["Client Lab"],
+                        h.th["Submitted Date"]
+                        ]],
+                        h.tbody[]],
+                    h.nav(id="pager")[
+                        h.button(id="prev")["&lsaquo; Previous"],
+                        h.span(id="page-label")[],
+                        h.button(id="next")["Next &rsaquo;"]
+                    ]
+                ],
+                h.main(id="tab-chart" hidden=True)[
+                    h.div(id="chart-filters")[],
+                    h.div(id="chart-actions")[
+                        h.button(type="button" id="chart-save-png")["Save Chart"],
+                        h.button(type="button" id="chart-save-data")["Save Data"],
+                        h.button(type="button" id="chart-print" hidden=True)["Save PDF"]
+                    ],
+                    h.p(id="chart-message", hidden=True)[],
+                    h.div(id="chart-plot")[],
+                    h.iframe(id="chart-report", hidden=True)[]
+                ],
+                h.ul(id="context-menu", class_="menu", hidden=True)[],
+                h.div(id="status", hidden=True)[]
+                h.script(src="submissions.js")[],
+                h.script(src="charts.js")[]
+            ]
+        ]
+        return page
 
     def close_other_windows(self) -> None:
         """
