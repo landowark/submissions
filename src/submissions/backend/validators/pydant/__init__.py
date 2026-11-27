@@ -1152,13 +1152,23 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         from webui.components import _plain, _label, _control
         association = "association" in self.__class__.__name__.lower()
         nodes = [h.br]
+        order_columns = []
+        order_slot = None
         for item in self.form_dictionary:
+            if item["type"] == "ORDERINPUTSCALAR":
+                # NOTE: Ordering lists go side by side in one row, placed where the first one appeared.
+                if order_slot is None:
+                    order_slot = len(nodes)
+                order_columns.append(h.div(class_="order-column")[_label(item), _control(item)])
+                continue
             if item["type"] != "SKIPPED":
                 nodes += [_label(item), h.br]
             control = _control(item)
             if control is not None:
                 nodes.append(control)
             nodes += [h.br, h.br]
+        if order_columns:
+            nodes[order_slot:order_slot] = [h.div(class_="order-row")[order_columns], h.br]
         if not association:
             nodes.append(h.button(type="button", onclick="submit_form()")["Submit"])
         return _plain(h.fragment[nodes])

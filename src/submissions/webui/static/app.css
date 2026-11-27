@@ -287,6 +287,29 @@ tbody tr:hover {
     justify-self: end;
 }
 
+.order-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+.order-column {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.order-column .order-list-container {
+    width: auto;
+    margin: 0;
+    padding: 0;
+}
+.order-column .list-panel {
+    margin: 0;
+    padding: 6px;
+    flex: 1;
+}
+
 .order-list-container {
     display: flex;
     justify-content: center;
