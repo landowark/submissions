@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, List
 from markupsafe import Markup
 from .components import *
 from . import css
+from .p_scripts.main_page import MAIN_PAGE_JS
 if TYPE_CHECKING:
     from tools import Settings
     from backend.validators.pydant import PydBaseClass
@@ -95,9 +96,9 @@ class Api(object):
                         ]],
                         h.tbody],
                     h.nav(id="pager")[
-                        h.button(id="prev")["&lsaquo; Previous"],
+                        h.button(id="prev")["<< Previous"],
                         h.span(id="page-label"),
-                        h.button(id="next")["Next &rsaquo;"]
+                        h.button(id="next")["Next >>"]
                     ]
                 ],
                 h.main(id="tab-chart", hidden=True)[
@@ -113,11 +114,41 @@ class Api(object):
                 ],
                 h.ul(id="context-menu", class_="menu", hidden=True),
                 h.div(id="status", hidden=True),
-                h.script(src="submissions.js"),
-                h.script(src="charts.js")
+                # h.script(src="submissions.js"),
+                # h.script(src="charts.js")
+                h.script[Markup(MAIN_PAGE_JS)]
             ]
         ]
         return _plain(page)
+
+    def _app(self):
+        """
+        The main window's content as a WSGI app. pywebview runs a callable url= on its local server, so the page
+        and everything it loads by src are served from memory: no html= size cap, no files written.
+        """
+        import bottle
+        assets = {
+            "": (self._page(), "text/html; charset=utf-8"),
+            "main.js": (MAIN_PAGE_JS, "text/javascript; charset=utf-8"),
+        }
+        plotly = {}
+        app = bottle.Bottle()
+
+        @app.route("/")
+        @app.route("/<name:path>")
+        def serve(name=""):
+            if name == "plotly.min.js":
+                # NOTE: Read on the first chart, then kept in memory.
+                if "body" not in plotly:
+                    plotly["body"] = self._ctx.static.joinpath("plotly.min.js").read_bytes()
+                bottle.response.content_type = "text/javascript"
+                return plotly["body"]
+            if name not in assets:
+                bottle.abort(404)
+            body, kind = assets[name]
+            bottle.response.content_type = kind
+            return body
+        return app
 
     def close_other_windows(self) -> None:
         """
